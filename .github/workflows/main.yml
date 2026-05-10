@@ -117,7 +117,8 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Developer ID Application" \
-            OTHER_CODE_SIGN_FLAGS="--keychain $SIGNING_KEYCHAIN_PATH" \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime --keychain $SIGNING_KEYCHAIN_PATH" \
             ONLY_ACTIVE_ARCH=NO
 
           app_path="$derived_data_path/Build/Products/$CONFIGURATION/$APP_NAME.app"
@@ -145,6 +146,7 @@ jobs:
 
           api_key_path="$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
           notary_zip="$RUNNER_TEMP/$APP_NAME-notary.zip"
+          notary_result_path="$RUNNER_TEMP/notary-result.json"
 
           printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > "$api_key_path"
           chmod 600 "$api_key_path"
@@ -154,11 +156,25 @@ jobs:
             --key "$api_key_path" \
             --key-id "$APP_STORE_CONNECT_KEY_ID" \
             --issuer "$APP_STORE_CONNECT_ISSUER_ID" \
-            --wait
+            --wait \
+            --output-format json > "$notary_result_path"
+
+          notary_status="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["status"])' "$notary_result_path")"
+          if [[ "$notary_status" != "Accepted" ]]; then
+            submission_id="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("id", ""))' "$notary_result_path")"
+            echo "Notarization failed with status: $notary_status" >&2
+            if [[ -n "$submission_id" ]]; then
+              xcrun notarytool log "$submission_id" \
+                --key "$api_key_path" \
+                --key-id "$APP_STORE_CONNECT_KEY_ID" \
+                --issuer "$APP_STORE_CONNECT_ISSUER_ID"
+            fi
+            exit 1
+          fi
 
           xcrun stapler staple "$APP_PATH"
           xcrun stapler validate "$APP_PATH"
-          rm -f "$api_key_path" "$notary_zip"
+          rm -f "$api_key_path" "$notary_zip" "$notary_result_path"
 
       - name: Validate signed app
         shell: bash
@@ -227,3 +243,4 @@ jobs:
           rm -f "$RUNNER_TEMP"/developer-id-application.p12
           rm -f "$RUNNER_TEMP"/AuthKey_*.p8
           rm -f "$RUNNER_TEMP"/*-notary.zip
+          rm -f "$RUNNER_TEMP"/notary-result.json
