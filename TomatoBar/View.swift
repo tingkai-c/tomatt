@@ -4,6 +4,43 @@ import SwiftUI
 
 extension KeyboardShortcuts.Name {
     static let startStopTimer = Self("startStopTimer")
+    static let pauseResumeTimer = Self("pauseResumeTimer")
+    static let skipTimer = Self("skipTimer")
+}
+
+private protocol DropdownDescribable: RawRepresentable where RawValue == String { }
+
+extension StopAfterOption: DropdownDescribable { }
+
+private extension DropdownDescribable {
+    var description: String {
+        switch rawValue {
+        case "disabled":
+            return NSLocalizedString("SettingsView.dropdownDisabled.label", comment: "Disabled label")
+        case "work":
+            return NSLocalizedString("SettingsView.dropdownWork.label", comment: "Work label")
+        case "rest":
+            return NSLocalizedString("SettingsView.dropdownBreak.label", comment: "Break label")
+        case "set":
+            return NSLocalizedString("SettingsView.dropdownSet.label", comment: "Set label")
+        default:
+            return rawValue
+        }
+    }
+}
+
+private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribable>: View where E.RawValue == String, E.AllCases: RandomAccessCollection {
+    @Binding var value: E
+
+    var body: some View {
+        Picker("", selection: $value) {
+            ForEach(E.allCases, id: \.self) { option in
+                Text(option.description).tag(option)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.segmented)
+    }
 }
 
 private struct IntervalsView: View {
@@ -12,45 +49,92 @@ private struct IntervalsView: View {
 
     var body: some View {
         VStack {
-            Stepper(value: $timer.workIntervalLength, in: 1 ... 60) {
-                HStack {
-                    Text(NSLocalizedString("IntervalsView.workIntervalLength.label",
-                                           comment: "Work interval label"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(String.localizedStringWithFormat(minStr, timer.workIntervalLength))
+            intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalLength.label",
+                                                     comment: "Work interval label"),
+                            value: presetBinding(\.workIntervalLength, range: 1 ... 120),
+                            range: 1 ... 120,
+                            suffix: minStr)
+            intervalStepper(title: NSLocalizedString("IntervalsView.shortRestIntervalLength.label",
+                                                     comment: "Short rest interval label"),
+                            value: presetBinding(\.shortRestIntervalLength, range: 1 ... 120),
+                            range: 1 ... 120,
+                            suffix: minStr)
+            intervalStepper(title: NSLocalizedString("IntervalsView.longRestIntervalLength.label",
+                                                     comment: "Long rest interval label"),
+                            value: presetBinding(\.longRestIntervalLength, range: 1 ... 120),
+                            range: 1 ... 120,
+                            suffix: minStr)
+                .help(NSLocalizedString("IntervalsView.longRestIntervalLength.help",
+                                        comment: "Long rest interval hint"))
+            intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalsInSet.label",
+                                                     comment: "Work intervals in a set label"),
+                            value: presetBinding(\.workIntervalsInSet, range: 1 ... 10),
+                            range: 1 ... 10)
+                .help(NSLocalizedString("IntervalsView.workIntervalsInSet.help",
+                                        comment: "Work intervals in set hint"))
+            Spacer().frame(minHeight: 0)
+            HStack {
+                Text(NSLocalizedString("IntervalsView.presets.label", comment: "Presets label"))
+                    .frame(alignment: .leading)
+                Spacer()
+                Picker("", selection: presetIndexBinding) {
+                    Text("1").tag(0)
+                    Text("2").tag(1)
+                    Text("3").tag(2)
+                    Text("4").tag(3)
                 }
+                .labelsHidden()
+                .frame(maxWidth: 200)
+                .pickerStyle(.segmented)
             }
-            Stepper(value: $timer.shortRestIntervalLength, in: 1 ... 60) {
-                HStack {
-                    Text(NSLocalizedString("IntervalsView.shortRestIntervalLength.label",
-                                           comment: "Short rest interval label"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(String.localizedStringWithFormat(minStr, timer.shortRestIntervalLength))
-                }
-            }
-            Stepper(value: $timer.longRestIntervalLength, in: 1 ... 60) {
-                HStack {
-                    Text(NSLocalizedString("IntervalsView.longRestIntervalLength.label",
-                                           comment: "Long rest interval label"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(String.localizedStringWithFormat(minStr, timer.longRestIntervalLength))
-                }
-            }
-            .help(NSLocalizedString("IntervalsView.longRestIntervalLength.help",
-                                    comment: "Long rest interval hint"))
-            Stepper(value: $timer.workIntervalsInSet, in: 1 ... 10) {
-                HStack {
-                    Text(NSLocalizedString("IntervalsView.workIntervalsInSet.label",
-                                           comment: "Work intervals in a set label"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("\(timer.workIntervalsInSet)")
-                }
-            }
-            .help(NSLocalizedString("IntervalsView.workIntervalsInSet.help",
-                                    comment: "Work intervals in set hint"))
             Spacer().frame(minHeight: 0)
         }
         .padding(4)
+    }
+
+    private var presetIndexBinding: Binding<Int> {
+        Binding(
+            get: { timer.selectedPresetIndex },
+            set: { timer.selectedPresetIndex = $0 }
+        )
+    }
+
+    private func presetBinding(_ keyPath: WritableKeyPath<TimerPreset, Int>, range: ClosedRange<Int>) -> Binding<Int> {
+        Binding(
+            get: { timer.currentPresetInstance[keyPath: keyPath] },
+            set: { newValue in
+                var preset = timer.currentPresetInstance
+                preset[keyPath: keyPath] = newValue.clamped(to: range)
+                timer.currentPresetInstance = preset
+            }
+        )
+    }
+
+    private func intervalStepper(title: String,
+                                 value: Binding<Int>,
+                                 range: ClosedRange<Int>,
+                                 suffix: String? = nil) -> some View {
+        Stepper(value: value, in: range) {
+            HStack {
+                Text(title)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                TextField("", value: value, formatter: clampedNumberFormatter(range: range))
+                    .frame(width: 42, alignment: .trailing)
+                    .multilineTextAlignment(.trailing)
+                if let suffix = suffix {
+                    Text(suffix)
+                }
+            }
+        }
+    }
+
+    private func clampedNumberFormatter(range: ClosedRange<Int>) -> NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.minimum = NSNumber(value: range.lowerBound)
+        formatter.maximum = NSNumber(value: range.upperBound)
+        formatter.generatesDecimalNumbers = false
+        formatter.maximumFractionDigits = 0
+        return formatter
     }
 }
 
@@ -65,11 +149,22 @@ private struct SettingsView: View {
                                        comment: "Shortcut label"))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Toggle(isOn: $timer.stopAfterBreak) {
-                Text(NSLocalizedString("SettingsView.stopAfterBreak.label",
-                                       comment: "Stop after break label"))
+            KeyboardShortcuts.Recorder(for: .pauseResumeTimer) {
+                Text(NSLocalizedString("SettingsView.pauseShortcut.label",
+                                       comment: "Pause shortcut label"))
                     .frame(maxWidth: .infinity, alignment: .leading)
-            }.toggleStyle(.switch)
+            }
+            KeyboardShortcuts.Recorder(for: .skipTimer) {
+                Text(NSLocalizedString("SettingsView.skipShortcut.label",
+                                       comment: "Skip shortcut label"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            HStack {
+                Text(NSLocalizedString("SettingsView.stopAfter.label",
+                                       comment: "Stop after label"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                SegmentedDropdown(value: $timer.stopAfter)
+            }
             Toggle(isOn: $timer.showTimerInMenuBar) {
                 Text(NSLocalizedString("SettingsView.showTimerInMenuBar.label",
                                        comment: "Show timer in menu bar label"))
@@ -78,6 +173,13 @@ private struct SettingsView: View {
                 .onChange(of: timer.showTimerInMenuBar) { _ in
                     timer.updateTimeLeft()
                 }
+            Toggle(isOn: $timer.showFullScreenMask) {
+                Text(NSLocalizedString("SettingsView.showFullScreenMask.label",
+                                       comment: "show full screen mask on rest"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }.toggleStyle(.switch)
+                .help(NSLocalizedString("SettingsView.showFullScreenMask.help",
+                                        comment: "show full screen mask hint"))
             Toggle(isOn: $launchAtLogin.isEnabled) {
                 Text(NSLocalizedString("SettingsView.launchAtLogin.label",
                                        comment: "Launch at login label"))
@@ -136,30 +238,55 @@ struct TBPopoverView: View {
 
     private var startLabel = NSLocalizedString("TBPopoverView.start.label", comment: "Start label")
     private var stopLabel = NSLocalizedString("TBPopoverView.stop.label", comment: "Stop label")
+    private var pauseLabel = NSLocalizedString("TBPopoverView.pause.help", comment: "Pause hint")
+    private var resumeLabel = NSLocalizedString("TBPopoverView.resume.help", comment: "Resume hint")
+    private var skipLabel = NSLocalizedString("TBPopoverView.skip.help", comment: "Skip hint")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button {
-                timer.startStop()
-                TBStatusItem.shared.closePopover(nil)
-            } label: {
-                Text(timer.timer != nil ?
-                     (buttonHovered ? stopLabel : timer.timeLeftString) :
-                        startLabel)
-                    /*
-                      When appearance is set to "Dark" and accent color is set to "Graphite"
-                      "defaultAction" button label's color is set to the same color as the
-                      button, making the button look blank. #24
-                     */
-                    .foregroundColor(Color.white)
-                    .font(.system(.body).monospacedDigit())
-                    .frame(maxWidth: .infinity)
+            HStack(alignment: .center, spacing: 4) {
+                Button {
+                    timer.startStop()
+                    TBStatusItem.shared.closePopover(nil)
+                } label: {
+                    Text(timer.timer != nil ?
+                         (buttonHovered ? stopLabel : timerDisplayString()) :
+                            startLabel)
+                        /*
+                          When appearance is set to "Dark" and accent color is set to "Graphite"
+                          "defaultAction" button label's color is set to the same color as the
+                          button, making the button look blank. #24
+                         */
+                        .foregroundColor(Color.white)
+                        .font(.system(.body).monospacedDigit())
+                        .frame(maxWidth: .infinity)
+                }
+                .onHover { over in
+                    buttonHovered = over
+                }
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+
+                if timer.timer != nil {
+                    Button {
+                        timer.pauseResume()
+                        TBStatusItem.shared.closePopover(nil)
+                    } label: {
+                        Image(systemName: timer.paused ? "play.circle.fill" : "pause.circle.fill")
+                    }
+                    .controlSize(.large)
+                    .help(timer.paused ? resumeLabel : pauseLabel)
+
+                    Button {
+                        timer.skip()
+                        TBStatusItem.shared.closePopover(nil)
+                    } label: {
+                        Image(systemName: "forward.circle.fill")
+                    }
+                    .controlSize(.large)
+                    .help(skipLabel)
+                }
             }
-            .onHover { over in
-                buttonHovered = over
-            }
-            .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
 
             Picker("", selection: $activeChildView) {
                 Text(NSLocalizedString("TBPopoverView.intervals.label",
@@ -222,9 +349,18 @@ struct TBPopoverView: View {
                 }
             )
         #endif
-            /* Use values from GeometryReader */
-//            .frame(width: 240, height: 276)
+            .frame(width: 255)
+            .fixedSize()
             .padding(12)
+    }
+
+    private func timerDisplayString() -> String {
+        var result = timer.timeLeftString
+        if timer.sessionPresetInstance.workIntervalsInSet > 1,
+           timer.stopAfter == .disabled || timer.stopAfter == .set {
+            result += " (\(timer.currentWorkInterval)/\(timer.sessionPresetInstance.workIntervalsInSet))"
+        }
+        return result
     }
 }
 
@@ -234,3 +370,9 @@ struct TBPopoverView: View {
         return Color.clear
     }
 #endif
+
+private extension Comparable {
+    func clamped(to limits: ClosedRange<Self>) -> Self {
+        min(max(self, limits.lowerBound), limits.upperBound)
+    }
+}

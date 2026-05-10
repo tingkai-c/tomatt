@@ -25,3 +25,17 @@
 "TBTimer.onRestStart.skip.title" = "跳过";
 "TBTimer.onRestFinish.title" = "休息结束";
 "TBTimer.onRestFinish.body" = "继续努力!";
+"IntervalsView.presets.label" = "预设";
+"SettingsView.pauseShortcut.label" = "暂停/继续";
+"SettingsView.skipShortcut.label" = "跳过";
+"SettingsView.stopAfter.label" = "停止于";
+"SettingsView.dropdownDisabled.label" = "关闭";
+"SettingsView.dropdownWork.label" = "工作";
+"SettingsView.dropdownBreak.label" = "休息";
+"SettingsView.dropdownSet.label" = "一组";
+"SettingsView.showFullScreenMask.label" = "使用全屏遮罩";
+"SettingsView.showFullScreenMask.help" = "休息期间使用全屏遮罩代替通知";
+"TBPopoverView.pause.help" = "暂停";
+"TBPopoverView.resume.help" = "继续";
+"TBPopoverView.skip.help" = "跳过";
+"TBMask.skip.label" = "双击任意区域跳过，单击隐藏此遮罩";

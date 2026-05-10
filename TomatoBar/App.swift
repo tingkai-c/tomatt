@@ -6,6 +6,7 @@ extension NSImage.Name {
     static let work = Self("BarIconWork")
     static let shortRest = Self("BarIconShortRest")
     static let longRest = Self("BarIconLongRest")
+    static let pause = Self("BarIconPause")
 }
 
 private let digitFont = NSFont.monospacedDigitSystemFont(ofSize: 0, weight: .regular)
@@ -38,7 +39,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
         popover.contentViewController?.view = NSHostingView(rootView: view)
         if let contentViewController = popover.contentViewController {
             popover.contentSize.height = contentViewController.view.intrinsicContentSize.height
-            popover.contentSize.width = 240
+            popover.contentSize.width = contentViewController.view.intrinsicContentSize.width
         }
 
         statusBarItem = NSStatusBar.system.statusItem(
@@ -72,6 +73,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
         if let button = statusBarItem?.button {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: NSRectEdge.minY)
             popover.contentViewController?.view.window?.makeKey()
+            NSApp.keyWindow?.makeFirstResponder(nil)
         }
     }
 

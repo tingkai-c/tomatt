@@ -25,3 +25,17 @@
 "TBTimer.onRestStart.skip.title" = "건너뛰기";
 "TBTimer.onRestFinish.title" = "휴식 시간 종료";
 "TBTimer.onRestFinish.body" = "다시 작업을 시작하세요!";
+"IntervalsView.presets.label" = "프리셋";
+"SettingsView.pauseShortcut.label" = "일시정지/재개";
+"SettingsView.skipShortcut.label" = "건너뛰기";
+"SettingsView.stopAfter.label" = "다음 후 중지";
+"SettingsView.dropdownDisabled.label" = "끔";
+"SettingsView.dropdownWork.label" = "작업";
+"SettingsView.dropdownBreak.label" = "휴식";
+"SettingsView.dropdownSet.label" = "세트";
+"SettingsView.showFullScreenMask.label" = "전체 화면 마스크 사용";
+"SettingsView.showFullScreenMask.help" = "휴식 중 알림 대신 전체 화면 마스크를 사용합니다";
+"TBPopoverView.pause.help" = "일시정지";
+"TBPopoverView.resume.help" = "재개";
+"TBPopoverView.skip.help" = "건너뛰기";
+"TBMask.skip.label" = "건너뛰려면 아무 곳이나 두 번 클릭하고, 마스크를 숨기려면 한 번 클릭하세요";
