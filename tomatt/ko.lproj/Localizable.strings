@@ -39,3 +39,10 @@
 "TBPopoverView.resume.help" = "재개";
 "TBPopoverView.skip.help" = "건너뛰기";
 "TBMask.skip.label" = "건너뛰려면 아무 곳이나 두 번 클릭하고, 마스크를 숨기려면 한 번 클릭하세요";
+
+"TBPopoverView.settings.help" = "설정 열기";
+"SettingsWindow.timer.tab" = "타이머";
+"SettingsWindow.presets.tab" = "프리셋";
+"SettingsWindow.sounds.tab" = "사운드";
+"SettingsWindow.shortcuts.tab" = "단축키";
+"SettingsWindow.general.tab" = "일반";

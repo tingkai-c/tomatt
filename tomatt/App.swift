@@ -22,17 +22,20 @@ struct TBApp: App {
     }
 
     var body: some Scene {
-        Settings {}
+        Settings {
+            TBSettingsWindowView(timer: appDelegate.timer)
+        }
     }
 }
 
 class TBStatusItem: NSObject, NSApplicationDelegate {
+    let timer = TBTimer()
     private var popover = NSPopover()
     private var statusBarItem: NSStatusItem?
     static var shared: TBStatusItem!
 
     func applicationDidFinishLaunching(_: Notification) {
-        let view = TBPopoverView()
+        let view = TBPopoverView(timer: timer)
 
         popover.behavior = .transient
         popover.contentViewController = NSViewController()

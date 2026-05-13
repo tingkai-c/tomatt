@@ -39,3 +39,10 @@
 "TBPopoverView.resume.help" = "继续";
 "TBPopoverView.skip.help" = "跳过";
 "TBMask.skip.label" = "双击任意区域跳过，单击隐藏此遮罩";
+
+"TBPopoverView.settings.help" = "打开设置";
+"SettingsWindow.timer.tab" = "计时器";
+"SettingsWindow.presets.tab" = "预设";
+"SettingsWindow.sounds.tab" = "声音";
+"SettingsWindow.shortcuts.tab" = "快捷键";
+"SettingsWindow.general.tab" = "通用";
