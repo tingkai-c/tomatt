@@ -257,6 +257,10 @@ private struct VolumeSlider: View {
 private struct SoundsView: View {
     @ObservedObject var player: TBPlayer
 
+    init(player: TBPlayer) {
+        self.player = player
+    }
+
     private var columns = [
         GridItem(.flexible()),
         GridItem(.fixed(140))
@@ -324,6 +328,10 @@ struct TBSettingsWindowView: View {
 struct TBPopoverView: View {
     @ObservedObject var timer: TBTimer
     @State private var buttonHovered = false
+
+    init(timer: TBTimer) {
+        self.timer = timer
+    }
 
     private var startLabel = NSLocalizedString("TBPopoverView.start.label", comment: "Start label")
     private var stopLabel = NSLocalizedString("TBPopoverView.stop.label", comment: "Stop label")
