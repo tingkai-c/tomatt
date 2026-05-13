@@ -23,3 +23,7 @@ The CI artifact installs as:
 ```text
 /Applications/tomatt.app
 ```
+
+## Licenses
+
+- Timer sounds are licensed from buddhabeats.
