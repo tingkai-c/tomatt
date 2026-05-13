@@ -27,17 +27,6 @@ extension StopAfterOption: DropdownDescribable {
     }
 }
 
-private enum SettingsWindow {
-    static func open() {
-        NSApp.activate(ignoringOtherApps: true)
-        if #available(macOS 13.0, *) {
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        } else {
-            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-        }
-    }
-}
-
 private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribable>: View
     where E.RawValue == String, E.AllCases: RandomAccessCollection {
     @Binding var value: E
@@ -344,7 +333,6 @@ struct TBPopoverView: View {
             HStack(alignment: .center, spacing: 4) {
                 Button {
                     timer.startStop()
-                    TBStatusItem.shared.closePopover(nil)
                 } label: {
                     Text(timer.timer != nil ?
                          (buttonHovered ? stopLabel : timerDisplayString()) :
@@ -367,7 +355,6 @@ struct TBPopoverView: View {
                 if timer.timer != nil {
                     Button {
                         timer.pauseResume()
-                        TBStatusItem.shared.closePopover(nil)
                     } label: {
                         Image(systemName: timer.paused ? "play.circle.fill" : "pause.circle.fill")
                     }
@@ -376,7 +363,6 @@ struct TBPopoverView: View {
 
                     Button {
                         timer.skip()
-                        TBStatusItem.shared.closePopover(nil)
                     } label: {
                         Image(systemName: "forward.circle.fill")
                     }
@@ -385,8 +371,7 @@ struct TBPopoverView: View {
                 }
 
                 Button {
-                    SettingsWindow.open()
-                    TBStatusItem.shared.closePopover(nil)
+                    TBStatusItem.shared.openSettingsWindow()
                 } label: {
                     Image(systemName: "gearshape")
                 }
