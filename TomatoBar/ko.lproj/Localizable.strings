@@ -1,4 +1,4 @@
-"IntervalsView.min" = "%d 분";
+"IntervalsView.min" = "분";
 "IntervalsView.workIntervalLength.label" = "작업 시간:";
 "IntervalsView.shortRestIntervalLength.label" = "짧은 휴식 시간:";
 "IntervalsView.longRestIntervalLength.label" = "긴 휴식 시간:";

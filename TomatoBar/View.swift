@@ -45,7 +45,7 @@ private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribabl
 
 private struct IntervalsView: View {
     @EnvironmentObject var timer: TBTimer
-    private var minStr = NSLocalizedString("IntervalsView.min", comment: "min")
+    private var minStr = NSLocalizedString("IntervalsView.min", comment: "Minute unit suffix. The number is shown separately.")
 
     var body: some View {
         VStack {
@@ -186,6 +186,28 @@ private struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }.toggleStyle(.switch)
             Spacer().frame(minHeight: 0)
+            Divider()
+            Button {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.orderFrontStandardAboutPanel()
+            } label: {
+                Text(NSLocalizedString("TBPopoverView.about.label",
+                                       comment: "About label"))
+                Spacer()
+                Text("⌘ A").foregroundColor(Color.gray)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("a")
+            Button {
+                NSApplication.shared.terminate(self)
+            } label: {
+                Text(NSLocalizedString("TBPopoverView.quit.label",
+                                       comment: "Quit label"))
+                Spacer()
+                Text("⌘ Q").foregroundColor(Color.gray)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("q")
         }
         .padding(4)
     }
@@ -241,6 +263,7 @@ struct TBPopoverView: View {
     private var pauseLabel = NSLocalizedString("TBPopoverView.pause.help", comment: "Pause hint")
     private var resumeLabel = NSLocalizedString("TBPopoverView.resume.help", comment: "Resume hint")
     private var skipLabel = NSLocalizedString("TBPopoverView.skip.help", comment: "Skip hint")
+    private let childViewMinHeight: CGFloat = 360
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -310,30 +333,8 @@ struct TBPopoverView: View {
                     SoundsView().environmentObject(timer.player)
                 }
             }
+            .frame(minHeight: childViewMinHeight, alignment: .top)
 
-            Group {
-                Button {
-                    NSApp.activate(ignoringOtherApps: true)
-                    NSApp.orderFrontStandardAboutPanel()
-                } label: {
-                    Text(NSLocalizedString("TBPopoverView.about.label",
-                                           comment: "About label"))
-                    Spacer()
-                    Text("⌘ A").foregroundColor(Color.gray)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("a")
-                Button {
-                    NSApplication.shared.terminate(self)
-                } label: {
-                    Text(NSLocalizedString("TBPopoverView.quit.label",
-                                           comment: "Quit label"))
-                    Spacer()
-                    Text("⌘ Q").foregroundColor(Color.gray)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("q")
-            }
         }
         #if DEBUG
             /*
