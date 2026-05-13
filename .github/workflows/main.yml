@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  APP_NAME: TomatoBar
-  PROJECT_PATH: TomatoBar.xcodeproj
-  SCHEME: TomatoBar
+  APP_NAME: tomatt
+  PROJECT_PATH: tomatt.xcodeproj
+  SCHEME: tomatt
   CONFIGURATION: Release
 
 jobs:

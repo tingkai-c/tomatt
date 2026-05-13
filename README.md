@@ -1,45 +1,25 @@
-<p align="center">
-<img src="https://raw.githubusercontent.com/ivoronin/TomatoBar/main/TomatoBar/Assets.xcassets/AppIcon.appiconset/icon_128x128%402x.png" width="128" height="128"/>
-<p>
- 
-<h1 align="center">TomatoBar</h1>
-<p align="center">
-<img src="https://img.shields.io/github/actions/workflow/status/ivoronin/TomatoBar/main.yml?branch=main"/> <img src="https://img.shields.io/github/downloads/ivoronin/TomatoBar/total"/> <img src="https://img.shields.io/github/v/release/ivoronin/TomatoBar?display_name=tag"/> <img src="https://img.shields.io/homebrew/cask/v/tomatobar"/>
-</p>
+# tomatt
 
-<img
-  src="https://github.com/ivoronin/TomatoBar/raw/main/screenshot.png?raw=true"
-  alt="Screenshot"
-  width="50%"
-  align="right"
-/>
+`tomatt` is a macOS menu bar Pomodoro timer.
 
-## Overview
-Have you ever heard of Pomodoro? It’s a great technique to help you keep track of time and stay on task during your studies or work. Read more about it on <a href="https://en.wikipedia.org/wiki/Pomodoro_Technique">Wikipedia</a>.
+## Features
 
-TomatoBar is world's neatest Pomodoro timer for the macOS menu bar. All the essential features are here - configurable
-work and rest intervals, optional sounds, discreet actionable notifications, global hotkey.
+- Menu bar timer for work, short rest, and long rest sessions.
+- Configurable durations and keyboard shortcuts.
+- Optional notifications and sound cues.
+- URL automation through `tomatt://` commands:
+  - `open tomatt://startStop`
+  - `open tomatt://pauseResume`
+  - `open tomatt://skip`
+- JSON state transition logs at:
+  `~/Library/Containers/com.github.ivoronin.tomatt/Data/Library/Caches/tomatt.log`
 
-TomatoBar is fully sandboxed with no entitlements.
+## Builds
 
-Download the latest release <a href="https://github.com/ivoronin/TomatoBar/releases/latest/">here</a> or install using Homebrew:
+Signed and notarized macOS builds are produced only by GitHub Actions on push/tag. Do not build, sign, or notarize locally.
+
+The CI artifact installs as:
+
+```text
+/Applications/tomatt.app
 ```
-$ brew install --cask tomatobar
-```
-
-If the app doesn't start, install using the `--no-quarantine` flag:
-```
-$ brew install --cask --no-quarantine tomatobar
-```
-
-## Integration with other tools
-### Event log
-TomatoBar logs state transitions in JSON format to `~/Library/Containers/com.github.ivoronin.TomatoBar/Data/Library/Caches/TomatoBar.log`. Use this data to analyze your productivity and enrich other data sources.
-### Starting and stopping the timer
-TomatoBar can be controlled using `tomatobar://` URLs. To start or stop the timer from the command line, use `open tomatobar://startStop`.
-
-## Older versions
-Touch bar integration and older macOS versions (earlier than Big Sur) are supported by TomatoBar versions prior to 3.0
-
-## Licenses
- - Timer sounds are licensed from buddhabeats

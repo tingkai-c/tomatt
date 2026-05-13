@@ -1,6 +1,6 @@
-# Repository Agent Instructions: TomatoBar CI Delivery
+# Repository Agent Instructions: tomatt CI Delivery
 
-This repository builds the macOS app `TomatoBar.app` from `TomatoBar.xcodeproj` using the `TomatoBar` scheme.
+This repository builds the macOS app `tomatt.app` from `tomatt.xcodeproj` using the `tomatt` scheme.
 
 ## Build, signing, and notarization authority
 
@@ -28,10 +28,10 @@ After any agent completes a task, feature, or bug fix:
 5. Identify the GitHub Actions run for the exact pushed commit SHA.
 6. Wait for that run to complete successfully.
 7. Download the artifact from that run ID.
-8. Unzip the artifact and confirm it contains `TomatoBar.app`.
-9. Quit any running `TomatoBar` process.
-10. Back up an existing `/Applications/TomatoBar.app` using a timestamped backup path.
-11. Install the downloaded CI artifact to `/Applications/TomatoBar.app`.
+8. Unzip the artifact and confirm it contains `tomatt.app`.
+9. Quit any running `tomatt` process.
+10. Back up an existing `/Applications/tomatt.app` using a timestamped backup path.
+11. Install the downloaded CI artifact to `/Applications/tomatt.app`.
 12. Report the CI URL, artifact path/name, install path, and backup path when present.
 
 Reference command shape:
@@ -58,19 +58,19 @@ gh run download --repo "$repo" "$run_id" --dir "$workdir/download"
 zip_path="$(find "$workdir/download" -type f -name '*.zip' | head -n 1)"
 test -n "$zip_path"
 ditto -x -k "$zip_path" "$workdir/unzipped"
-test -d "$workdir/unzipped/TomatoBar.app"
+test -d "$workdir/unzipped/tomatt.app"
 
-osascript -e 'tell application "TomatoBar" to quit' 2>/dev/null || true
+osascript -e 'tell application "tomatt" to quit' 2>/dev/null || true
 sleep 2
-if pgrep -x TomatoBar >/dev/null 2>&1; then
-  echo "TomatoBar is still running; cannot safely replace /Applications/TomatoBar.app" >&2
+if pgrep -x tomatt >/dev/null 2>&1; then
+  echo "tomatt is still running; cannot safely replace /Applications/tomatt.app" >&2
   exit 1
 fi
 
-if [[ -d /Applications/TomatoBar.app ]]; then
-  mv /Applications/TomatoBar.app "/Applications/TomatoBar.app.backup-$stamp"
+if [[ -d /Applications/tomatt.app ]]; then
+  mv /Applications/tomatt.app "/Applications/tomatt.app.backup-$stamp"
 fi
-cp -R "$workdir/unzipped/TomatoBar.app" /Applications/TomatoBar.app
+cp -R "$workdir/unzipped/tomatt.app" /Applications/tomatt.app
 ```
 
 If permissions block installation to `/Applications`, stop and report the exact command and error instead of silently installing elsewhere.
