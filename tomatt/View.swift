@@ -42,6 +42,76 @@ private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribabl
     }
 }
 
+private enum SettingsTab: Hashable {
+    case timer
+    case presets
+    case sounds
+    case shortcuts
+    case general
+}
+
+private enum SettingsLayout {
+    static let windowWidth: CGFloat = 560
+    static let windowHeight: CGFloat = 360
+    static let panePadding: CGFloat = 24
+    static let rowLabelWidth: CGFloat = 220
+    static let rowControlWidth: CGFloat = 230
+    static let contentWidth: CGFloat = 460
+    static let soundSliderWidth: CGFloat = 140
+}
+
+private struct SettingsPane<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            content
+            Spacer(minLength: 0)
+        }
+        .padding(SettingsLayout.panePadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct SettingsRow<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text(title)
+                .frame(width: SettingsLayout.rowLabelWidth, alignment: .trailing)
+            content
+                .frame(maxWidth: SettingsLayout.rowControlWidth, alignment: .leading)
+        }
+    }
+}
+
+private struct OpenSettingsButton: View {
+    var body: some View {
+        if #available(macOS 14.0, *) {
+            SettingsLink {
+                Image(systemName: "gearshape")
+            }
+        } else {
+            Button {
+                TBStatusItem.shared.openSettingsWindow()
+            } label: {
+                Image(systemName: "gearshape")
+            }
+        }
+    }
+}
+
 private struct PresetPickerView: View {
     @ObservedObject var timer: TBTimer
 
@@ -76,35 +146,40 @@ private struct IntervalsView: View {
                                             comment: "Minute unit suffix. The number is shown separately.")
 
     var body: some View {
-        VStack {
-            intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalLength.label",
-                                                     comment: "Work interval label"),
-                            value: presetBinding(\.workIntervalLength, range: 1 ... 120),
-                            range: 1 ... 120,
-                            suffix: minStr)
-            intervalStepper(title: NSLocalizedString("IntervalsView.shortRestIntervalLength.label",
-                                                     comment: "Short rest interval label"),
-                            value: presetBinding(\.shortRestIntervalLength, range: 1 ... 120),
-                            range: 1 ... 120,
-                            suffix: minStr)
-            intervalStepper(title: NSLocalizedString("IntervalsView.longRestIntervalLength.label",
-                                                     comment: "Long rest interval label"),
-                            value: presetBinding(\.longRestIntervalLength, range: 1 ... 120),
-                            range: 1 ... 120,
-                            suffix: minStr)
-                .help(NSLocalizedString("IntervalsView.longRestIntervalLength.help",
-                                        comment: "Long rest interval hint"))
-            intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalsInSet.label",
-                                                     comment: "Work intervals in a set label"),
-                            value: presetBinding(\.workIntervalsInSet, range: 1 ... 10),
-                            range: 1 ... 10)
-                .help(NSLocalizedString("IntervalsView.workIntervalsInSet.help",
-                                        comment: "Work intervals in set hint"))
-            Spacer().frame(minHeight: 0)
+        SettingsPane {
+            VStack(alignment: .leading, spacing: 12) {
+                intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalLength.label",
+                                                         comment: "Work interval label"),
+                                value: presetBinding(\.workIntervalLength, range: 1 ... 120),
+                                range: 1 ... 120,
+                                suffix: minStr)
+                intervalStepper(title: NSLocalizedString("IntervalsView.shortRestIntervalLength.label",
+                                                         comment: "Short rest interval label"),
+                                value: presetBinding(\.shortRestIntervalLength, range: 1 ... 120),
+                                range: 1 ... 120,
+                                suffix: minStr)
+                intervalStepper(title: NSLocalizedString("IntervalsView.longRestIntervalLength.label",
+                                                         comment: "Long rest interval label"),
+                                value: presetBinding(\.longRestIntervalLength, range: 1 ... 120),
+                                range: 1 ... 120,
+                                suffix: minStr)
+                    .help(NSLocalizedString("IntervalsView.longRestIntervalLength.help",
+                                            comment: "Long rest interval hint"))
+                intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalsInSet.label",
+                                                         comment: "Work intervals in a set label"),
+                                value: presetBinding(\.workIntervalsInSet, range: 1 ... 10),
+                                range: 1 ... 10)
+                    .help(NSLocalizedString("IntervalsView.workIntervalsInSet.help",
+                                            comment: "Work intervals in set hint"))
+            }
+            .frame(maxWidth: SettingsLayout.contentWidth)
+
+            Divider()
+                .frame(maxWidth: SettingsLayout.contentWidth)
+
             PresetPickerView(timer: timer)
-            Spacer().frame(minHeight: 0)
+                .frame(maxWidth: SettingsLayout.contentWidth)
         }
-        .padding(4)
     }
 
     private func presetBinding(_ keyPath: WritableKeyPath<TimerPreset, Int>, range: ClosedRange<Int>) -> Binding<Int> {
@@ -150,53 +225,54 @@ private struct TimerSettingsView: View {
     @ObservedObject var timer: TBTimer
 
     var body: some View {
-        Form {
-            HStack {
-                Text(NSLocalizedString("SettingsView.stopAfter.label",
-                                       comment: "Stop after label"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        SettingsPane {
+            SettingsRow(title: NSLocalizedString("SettingsView.stopAfter.label",
+                                                 comment: "Stop after label")) {
                 SegmentedDropdown(value: $timer.stopAfter)
             }
-            Toggle(isOn: $timer.showTimerInMenuBar) {
-                Text(NSLocalizedString("SettingsView.showTimerInMenuBar.label",
-                                       comment: "Show timer in menu bar label"))
+            SettingsRow(title: NSLocalizedString("SettingsView.showTimerInMenuBar.label",
+                                                 comment: "Show timer in menu bar label")) {
+                Toggle("", isOn: $timer.showTimerInMenuBar)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .onChange(of: timer.showTimerInMenuBar) { _ in
+                        timer.updateTimeLeft()
+                    }
             }
-            .toggleStyle(.switch)
-            .onChange(of: timer.showTimerInMenuBar) { _ in
-                timer.updateTimeLeft()
+            SettingsRow(title: NSLocalizedString("SettingsView.showFullScreenMask.label",
+                                                 comment: "show full screen mask on rest")) {
+                Toggle("", isOn: $timer.showFullScreenMask)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .help(NSLocalizedString("SettingsView.showFullScreenMask.help",
+                                            comment: "show full screen mask hint"))
             }
-            Toggle(isOn: $timer.showFullScreenMask) {
-                Text(NSLocalizedString("SettingsView.showFullScreenMask.label",
-                                       comment: "show full screen mask on rest"))
-            }
-            .toggleStyle(.switch)
-            .help(NSLocalizedString("SettingsView.showFullScreenMask.help",
-                                    comment: "show full screen mask hint"))
         }
-        .padding(20)
     }
 }
 
 private struct ShortcutSettingsView: View {
     var body: some View {
-        Form {
-            KeyboardShortcuts.Recorder(for: .startStopTimer) {
-                Text(NSLocalizedString("SettingsView.shortcut.label",
-                                       comment: "Shortcut label"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        SettingsPane {
+            SettingsRow(title: NSLocalizedString("SettingsView.shortcut.label",
+                                                 comment: "Shortcut label")) {
+                KeyboardShortcuts.Recorder(for: .startStopTimer) {
+                    EmptyView()
+                }
             }
-            KeyboardShortcuts.Recorder(for: .pauseResumeTimer) {
-                Text(NSLocalizedString("SettingsView.pauseShortcut.label",
-                                       comment: "Pause shortcut label"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            SettingsRow(title: NSLocalizedString("SettingsView.pauseShortcut.label",
+                                                 comment: "Pause shortcut label")) {
+                KeyboardShortcuts.Recorder(for: .pauseResumeTimer) {
+                    EmptyView()
+                }
             }
-            KeyboardShortcuts.Recorder(for: .skipTimer) {
-                Text(NSLocalizedString("SettingsView.skipShortcut.label",
-                                       comment: "Skip shortcut label"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            SettingsRow(title: NSLocalizedString("SettingsView.skipShortcut.label",
+                                                 comment: "Skip shortcut label")) {
+                KeyboardShortcuts.Recorder(for: .skipTimer) {
+                    EmptyView()
+                }
             }
         }
-        .padding(20)
     }
 }
 
@@ -204,13 +280,15 @@ private struct GeneralSettingsView: View {
     @ObservedObject private var launchAtLogin = LaunchAtLogin.observable
 
     var body: some View {
-        Form {
-            Toggle(isOn: $launchAtLogin.isEnabled) {
-                Text(NSLocalizedString("SettingsView.launchAtLogin.label",
-                                       comment: "Launch at login label"))
+        SettingsPane {
+            SettingsRow(title: NSLocalizedString("SettingsView.launchAtLogin.label",
+                                                 comment: "Launch at login label")) {
+                Toggle("", isOn: $launchAtLogin.isEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
             }
-            .toggleStyle(.switch)
             Divider()
+                .frame(maxWidth: SettingsLayout.contentWidth)
             Button {
                 NSApp.activate(ignoringOtherApps: true)
                 NSApp.orderFrontStandardAboutPanel()
@@ -226,8 +304,8 @@ private struct GeneralSettingsView: View {
                                        comment: "Quit label"))
                 Spacer()
             }
+            .frame(maxWidth: SettingsLayout.rowLabelWidth, alignment: .leading)
         }
-        .padding(20)
     }
 }
 
@@ -252,65 +330,71 @@ private struct SoundsView: View {
 
     private var columns = [
         GridItem(.flexible()),
-        GridItem(.fixed(140))
+        GridItem(.fixed(SettingsLayout.soundSliderWidth))
     ]
 
     var body: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            Text(NSLocalizedString("SoundsView.isWindupEnabled.label",
-                                   comment: "Windup label"))
-            VolumeSlider(volume: $player.windupVolume)
-            Text(NSLocalizedString("SoundsView.isDingEnabled.label",
-                                   comment: "Ding label"))
-            VolumeSlider(volume: $player.dingVolume)
-            Text(NSLocalizedString("SoundsView.isTickingEnabled.label",
-                                   comment: "Ticking label"))
-            VolumeSlider(volume: $player.tickingVolume)
+        SettingsPane {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                Text(NSLocalizedString("SoundsView.isWindupEnabled.label",
+                                       comment: "Windup label"))
+                VolumeSlider(volume: $player.windupVolume)
+                Text(NSLocalizedString("SoundsView.isDingEnabled.label",
+                                       comment: "Ding label"))
+                VolumeSlider(volume: $player.dingVolume)
+                Text(NSLocalizedString("SoundsView.isTickingEnabled.label",
+                                       comment: "Ticking label"))
+                VolumeSlider(volume: $player.tickingVolume)
+            }
+            .frame(maxWidth: SettingsLayout.contentWidth)
         }
-        .padding(20)
-        Spacer().frame(minHeight: 0)
     }
 }
 
 struct TBSettingsWindowView: View {
     @ObservedObject var timer: TBTimer
+    @State private var selectedTab: SettingsTab = .timer
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             TimerSettingsView(timer: timer)
                 .tabItem {
                     Label(NSLocalizedString("SettingsWindow.timer.tab",
                                              comment: "Timer settings tab"),
                           systemImage: "timer")
                 }
+                .tag(SettingsTab.timer)
             IntervalsView()
                 .environmentObject(timer)
-                .padding(16)
                 .tabItem {
                     Label(NSLocalizedString("SettingsWindow.presets.tab",
                                              comment: "Presets settings tab"),
                           systemImage: "slider.horizontal.3")
                 }
+                .tag(SettingsTab.presets)
             SoundsView(player: timer.player)
                 .tabItem {
                     Label(NSLocalizedString("SettingsWindow.sounds.tab",
                                              comment: "Sounds settings tab"),
                           systemImage: "speaker.wave.2")
                 }
+                .tag(SettingsTab.sounds)
             ShortcutSettingsView()
                 .tabItem {
                     Label(NSLocalizedString("SettingsWindow.shortcuts.tab",
                                              comment: "Shortcuts settings tab"),
                           systemImage: "keyboard")
                 }
+                .tag(SettingsTab.shortcuts)
             GeneralSettingsView()
                 .tabItem {
                     Label(NSLocalizedString("SettingsWindow.general.tab",
                                              comment: "General settings tab"),
                           systemImage: "gearshape")
                 }
+                .tag(SettingsTab.general)
         }
-        .frame(width: 430, height: 360)
+        .frame(width: SettingsLayout.windowWidth, height: SettingsLayout.windowHeight)
     }
 }
 
@@ -370,11 +454,7 @@ struct TBPopoverView: View {
                     .help(skipLabel)
                 }
 
-                Button {
-                    TBStatusItem.shared.openSettingsWindow()
-                } label: {
-                    Image(systemName: "gearshape")
-                }
+                OpenSettingsButton()
                 .controlSize(.large)
                 .help(NSLocalizedString("TBPopoverView.settings.help", comment: "Settings button help"))
             }

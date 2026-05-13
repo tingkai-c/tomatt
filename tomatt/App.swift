@@ -31,7 +31,6 @@ struct TBApp: App {
 class TBStatusItem: NSObject, NSApplicationDelegate {
     let timer = TBTimer()
     private var popover = NSPopover()
-    private var settingsWindowController: NSWindowController?
     private var statusBarItem: NSStatusItem?
     static var shared: TBStatusItem!
 
@@ -83,24 +82,14 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
 
 
     func openSettingsWindow() {
-        if settingsWindowController == nil {
-            let settingsView = TBSettingsWindowView(timer: timer)
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 430, height: 360),
-                styleMask: [.titled, .closable, .miniaturizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = NSLocalizedString("TBPopoverView.settings.label", comment: "Settings label")
-            window.contentView = NSHostingView(rootView: settingsView)
-            window.isReleasedWhenClosed = false
-            window.center()
-            settingsWindowController = NSWindowController(window: window)
-        }
-
         NSApp.activate(ignoringOtherApps: true)
-        settingsWindowController?.showWindow(nil)
-        settingsWindowController?.window?.makeKeyAndOrderFront(nil)
+        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            return
+        }
+        if NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) {
+            return
+        }
+        logger.append(event: TBLogEventSettingsOpenFailed())
     }
 
     func closePopover(_ sender: AnyObject?) {

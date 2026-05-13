@@ -11,6 +11,11 @@ class TBLogEventAppStart: TBLogEvent {
     internal let timestamp: Date = Date()
 }
 
+class TBLogEventSettingsOpenFailed: TBLogEvent {
+    internal let type = "settingsOpenFailed"
+    internal let timestamp: Date = Date()
+}
+
 class TBLogEventTransition: TBLogEvent {
     internal let type = "transition"
     internal let timestamp: Date = Date()
