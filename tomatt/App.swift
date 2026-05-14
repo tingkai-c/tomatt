@@ -86,7 +86,7 @@ struct TBApp: App {
     }
 }
 
-private extension Settings.PaneIdentifier {
+private extension AppSettings.PaneIdentifier {
     static let timer = Self("timer")
     static let presets = Self("presets")
     static let sounds = Self("sounds")
@@ -185,14 +185,14 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     private func makeSettingsWindowController() -> SettingsWindowController {
         SettingsWindowController(
             panes: [
-                Settings.Pane(
+                AppSettings.Pane(
                     identifier: .timer,
                     title: NSLocalizedString("SettingsWindow.timer.tab", comment: "Timer settings tab"),
                     toolbarIcon: toolbarIcon(systemName: "timer")
                 ) {
                     TimerSettingsView(timer: timer)
                 },
-                Settings.Pane(
+                AppSettings.Pane(
                     identifier: .presets,
                     title: NSLocalizedString("SettingsWindow.presets.tab", comment: "Presets settings tab"),
                     toolbarIcon: toolbarIcon(systemName: "slider.horizontal.3")
@@ -200,21 +200,21 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
                     IntervalsView()
                         .environmentObject(timer)
                 },
-                Settings.Pane(
+                AppSettings.Pane(
                     identifier: .sounds,
                     title: NSLocalizedString("SettingsWindow.sounds.tab", comment: "Sounds settings tab"),
                     toolbarIcon: toolbarIcon(systemName: "speaker.wave.2")
                 ) {
                     SoundsView(player: timer.player)
                 },
-                Settings.Pane(
+                AppSettings.Pane(
                     identifier: .shortcuts,
                     title: NSLocalizedString("SettingsWindow.shortcuts.tab", comment: "Shortcuts settings tab"),
                     toolbarIcon: toolbarIcon(systemName: "keyboard")
                 ) {
                     ShortcutSettingsView()
                 },
-                Settings.Pane(
+                AppSettings.Pane(
                     identifier: .general,
                     title: NSLocalizedString("SettingsWindow.general.tab", comment: "General settings tab"),
                     toolbarIcon: toolbarIcon(systemName: "gearshape")
