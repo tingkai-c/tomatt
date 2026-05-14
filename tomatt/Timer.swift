@@ -6,6 +6,7 @@ class TBTimer: ObservableObject {
     @AppStorage("stopAfter") var stopAfter = StopAfterOption.disabled
     @AppStorage("showTimerInMenuBar") var showTimerInMenuBar = true
     @AppStorage("showFullScreenMask") var showFullScreenMask = false
+    @AppStorage("strictFullScreenMask") var strictFullScreenMask = false
     @AppStorage("pauseAfterRestFinish") var pauseAfterRestFinish = false
     @AppStorage("extendWorkAfterFinish") var extendWorkAfterFinish = false
     @AppStorage("currentPreset") private var currentPreset = 0
@@ -38,6 +39,7 @@ class TBTimer: ObservableObject {
     @Published var timeLeftString: String = ""
     @Published var timer: DispatchSourceTimer?
     @Published private(set) var controlMode: TimerControlMode = .inactive
+    @Published private(set) var strictFullScreenMaskActive = false
 
     var selectedPresetIndex: Int {
         get { clampedPresetIndex(currentPreset) }
@@ -235,11 +237,13 @@ class TBTimer: ObservableObject {
     }
 
     func startStop() {
+        guard !strictFullScreenMaskBlocksRestControls else { return }
         stateMachine <-! .startStop
     }
 
     func skip() {
         guard timer != nil else { return }
+        guard !strictFullScreenMaskBlocksRestControls else { return }
         guard !workExtensionActive, !workStartPending else {
             return
         }
@@ -269,6 +273,7 @@ class TBTimer: ObservableObject {
 
     func pauseResume() {
         guard timer != nil else { return }
+        guard !strictFullScreenMaskBlocksRestControls else { return }
         guard !workExtensionActive, !workStartPending else { return }
         stateMachine <-! .pauseResume
     }
@@ -451,9 +456,7 @@ class TBTimer: ObservableObject {
         paused = false
         workStartPending = false
         if showFullScreenMask {
-            MaskHelper.shared.showMaskWindow(desc: body) { [weak self] in
-                self?.skip()
-            }
+            showRestMask(desc: body)
         } else if ctx.event == .timerFired {
             notificationCenter.send(
                 title: NSLocalizedString("TBTimer.onRestStart.title", comment: "Time's up title"),
@@ -487,7 +490,7 @@ class TBTimer: ObservableObject {
 
     private func onRestEnd(context ctx: TBStateMachine.Context) {
         closeStatsInterval(context: ctx)
-        MaskHelper.shared.hideMaskWindow()
+        hideRestMask()
         if isCurrentRestLongRest() {
             currentWorkInterval = 0
         }
@@ -506,7 +509,7 @@ class TBTimer: ObservableObject {
 
     private func onIdleStart(context _: TBStateMachine.Context) {
         stopTimer()
-        MaskHelper.shared.hideMaskWindow()
+        hideRestMask()
         paused = false
         setActiveIcon(name: .idle)
         currentWorkInterval = 0
@@ -551,9 +554,25 @@ class TBTimer: ObservableObject {
         let body = isCurrentRestLongRest()
             ? NSLocalizedString("TBTimer.onRestStart.long.body", comment: "Long break body")
             : NSLocalizedString("TBTimer.onRestStart.short.body", comment: "Short break body")
-        MaskHelper.shared.showMaskWindow(desc: body) { [weak self] in
+        showRestMask(desc: body)
+    }
+
+    private func showRestMask(desc: String) {
+        strictFullScreenMaskActive = strictFullScreenMask
+        MaskHelper.shared.showMaskWindow(desc: desc, strict: strictFullScreenMaskActive) { [weak self] in
             self?.skip()
         }
+        updateControlMode()
+    }
+
+    private func hideRestMask() {
+        strictFullScreenMaskActive = false
+        MaskHelper.shared.hideMaskWindow()
+        updateControlMode()
+    }
+
+    private var strictFullScreenMaskBlocksRestControls: Bool {
+        strictFullScreenMaskActive && (stateMachine.state == .rest || stateMachine.state == .restPaused)
     }
 
     private func shouldExtendWorkSessionAtLimit() -> Bool {

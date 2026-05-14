@@ -129,6 +129,10 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
         timer.restoreTimerIfNeeded()
     }
 
+    func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
+        timer.strictFullScreenMaskActive ? .terminateCancel : .terminateNow
+    }
+
     func setTitle(title: String?) {
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineHeightMultiple = 0.9

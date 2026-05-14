@@ -41,6 +41,9 @@
 "SettingsView.dropdownSet.label" = "세트";
 "SettingsView.showFullScreenMask.label" = "전체 화면 마스크 사용";
 "SettingsView.showFullScreenMask.help" = "휴식 중 알림 대신 전체 화면 마스크를 사용합니다";
+"SettingsView.strictFullScreenMask.help" = "휴식 중에는 휴식이 끝날 때까지 일반 닫기, 건너뛰기, 종료 동작을 차단합니다";
+"SettingsView.strictFullScreenMask.label" = "엄격한 전체 화면 마스크";
+"SettingsView.fullScreenMask.section" = "전체 화면 마스크";
 "SettingsView.pauseAfterRestFinish.label" = "휴식 후 일시정지";
 "SettingsView.pauseAfterRestFinish.help" = "휴식이 끝나면 다음 작업을 준비하고 사용자가 재개할 때까지 기다립니다";
 "SettingsView.extendWorkAfterFinish.label" = "휴식 전까지 작업 연장";
@@ -51,6 +54,7 @@
 "TBPopoverView.resume.help" = "재개";
 "TBPopoverView.skip.help" = "건너뛰기";
 "TBMask.skip.label" = "건너뛰려면 아무 곳이나 두 번 클릭하고, 마스크를 숨기려면 한 번 클릭하세요";
+"TBMask.strict.label" = "휴식 중입니다. 이 엄격한 마스크는 타이머가 끝나면 닫힙니다.";
 
 "TBPopoverView.settings.help" = "설정 열기";
 "SettingsWindow.timer.tab" = "타이머";

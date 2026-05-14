@@ -41,6 +41,9 @@
 "SettingsView.dropdownSet.label" = "一组";
 "SettingsView.showFullScreenMask.label" = "使用全屏遮罩";
 "SettingsView.showFullScreenMask.help" = "休息期间使用全屏遮罩代替通知";
+"SettingsView.strictFullScreenMask.help" = "休息期间阻止普通关闭、跳过和退出操作，直到休息结束";
+"SettingsView.strictFullScreenMask.label" = "严格全屏遮罩";
+"SettingsView.fullScreenMask.section" = "全屏遮罩";
 "SettingsView.pauseAfterRestFinish.label" = "休息后暂停";
 "SettingsView.pauseAfterRestFinish.help" = "休息结束时准备下一次工作，并等你手动继续";
 "SettingsView.extendWorkAfterFinish.label" = "延长工作直到休息";
@@ -51,6 +54,7 @@
 "TBPopoverView.resume.help" = "继续";
 "TBPopoverView.skip.help" = "跳过";
 "TBMask.skip.label" = "双击任意区域跳过，单击隐藏此遮罩";
+"TBMask.strict.label" = "正在休息。严格遮罩会在计时结束后关闭。";
 
 "TBPopoverView.settings.help" = "打开设置";
 "SettingsWindow.timer.tab" = "计时器";

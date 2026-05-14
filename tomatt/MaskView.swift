@@ -5,23 +5,28 @@ final class MaskHelper {
 
     private var windowControllers = [NSWindowController]()
     private var skipHandler: (() -> Void)?
+    private var previousPresentationOptions: NSApplication.PresentationOptions?
 
     private init() {}
 
-    func showMaskWindow(desc: String, skipHandler: (() -> Void)? = nil) {
+    func showMaskWindow(desc: String, strict: Bool = false, skipHandler: (() -> Void)? = nil) {
         hideMaskWindow()
-        self.skipHandler = skipHandler
+        self.skipHandler = strict ? nil : skipHandler
+
+        NSApp.activate(ignoringOtherApps: true)
+        if strict {
+            applyStrictPresentationLock()
+        }
 
         for screen in NSScreen.screens {
             let window = NSWindow(contentRect: screen.frame,
                                   styleMask: .borderless,
                                   backing: .buffered,
-                                  defer: true)
-            window.level = .screenSaver
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            window.backgroundColor = NSColor.black.withAlphaComponent(0.2)
+                                  defer: false)
+            configureMaskWindow(window, for: screen)
 
-            let maskView = MaskView(desc: desc, frame: window.contentLayoutRect) { [weak self] shouldSkip in
+            let maskFrame = NSRect(origin: .zero, size: screen.frame.size)
+            let maskView = MaskView(desc: desc, frame: maskFrame, strict: strict) { [weak self] shouldSkip in
                 if shouldSkip {
                     self?.consumeSkipHandler()
                 }
@@ -30,16 +35,17 @@ final class MaskHelper {
             window.contentView = maskView
 
             let windowController = NSWindowController(window: window)
-            windowController.showWindow(nil)
             windowControllers.append(windowController)
+            windowController.showWindow(nil)
+            window.orderFrontRegardless()
             maskView.show()
         }
 
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func hideMaskWindow() {
         skipHandler = nil
+        restorePresentationOptions()
         let controllers = windowControllers
         windowControllers.removeAll()
         for controller in controllers {
@@ -51,6 +57,37 @@ final class MaskHelper {
         }
     }
 
+    private func configureMaskWindow(_ window: NSWindow, for screen: NSScreen) {
+        window.setFrame(screen.frame, display: true)
+        window.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        window.backgroundColor = NSColor.black.withAlphaComponent(0.2)
+        window.isOpaque = false
+        window.hasShadow = false
+        window.hidesOnDeactivate = false
+        window.canHide = false
+        window.isReleasedWhenClosed = false
+        window.animationBehavior = .none
+        window.acceptsMouseMovedEvents = true
+    }
+
+    private func applyStrictPresentationLock() {
+        guard previousPresentationOptions == nil else { return }
+        previousPresentationOptions = NSApp.presentationOptions
+        NSApp.presentationOptions = NSApp.presentationOptions.union([
+            .hideDock,
+            .hideMenuBar,
+            .disableProcessSwitching,
+            .disableHideApplication
+        ])
+    }
+
+    private func restorePresentationOptions() {
+        guard let previousPresentationOptions else { return }
+        NSApp.presentationOptions = previousPresentationOptions
+        self.previousPresentationOptions = nil
+    }
+
     private func consumeSkipHandler() {
         let handler = skipHandler
         skipHandler = nil
@@ -60,6 +97,7 @@ final class MaskHelper {
 
 final class MaskView: NSView {
     private let actionHandler: (Bool) -> Void
+    private let strict: Bool
     private var clickTimer: Timer?
     private var hideCompletion: (() -> Void)?
 
@@ -85,7 +123,8 @@ final class MaskView: NSView {
     }()
 
     private lazy var tipLabel: NSTextField = {
-        let tipLabel = NSTextField(labelWithString: NSLocalizedString("TBMask.skip.label", comment: "Skip label"))
+        let key = strict ? "TBMask.strict.label" : "TBMask.skip.label"
+        let tipLabel = NSTextField(labelWithString: NSLocalizedString(key, comment: "Mask instruction label"))
         tipLabel.textColor = .white.withAlphaComponent(0.8)
         tipLabel.font = NSFont.systemFont(ofSize: 18)
         tipLabel.alignment = .center
@@ -93,8 +132,9 @@ final class MaskView: NSView {
         return tipLabel
     }()
 
-    init(desc: String, frame: NSRect, actionHandler: @escaping (Bool) -> Void) {
+    init(desc: String, frame: NSRect, strict: Bool, actionHandler: @escaping (Bool) -> Void) {
         self.actionHandler = actionHandler
+        self.strict = strict
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
@@ -124,6 +164,7 @@ final class MaskView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
+        guard !strict else { return }
         if event.clickCount == 1 {
             clickTimer?.invalidate()
             clickTimer = Timer.scheduledTimer(withTimeInterval: NSEvent.doubleClickInterval, repeats: false) { [weak self] _ in

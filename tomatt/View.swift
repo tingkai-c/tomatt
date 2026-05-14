@@ -60,7 +60,7 @@ private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribabl
 
 enum SettingsLayout {
     static let windowWidth: CGFloat = 560
-    static let windowHeight: CGFloat = 420
+    static let windowHeight: CGFloat = 460
     static let panePadding: CGFloat = 24
     static let rowLabelWidth: CGFloat = 220
     static let rowControlWidth: CGFloat = 230
@@ -100,6 +100,17 @@ private struct SettingsRow<Content: View>: View {
             content
                 .frame(maxWidth: SettingsLayout.rowControlWidth, alignment: .leading)
         }
+    }
+}
+
+private struct SettingsSectionTitle: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.headline)
+            .frame(maxWidth: SettingsLayout.contentWidth, alignment: .leading)
+            .padding(.top, 4)
     }
 }
 
@@ -265,6 +276,8 @@ struct TimerSettingsView: View {
                         timer.updateTimeLeft()
                     }
             }
+            SettingsSectionTitle(title: NSLocalizedString("SettingsView.fullScreenMask.section",
+                                                            comment: "Full screen mask settings section"))
             SettingsRow(title: NSLocalizedString("SettingsView.showFullScreenMask.label",
                                                  comment: "show full screen mask on rest")) {
                 Toggle("", isOn: $timer.showFullScreenMask)
@@ -272,6 +285,20 @@ struct TimerSettingsView: View {
                     .toggleStyle(.switch)
                     .help(NSLocalizedString("SettingsView.showFullScreenMask.help",
                                             comment: "show full screen mask hint"))
+                    .onChange(of: timer.showFullScreenMask) { enabled in
+                        if !enabled {
+                            timer.strictFullScreenMask = false
+                        }
+                    }
+            }
+            SettingsRow(title: NSLocalizedString("SettingsView.strictFullScreenMask.label",
+                                                 comment: "strict full screen mask on rest")) {
+                Toggle("", isOn: $timer.strictFullScreenMask)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .disabled(!timer.showFullScreenMask)
+                    .help(NSLocalizedString("SettingsView.strictFullScreenMask.help",
+                                            comment: "strict full screen mask hint"))
             }
             SettingsRow(title: NSLocalizedString("SettingsView.pauseAfterRestFinish.label",
                                                  comment: "Pause after rest finish label")) {
@@ -441,6 +468,7 @@ struct TBPopoverView: View {
                                        comment: "Quit label"))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .disabled(timer.strictFullScreenMaskActive)
         }
         #if DEBUG
             /*
@@ -472,19 +500,23 @@ struct TBPopoverView: View {
 
     @ViewBuilder
     private var timerControlButtons: some View {
-        switch timer.controlMode {
-        case .inactive:
-            startButton
-        case .workExtended:
-            stopButton
-            startBreakButton
-        case .workStartPending:
-            stopButton
-            startWorkButton
-        case .workRunning, .workPaused, .restRunning, .restPaused:
-            stopButton
-            skipButton
-            pauseResumeButton
+        if timer.strictFullScreenMaskActive {
+            EmptyView()
+        } else {
+            switch timer.controlMode {
+            case .inactive:
+                startButton
+            case .workExtended:
+                stopButton
+                startBreakButton
+            case .workStartPending:
+                stopButton
+                startWorkButton
+            case .workRunning, .workPaused, .restRunning, .restPaused:
+                stopButton
+                skipButton
+                pauseResumeButton
+            }
         }
     }
 
