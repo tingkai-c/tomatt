@@ -108,10 +108,9 @@ private struct SettingsPane<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             content
-            Spacer(minLength: 0)
         }
         .padding(SettingsLayout.panePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(width: SettingsLayout.contentWidth, alignment: .topLeading)
     }
 }
 
@@ -373,31 +372,7 @@ private struct GeneralSettingsView: View {
                     .labelsHidden()
                     .toggleStyle(.switch)
             }
-            Divider()
-                .frame(maxWidth: SettingsLayout.contentWidth)
-            SettingsActionButton(title: NSLocalizedString("TBPopoverView.about.label",
-                                                           comment: "About label")) {
-                NSApp.activate(ignoringOtherApps: true)
-                NSApp.orderFrontStandardAboutPanel()
-            }
-            SettingsActionButton(title: NSLocalizedString("TBPopoverView.quit.label",
-                                                           comment: "Quit label")) {
-                NSApplication.shared.terminate(self)
-            }
         }
-    }
-}
-
-private struct SettingsActionButton: View {
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(width: SettingsLayout.contentWidth, alignment: .leading)
     }
 }
 
@@ -491,7 +466,8 @@ struct TBSettingsWindowView: View {
         .background(
             WindowAccessor(onWindowChange: registerSettingsWindow)
         )
-        .frame(width: SettingsLayout.windowWidth, height: SettingsLayout.windowHeight)
+        .frame(width: SettingsLayout.windowWidth)
+        .fixedSize()
     }
 }
 
@@ -568,6 +544,24 @@ struct TBPopoverView: View {
 
             PresetPickerView(timer: timer)
 
+            Divider()
+
+            Button {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.orderFrontStandardAboutPanel()
+            } label: {
+                Text(NSLocalizedString("TBPopoverView.about.label",
+                                       comment: "About label"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Button {
+                NSApplication.shared.terminate(self)
+            } label: {
+                Text(NSLocalizedString("TBPopoverView.quit.label",
+                                       comment: "Quit label"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         #if DEBUG
             /*

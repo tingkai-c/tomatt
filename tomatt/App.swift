@@ -71,7 +71,9 @@ struct TBApp: App {
 
     var body: some Scene {
         Settings {
-            EmptyView()
+            TBSettingsWindowView(timer: appDelegate.timer,
+                                 appearanceController: appDelegate.appearanceController,
+                                 registerSettingsWindow: appDelegate.registerSettingsWindow)
         }
         .commands {
             CommandGroup(replacing: .appSettings) {
@@ -91,7 +93,6 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     private var popover = NSPopover()
     private var statusBarItem: NSStatusItem?
     private var statsWindowController: NSWindowController?
-    private var settingsWindowController: NSWindowController?
     private weak var settingsWindow: NSWindow?
     static var shared: TBStatusItem!
 
@@ -163,52 +164,34 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     private func presentSettingsWindow() {
         NSApp.activate(ignoringOtherApps: true)
 
-        let window = settingsWindow ?? makeSettingsWindow()
-        configureSettingsWindow(window)
-        settingsWindowController?.showWindow(nil)
-        focus(settingsWindow: window)
+        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: self) ||
+            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: self) {
+            focusSettingsWindow()
+        } else {
+            logger.append(event: TBLogEventSettingsOpenFailed())
+        }
     }
 
     func registerSettingsWindow(_ window: NSWindow) {
         settingsWindow = window
-        configureSettingsWindow(window)
         appearanceController.registerManagedWindow(window)
     }
 
-    private func makeSettingsWindow() -> NSWindow {
-        let contentSize = NSSize(width: SettingsLayout.windowWidth,
-                                 height: SettingsLayout.windowHeight)
-        let view = TBSettingsWindowView(timer: timer,
-                                        appearanceController: appearanceController,
-                                        registerSettingsWindow: registerSettingsWindow)
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: contentSize),
-                              styleMask: [.titled, .closable, .miniaturizable],
-                              backing: .buffered,
-                              defer: false)
-        window.contentView = NSHostingView(rootView: view)
-        window.isReleasedWhenClosed = false
-        window.center()
+    private func focusSettingsWindow(attempt: Int = 0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(75)) { [weak self] in
+            guard let self = self else { return }
+            NSApp.activate(ignoringOtherApps: true)
 
-        let controller = NSWindowController(window: window)
-        settingsWindowController = controller
-        registerSettingsWindow(window)
-        return window
-    }
+            if let window = self.settingsWindow {
+                window.deminiaturize(nil)
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+                return
+            }
 
-    private func configureSettingsWindow(_ window: NSWindow) {
-        let contentSize = NSSize(width: SettingsLayout.windowWidth,
-                                 height: SettingsLayout.windowHeight)
-        window.title = "Tomatt"
-        window.contentMinSize = contentSize
-        window.contentMaxSize = contentSize
-        window.setContentSize(contentSize)
-    }
-
-    private func focus(settingsWindow window: NSWindow) {
-        NSApp.activate(ignoringOtherApps: true)
-        window.deminiaturize(nil)
-        window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
+            guard attempt < 8 else { return }
+            self.focusSettingsWindow(attempt: attempt + 1)
+        }
     }
 
     func openStatsWindow() {
