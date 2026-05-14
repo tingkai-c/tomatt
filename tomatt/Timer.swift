@@ -2,7 +2,7 @@ import KeyboardShortcuts
 import SwiftState
 import SwiftUI
 
-enum StopAfterOption: String, CaseIterable {
+enum StopAfterOption: String, CaseIterable, Codable {
     case disabled, work, rest, set
 }
 
@@ -13,12 +13,34 @@ struct TimerPreset: Codable, Equatable {
     var workIntervalsInSet = 4
 }
 
+private struct PersistedTimerSession: Codable {
+    var schemaVersion = 1
+    var state: TBStateMachineStates
+    var preset: TimerPreset
+    var currentWorkInterval: Int
+    var kind: TBStatsIntervalKind
+    var plannedDuration: TimeInterval
+    var startedAt: Date
+    var finishAt: Date
+    var pauseStartedAt: Date?
+    var pausedTimeRemaining: TimeInterval
+    var pausedDuration: TimeInterval
+    var workExtensionActive: Bool
+    var workLimitNotificationSent: Bool
+    var restPresentationPending: Bool
+}
+
+
 class TBTimer: ObservableObject {
     @AppStorage("stopAfter") var stopAfter = StopAfterOption.disabled
     @AppStorage("showTimerInMenuBar") var showTimerInMenuBar = true
     @AppStorage("showFullScreenMask") var showFullScreenMask = false
+    @AppStorage("pauseAfterWorkFinish") var pauseAfterWorkFinish = false
+    @AppStorage("pauseAfterRestFinish") var pauseAfterRestFinish = false
+    @AppStorage("extendWorkAfterFinish") var extendWorkAfterFinish = false
     @AppStorage("currentPreset") private var currentPreset = 0
     @AppStorage("timerPresets") private var timerPresetsData = ""
+    @AppStorage("activeTimerSession") private var activeTimerSessionData = ""
 
     // Legacy preferences seed/migrate the first preset and previous stop-after-break behavior.
     @AppStorage("workIntervalLength") private var legacyWorkIntervalLength = 25
@@ -42,6 +64,9 @@ class TBTimer: ObservableObject {
     private let statsStore = TBStatsStore.shared
     private var activeStatsInterval: TBActiveStatsInterval?
     private var pendingStatsCompletion: TBStatsCompletion?
+    private var workExtensionActive = false
+    private var workLimitNotificationSent = false
+    private var restPresentationPending = false
     @Published var paused: Bool = false
     @Published var timeLeftString: String = ""
     @Published var timer: DispatchSourceTimer?
@@ -121,23 +146,37 @@ class TBTimer: ObservableObject {
             .work => .workPaused, .rest => .restPaused,
             .workPaused => .work, .restPaused => .rest,
         ])
+        stateMachine.addRoutes(event: .restoreWork, transitions: [.idle => .work])
+        stateMachine.addRoutes(event: .restoreRest, transitions: [.idle => .rest])
+        stateMachine.addRoutes(event: .restoreWorkPaused, transitions: [.idle => .workPaused])
+        stateMachine.addRoutes(event: .restoreRestPaused, transitions: [.idle => .restPaused])
         stateMachine.addRoutes(event: .timerFired, transitions: [.work => .idle]) { _ in
-            self.stopAfter == .work
+            self.effectiveStopAfter == .work
+        }
+        stateMachine.addRoutes(event: .timerFired, transitions: [.work => .restPaused]) { _ in
+            self.effectiveStopAfter != .work &&
+                !self.effectiveExtendWorkAfterFinish &&
+                self.effectivePauseAfterWorkFinish
         }
         stateMachine.addRoutes(event: .timerFired, transitions: [.work => .rest]) { _ in
-            self.stopAfter != .work
+            self.effectiveStopAfter != .work &&
+                !self.effectiveExtendWorkAfterFinish &&
+                !self.effectivePauseAfterWorkFinish
         }
         stateMachine.addRoutes(event: .skipEvent, transitions: [.work => .idle, .workPaused => .idle]) { _ in
-            self.stopAfter == .work
+            self.effectiveStopAfter == .work
         }
         stateMachine.addRoutes(event: .skipEvent, transitions: [.work => .rest, .workPaused => .rest]) { _ in
-            self.stopAfter != .work
+            self.effectiveStopAfter != .work
         }
         stateMachine.addRoutes(event: .timerFired, transitions: [.rest => .idle]) { _ in
             self.shouldStopAfterRest()
         }
+        stateMachine.addRoutes(event: .timerFired, transitions: [.rest => .workPaused]) { _ in
+            !self.shouldStopAfterRest() && self.effectivePauseAfterRestFinish
+        }
         stateMachine.addRoutes(event: .timerFired, transitions: [.rest => .work]) { _ in
-            !self.shouldStopAfterRest()
+            !self.shouldStopAfterRest() && !self.effectivePauseAfterRestFinish
         }
         stateMachine.addRoutes(event: .skipEvent, transitions: [.rest => .idle, .restPaused => .idle]) { _ in
             self.shouldStopAfterRest()
@@ -151,12 +190,16 @@ class TBTimer: ObservableObject {
          * "End"    handlers are called when time interval ended, skipped, or was cancelled
          * Pause/resume are explicit state-machine transitions but do not end the active interval.
          */
-        stateMachine.addAnyHandler(.idle => .work, handler: onWorkStart)
+        stateMachine.addHandler(event: .startStop) { ctx in
+            guard ctx.fromState == .idle, ctx.toState == .work else { return }
+            self.onWorkStart(context: ctx)
+        }
         stateMachine.addAnyHandler(.work => .workPaused, handler: onTimerPause)
         stateMachine.addAnyHandler(.rest => .restPaused, handler: onTimerPause)
         stateMachine.addAnyHandler(.workPaused => .work, handler: onTimerResume)
         stateMachine.addAnyHandler(.restPaused => .rest, handler: onTimerResume)
         stateMachine.addAnyHandler(.work => .rest, order: 0, handler: onWorkFinish)
+        stateMachine.addAnyHandler(.work => .restPaused, order: 0, handler: onWorkFinish)
         stateMachine.addAnyHandler(.work => .idle, order: 0, handler: onWorkFinish)
         stateMachine.addAnyHandler(.workPaused => .rest, order: 0, handler: onWorkFinish)
         stateMachine.addAnyHandler(.workPaused => .idle, order: 0, handler: onWorkFinish)
@@ -164,14 +207,17 @@ class TBTimer: ObservableObject {
         stateMachine.addAnyHandler(.workPaused => .any, order: 1, handler: onWorkEnd)
         stateMachine.addAnyHandler(.work => .rest, order: 2, handler: onRestStart)
         stateMachine.addAnyHandler(.workPaused => .rest, order: 2, handler: onRestStart)
+        stateMachine.addAnyHandler(.work => .restPaused, order: 2, handler: onRestStartPaused)
         stateMachine.addAnyHandler(.rest => .work, order: 0, handler: onRestEnd)
         stateMachine.addAnyHandler(.rest => .idle, order: 0, handler: onRestEnd)
         stateMachine.addAnyHandler(.restPaused => .work, order: 0, handler: onRestEnd)
         stateMachine.addAnyHandler(.restPaused => .idle, order: 0, handler: onRestEnd)
         stateMachine.addAnyHandler(.rest => .work, order: 1, handler: onRestFinish)
+        stateMachine.addAnyHandler(.rest => .workPaused, order: 1, handler: onRestFinish)
         stateMachine.addAnyHandler(.restPaused => .work, order: 1, handler: onRestFinish)
         stateMachine.addAnyHandler(.rest => .work, order: 2, handler: onWorkStart)
         stateMachine.addAnyHandler(.restPaused => .work, order: 2, handler: onWorkStart)
+        stateMachine.addAnyHandler(.rest => .workPaused, order: 2, handler: onWorkStartPaused)
         stateMachine.addAnyHandler(.any => .idle, handler: onIdleStart)
         stateMachine.addAnyHandler(.any => .any, handler: { ctx in
             logger.append(event: TBLogEventTransition(fromContext: ctx))
@@ -229,6 +275,9 @@ class TBTimer: ObservableObject {
 
     func skip() {
         guard timer != nil else { return }
+        if (stateMachine.state == .work || stateMachine.state == .workPaused), workExtensionActive {
+            pendingStatsCompletion = .completed
+        }
         paused = false
         stateMachine <-! .skipEvent
     }
@@ -263,7 +312,11 @@ class TBTimer: ObservableObject {
     }
 
     private func startTimer(seconds: Int) {
-        finishTime = Date().addingTimeInterval(TimeInterval(seconds))
+        startTimer(until: Date().addingTimeInterval(TimeInterval(seconds)))
+    }
+
+    private func startTimer(until date: Date) {
+        finishTime = date
 
         let queue = DispatchQueue(label: "Timer")
         timer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
@@ -278,6 +331,16 @@ class TBTimer: ObservableObject {
         timer = nil
     }
 
+    private func startPausedTimer(seconds: Int) {
+        startTimer(seconds: seconds)
+        paused = true
+        pausedTimeRemaining = TimeInterval(seconds)
+        finishTime = Date.distantFuture
+        activeStatsInterval?.pause(at: Date())
+        TBStatusItem.shared.setIcon(name: .pause)
+        updateTimeLeft()
+    }
+
     private func onTimerTick() {
         /* Cannot publish updates from background thread */
         DispatchQueue.main.async { [self] in
@@ -285,6 +348,10 @@ class TBTimer: ObservableObject {
             updateTimeLeft()
             let timeLeft = finishTime.timeIntervalSince(Date())
             if timeLeft <= 0 {
+                if stateMachine.state == .work && shouldExtendWorkSessionAtLimit() {
+                    extendWorkSessionAtLimit()
+                    return
+                }
                 /*
                  Ticks can be missed during the machine sleep.
                 Stop the timer if it goes beyond an overrun time limit.
@@ -322,11 +389,14 @@ class TBTimer: ObservableObject {
         }
         setActiveIcon(name: .work)
         paused = false
+        workExtensionActive = false
+        workLimitNotificationSent = false
         player.playWindup()
         player.startTicking()
         startStatsInterval(kind: .work,
                            plannedDuration: TimeInterval(timerPreset.workIntervalLength * 60))
         startTimer(seconds: timerPreset.workIntervalLength * 60)
+        persistActiveTimerSession()
     }
 
     private func onWorkFinish(context ctx: TBStateMachine.Context) {
@@ -340,6 +410,24 @@ class TBTimer: ObservableObject {
         player.stopTicking()
     }
 
+    private func onWorkStartPaused(context ctx: TBStateMachine.Context) {
+        if ctx.fromState == .idle || activePreset == nil {
+            activePreset = currentPresetInstance
+        }
+        if currentWorkInterval >= timerPreset.workIntervalsInSet {
+            currentWorkInterval = 1
+        } else {
+            currentWorkInterval += 1
+        }
+        setActiveIcon(name: .work)
+        workExtensionActive = false
+        workLimitNotificationSent = false
+        startStatsInterval(kind: .work,
+                           plannedDuration: TimeInterval(timerPreset.workIntervalLength * 60))
+        startPausedTimer(seconds: timerPreset.workIntervalLength * 60)
+        persistActiveTimerSession()
+    }
+
     private func onTimerPause(context ctx: TBStateMachine.Context) {
         paused = true
         pausedTimeRemaining = max(0, finishTime.timeIntervalSince(Date()))
@@ -350,6 +438,7 @@ class TBTimer: ObservableObject {
         }
         TBStatusItem.shared.setIcon(name: .pause)
         updateTimeLeft()
+        persistActiveTimerSession()
     }
 
     private func onTimerResume(context ctx: TBStateMachine.Context) {
@@ -358,9 +447,13 @@ class TBTimer: ObservableObject {
         finishTime = Date().addingTimeInterval(pausedTimeRemaining)
         if ctx.toState == .work {
             player.startTicking()
+        } else if ctx.toState == .rest, restPresentationPending {
+            showCurrentRestMaskIfNeeded()
+            restPresentationPending = false
         }
         TBStatusItem.shared.setIcon(name: activeIconName)
         updateTimeLeft()
+        persistActiveTimerSession()
     }
 
     private func onRestStart(context ctx: TBStateMachine.Context) {
@@ -385,9 +478,27 @@ class TBTimer: ObservableObject {
             )
         }
         setActiveIcon(name: imgName)
+        restPresentationPending = false
         startStatsInterval(kind: imgName == .longRest ? .longRest : .shortRest,
                            plannedDuration: TimeInterval(length * 60))
         startTimer(seconds: length * 60)
+        persistActiveTimerSession()
+    }
+
+    private func onRestStartPaused(context _: TBStateMachine.Context) {
+        var length = timerPreset.shortRestIntervalLength
+        var imgName = NSImage.Name.shortRest
+        if isCurrentRestLongRest() {
+            length = timerPreset.longRestIntervalLength
+            imgName = .longRest
+        }
+        setActiveIcon(name: imgName)
+        restPresentationPending = true
+        startStatsInterval(kind: imgName == .longRest ? .longRest : .shortRest,
+                           plannedDuration: TimeInterval(length * 60))
+        startPausedTimer(seconds: length * 60)
+        persistActiveTimerSession()
+        sendWorkFinishedNotification()
     }
 
     private func onRestEnd(context ctx: TBStateMachine.Context) {
@@ -418,6 +529,10 @@ class TBTimer: ObservableObject {
         pausedTimeRemaining = 0
         pendingStatsCompletion = nil
         activePreset = nil
+        workExtensionActive = false
+        workLimitNotificationSent = false
+        restPresentationPending = false
+        clearPersistedTimerSession()
     }
 
     private func setActiveIcon(name: NSImage.Name) {
@@ -428,11 +543,290 @@ class TBTimer: ObservableObject {
     }
 
     private func shouldStopAfterRest() -> Bool {
-        stopAfter == .rest || (stopAfter == .set && isCurrentRestLongRest())
+        effectiveStopAfter == .rest || (effectiveStopAfter == .set && isCurrentRestLongRest())
     }
 
     private func isCurrentRestLongRest() -> Bool {
         currentWorkInterval >= timerPreset.workIntervalsInSet
+    }
+
+    private func showCurrentRestMaskIfNeeded() {
+        guard showFullScreenMask else { return }
+        let body = isCurrentRestLongRest()
+            ? NSLocalizedString("TBTimer.onRestStart.long.body", comment: "Long break body")
+            : NSLocalizedString("TBTimer.onRestStart.short.body", comment: "Short break body")
+        MaskHelper.shared.showMaskWindow(desc: body) { [weak self] in
+            self?.skip()
+        }
+    }
+
+    private func shouldExtendWorkSessionAtLimit() -> Bool {
+        effectiveExtendWorkAfterFinish && effectiveStopAfter != .work
+    }
+
+    private var effectiveStopAfter: StopAfterOption {
+        stopAfter
+    }
+
+    private var effectivePauseAfterWorkFinish: Bool {
+        pauseAfterWorkFinish
+    }
+
+    private var effectivePauseAfterRestFinish: Bool {
+        pauseAfterRestFinish
+    }
+
+    private var effectiveExtendWorkAfterFinish: Bool {
+        extendWorkAfterFinish
+    }
+
+    private func extendWorkSessionAtLimit() {
+        guard !workExtensionActive else { return }
+        workExtensionActive = true
+        finishTime = Date()
+        updateTimeLeft()
+        player.playDing()
+        sendWorkFinishedNotification()
+        persistActiveTimerSession()
+    }
+
+    private func sendWorkFinishedNotification() {
+        guard !workLimitNotificationSent else { return }
+        workLimitNotificationSent = true
+        persistActiveTimerSession()
+        notificationCenter.send(
+            title: NSLocalizedString("TBTimer.onWorkFinish.title", comment: "Work finished title"),
+            body: NSLocalizedString("TBTimer.onWorkFinish.body", comment: "Work finished body"),
+            category: .workFinished
+        )
+    }
+
+    func restoreTimerIfNeeded() {
+        guard timer == nil,
+              stateMachine.state == .idle,
+              !activeTimerSessionData.isEmpty else {
+            return
+        }
+        guard let data = activeTimerSessionData.data(using: .utf8),
+              let session = try? JSONDecoder().decode(PersistedTimerSession.self, from: data),
+              session.schemaVersion == 1,
+              isValidPersistedSession(session) else {
+            discardPersistedTimerSession()
+            return
+        }
+
+        activePreset = session.preset.clamped()
+        currentWorkInterval = session.currentWorkInterval
+        activeStatsInterval = restoredStatsInterval(from: session)
+        workExtensionActive = session.workExtensionActive
+        workLimitNotificationSent = session.workLimitNotificationSent
+        restPresentationPending = session.restPresentationPending
+
+        restoreValidatedSession(session)
+    }
+
+    private func restoreValidatedSession(_ session: PersistedTimerSession) {
+        switch session.state {
+        case .work:
+            restoreWorkSession(session)
+        case .rest:
+            restoreRestSession(session)
+        case .workPaused:
+            restorePausedSession(session, event: .restoreWorkPaused, iconName: .work)
+        case .restPaused:
+            restorePausedSession(session,
+                                 event: .restoreRestPaused,
+                                 iconName: session.kind == .longRest ? .longRest : .shortRest)
+        case .idle:
+            discardPersistedTimerSession()
+        }
+    }
+
+    private func isValidPersistedSession(_ session: PersistedTimerSession) -> Bool {
+        let now = Date()
+        let restoredPausedDuration = restoredPausedDuration(for: session)
+
+        guard session.state != .idle,
+              isKindValid(session.kind, for: session.state),
+              session.plannedDuration.isFinite,
+              session.plannedDuration > 0,
+              session.pausedTimeRemaining.isFinite,
+              session.pausedTimeRemaining >= 0,
+              session.pausedTimeRemaining <= session.plannedDuration,
+              session.pausedDuration.isFinite,
+              session.pausedDuration >= 0,
+              session.startedAt.timeIntervalSinceReferenceDate.isFinite,
+              session.finishAt.timeIntervalSinceReferenceDate.isFinite,
+              session.startedAt <= now,
+              session.finishAt >= session.startedAt,
+              session.finishAt.timeIntervalSince(session.startedAt) <= session.plannedDuration + restoredPausedDuration + 1,
+              session.currentWorkInterval >= 1,
+              session.currentWorkInterval <= session.preset.clamped().workIntervalsInSet else {
+            return false
+        }
+
+        if let pauseStartedAt = session.pauseStartedAt {
+            guard session.state == .workPaused || session.state == .restPaused,
+                  pauseStartedAt >= session.startedAt,
+                  pauseStartedAt <= now else {
+                return false
+            }
+        }
+
+        let wallDuration = max(0, now.timeIntervalSince(session.startedAt))
+        return restoredPausedDuration <= wallDuration + 1
+    }
+
+    private func isKindValid(_ kind: TBStatsIntervalKind, for state: TBStateMachineStates) -> Bool {
+        switch state {
+        case .work, .workPaused:
+            return kind == .work
+        case .rest, .restPaused:
+            return kind.isBreak
+        case .idle:
+            return false
+        }
+    }
+
+    private func restoreWorkSession(_ session: PersistedTimerSession) {
+        stateMachine <-! .restoreWork
+
+        let remaining = session.finishAt.timeIntervalSince(Date())
+        if remaining > 0 {
+            restoreRunningSession(session, remaining: remaining, iconName: .work)
+            player.startTicking()
+            return
+        }
+
+        setActiveIcon(name: .work)
+        paused = false
+        pausedTimeRemaining = 0
+        startTimer(until: Date())
+
+        if shouldExtendWorkSessionAtLimit() {
+            workExtensionActive = true
+            player.startTicking()
+            updateTimeLeft()
+            sendWorkFinishedNotification()
+            persistActiveTimerSession()
+        } else {
+            stateMachine <-! .timerFired
+        }
+    }
+
+    private func restoreRestSession(_ session: PersistedTimerSession) {
+        stateMachine <-! .restoreRest
+
+        let remaining = session.finishAt.timeIntervalSince(Date())
+        if remaining > 0 {
+            restoreRunningSession(session,
+                                  remaining: remaining,
+                                  iconName: session.kind == .longRest ? .longRest : .shortRest)
+            return
+        }
+
+        setActiveIcon(name: session.kind == .longRest ? .longRest : .shortRest)
+        paused = false
+        pausedTimeRemaining = 0
+        startTimer(until: Date())
+        stateMachine <-! .timerFired
+    }
+
+    private func restoreRunningSession(_ session: PersistedTimerSession,
+                                       remaining: TimeInterval,
+                                       iconName: NSImage.Name) {
+        setActiveIcon(name: iconName)
+        paused = false
+        pausedTimeRemaining = 0
+        workExtensionActive = session.workExtensionActive
+        workLimitNotificationSent = session.workLimitNotificationSent
+        restPresentationPending = session.restPresentationPending
+        startTimer(until: Date().addingTimeInterval(remaining))
+        updateTimeLeft()
+        persistActiveTimerSession()
+    }
+
+    private func restorePausedSession(_ session: PersistedTimerSession,
+                                      event: TBStateMachineEvents,
+                                      iconName: NSImage.Name) {
+        stateMachine <-! event
+        activeIconName = iconName
+        startTimer(until: Date().addingTimeInterval(max(0, session.pausedTimeRemaining)))
+        paused = true
+        pausedTimeRemaining = max(0, session.pausedTimeRemaining)
+        finishTime = Date.distantFuture
+        activeStatsInterval?.pauseStartedAt = Date()
+        TBStatusItem.shared.setIcon(name: .pause)
+        updateTimeLeft()
+        persistActiveTimerSession()
+    }
+
+    private func restoredStatsInterval(from session: PersistedTimerSession) -> TBActiveStatsInterval {
+        let pausedDuration = restoredPausedDuration(for: session)
+        TBActiveStatsInterval(id: UUID(),
+                              kind: session.kind,
+                              startedAt: session.startedAt,
+                              plannedDuration: session.plannedDuration,
+                              preset: TimerPresetSnapshot(preset: session.preset),
+                              workIntervalIndex: session.currentWorkInterval,
+                              pausedDuration: pausedDuration,
+                              pauseStartedAt: nil)
+    }
+
+    private func restoredPausedDuration(for session: PersistedTimerSession) -> TimeInterval {
+        var pausedDuration = session.pausedDuration
+        if let pauseStartedAt = session.pauseStartedAt {
+            pausedDuration += max(0, Date().timeIntervalSince(pauseStartedAt))
+        }
+        return pausedDuration
+    }
+
+    private func persistActiveTimerSession() {
+        guard timer != nil,
+              stateMachine.state != .idle,
+              let activeStatsInterval = activeStatsInterval else {
+            return
+        }
+
+        let remaining = max(0, paused ? pausedTimeRemaining : finishTime.timeIntervalSince(Date()))
+        let finishAt = paused ? Date().addingTimeInterval(remaining) : finishTime!
+        let session = PersistedTimerSession(
+            state: stateMachine.state,
+            preset: timerPreset,
+            currentWorkInterval: currentWorkInterval,
+            kind: activeStatsInterval.kind,
+            plannedDuration: activeStatsInterval.plannedDuration,
+            startedAt: activeStatsInterval.startedAt,
+            finishAt: finishAt,
+            pauseStartedAt: activeStatsInterval.pauseStartedAt,
+            pausedTimeRemaining: remaining,
+            pausedDuration: activeStatsInterval.pausedDuration,
+            workExtensionActive: workExtensionActive,
+            workLimitNotificationSent: workLimitNotificationSent,
+            restPresentationPending: restPresentationPending
+        )
+
+        guard let data = try? JSONEncoder().encode(session),
+              let rawValue = String(data: data, encoding: .utf8) else {
+            return
+        }
+        activeTimerSessionData = rawValue
+    }
+
+    private func clearPersistedTimerSession() {
+        activeTimerSessionData = ""
+    }
+
+    private func discardPersistedTimerSession() {
+        clearPersistedTimerSession()
+        activePreset = nil
+        activeStatsInterval = nil
+        currentWorkInterval = 0
+        paused = false
+        pausedTimeRemaining = 0
+        workExtensionActive = false
+        workLimitNotificationSent = false
+        restPresentationPending = false
     }
 
     private func startStatsInterval(kind: TBStatsIntervalKind, plannedDuration: TimeInterval) {

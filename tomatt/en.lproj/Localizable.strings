@@ -35,6 +35,14 @@
 "SettingsView.dropdownSet.label" = "Set";
 "SettingsView.showFullScreenMask.label" = "Use full-screen mask";
 "SettingsView.showFullScreenMask.help" = "During breaks, use a full-screen mask instead of notifications";
+"SettingsView.pauseAfterWorkFinish.label" = "Pause after work";
+"SettingsView.pauseAfterWorkFinish.help" = "When work finishes, prepare the break and wait for you to resume it";
+"SettingsView.pauseAfterRestFinish.label" = "Pause after break";
+"SettingsView.pauseAfterRestFinish.help" = "When a break finishes, prepare the next work session and wait for you to resume it";
+"SettingsView.extendWorkAfterFinish.label" = "Extend work until break";
+"SettingsView.extendWorkAfterFinish.help" = "When work finishes, keep the work timer at zero until you manually start the break";
+"TBTimer.onWorkFinish.title" = "Work session complete";
+"TBTimer.onWorkFinish.body" = "Keep focusing, or start your break when you're ready.";
 "TBPopoverView.pause.help" = "Pause";
 "TBPopoverView.resume.help" = "Resume";
 "TBPopoverView.skip.help" = "Skip";

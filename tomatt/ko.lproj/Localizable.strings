@@ -35,6 +35,14 @@
 "SettingsView.dropdownSet.label" = "세트";
 "SettingsView.showFullScreenMask.label" = "전체 화면 마스크 사용";
 "SettingsView.showFullScreenMask.help" = "휴식 중 알림 대신 전체 화면 마스크를 사용합니다";
+"SettingsView.pauseAfterWorkFinish.label" = "작업 후 일시정지";
+"SettingsView.pauseAfterWorkFinish.help" = "작업이 끝나면 휴식을 준비하고 사용자가 재개할 때까지 기다립니다";
+"SettingsView.pauseAfterRestFinish.label" = "휴식 후 일시정지";
+"SettingsView.pauseAfterRestFinish.help" = "휴식이 끝나면 다음 작업을 준비하고 사용자가 재개할 때까지 기다립니다";
+"SettingsView.extendWorkAfterFinish.label" = "휴식 전까지 작업 연장";
+"SettingsView.extendWorkAfterFinish.help" = "작업이 끝나면 수동으로 휴식을 시작할 때까지 작업 타이머를 0에 유지합니다";
+"TBTimer.onWorkFinish.title" = "작업 세션 완료";
+"TBTimer.onWorkFinish.body" = "계속 집중하거나 준비되면 휴식을 시작하세요.";
 "TBPopoverView.pause.help" = "일시정지";
 "TBPopoverView.resume.help" = "재개";
 "TBPopoverView.skip.help" = "건너뛰기";

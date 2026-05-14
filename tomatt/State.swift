@@ -4,8 +4,9 @@ typealias TBStateMachine = StateMachine<TBStateMachineStates, TBStateMachineEven
 
 enum TBStateMachineEvents: EventType {
     case startStop, timerFired, skipEvent, pauseResume
+    case restoreWork, restoreRest, restoreWorkPaused, restoreRestPaused
 }
 
-enum TBStateMachineStates: StateType {
+enum TBStateMachineStates: StateType, Codable {
     case idle, work, rest, workPaused, restPaused
 }

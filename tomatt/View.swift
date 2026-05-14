@@ -74,7 +74,7 @@ private enum SettingsTab: Hashable {
 
 private enum SettingsLayout {
     static let windowWidth: CGFloat = 560
-    static let windowHeight: CGFloat = 360
+    static let windowHeight: CGFloat = 420
     static let panePadding: CGFloat = 24
     static let rowLabelWidth: CGFloat = 220
     static let rowControlWidth: CGFloat = 230
@@ -272,6 +272,30 @@ private struct TimerSettingsView: View {
                     .toggleStyle(.switch)
                     .help(NSLocalizedString("SettingsView.showFullScreenMask.help",
                                             comment: "show full screen mask hint"))
+            }
+            SettingsRow(title: NSLocalizedString("SettingsView.pauseAfterWorkFinish.label",
+                                                 comment: "Pause after work finish label")) {
+                Toggle("", isOn: $timer.pauseAfterWorkFinish)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .help(NSLocalizedString("SettingsView.pauseAfterWorkFinish.help",
+                                            comment: "Pause after work finish hint"))
+            }
+            SettingsRow(title: NSLocalizedString("SettingsView.pauseAfterRestFinish.label",
+                                                 comment: "Pause after rest finish label")) {
+                Toggle("", isOn: $timer.pauseAfterRestFinish)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .help(NSLocalizedString("SettingsView.pauseAfterRestFinish.help",
+                                            comment: "Pause after rest finish hint"))
+            }
+            SettingsRow(title: NSLocalizedString("SettingsView.extendWorkAfterFinish.label",
+                                                 comment: "Extend work after finish label")) {
+                Toggle("", isOn: $timer.extendWorkAfterFinish)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .help(NSLocalizedString("SettingsView.extendWorkAfterFinish.help",
+                                            comment: "Extend work after finish hint"))
             }
         }
     }
