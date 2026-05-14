@@ -89,7 +89,6 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_: Notification) {
         let view = TBPopoverView(timer: timer,
-                                 appearanceController: appearanceController,
                                  openSettingsWindow: { [weak self] in
                                      self?.openSettingsWindow()
                                  },
@@ -143,7 +142,25 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     }
 
     func openSettingsWindow() {
+        closePopover(nil)
+
+        // Closing an NSPopover from inside one of its button actions can briefly
+        // consume the current activation event. Present Settings on the next run
+        // loop so the LSUIElement app can activate and order a real window front.
+        DispatchQueue.main.async { [weak self] in
+            self?.presentSettingsWindow()
+        }
+    }
+
+    private func presentSettingsWindow() {
         NSApp.activate(ignoringOtherApps: true)
+
+        if let window = settingsWindow {
+            configureSettingsWindow(window)
+            focus(settingsWindow: window)
+            return
+        }
+
         if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
             focusSettingsWindow()
             return
@@ -157,7 +174,20 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
 
     func registerSettingsWindow(_ window: NSWindow) {
         settingsWindow = window
+        configureSettingsWindow(window)
         appearanceController.registerManagedWindow(window)
+    }
+
+    private func configureSettingsWindow(_ window: NSWindow) {
+        let contentSize = NSSize(width: SettingsLayout.windowWidth,
+                                 height: SettingsLayout.windowHeight)
+        window.title = "Tomatt"
+        DispatchQueue.main.async { [weak window] in
+            window?.title = "Tomatt"
+        }
+        window.contentMinSize = contentSize
+        window.contentMaxSize = contentSize
+        window.setContentSize(contentSize)
     }
 
     private func focusSettingsWindow(attempt: Int = 0) {
@@ -166,19 +196,24 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
 
             NSApp.activate(ignoringOtherApps: true)
 
-            if let window = self.settingsWindow, window.isVisible {
-                window.deminiaturize(nil)
-                window.makeKeyAndOrderFront(nil)
-                window.orderFrontRegardless()
+            if let window = self.settingsWindow {
+                self.configureSettingsWindow(window)
+                self.focus(settingsWindow: window)
                 return
             }
 
-            guard attempt < 4 else { return }
+            guard attempt < 8 else { return }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(75)) { [weak self] in
                 self?.focusSettingsWindow(attempt: attempt + 1)
             }
         }
+    }
+
+    private func focus(settingsWindow window: NSWindow) {
+        window.deminiaturize(nil)
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
     }
 
     func openStatsWindow() {

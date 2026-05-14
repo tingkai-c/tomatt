@@ -88,7 +88,7 @@ private enum SettingsTab: Hashable {
     case general
 }
 
-private enum SettingsLayout {
+enum SettingsLayout {
     static let windowWidth: CGFloat = 560
     static let windowHeight: CGFloat = 420
     static let panePadding: CGFloat = 24
@@ -375,23 +375,29 @@ private struct GeneralSettingsView: View {
             }
             Divider()
                 .frame(maxWidth: SettingsLayout.contentWidth)
-            Button {
+            SettingsActionButton(title: NSLocalizedString("TBPopoverView.about.label",
+                                                           comment: "About label")) {
                 NSApp.activate(ignoringOtherApps: true)
                 NSApp.orderFrontStandardAboutPanel()
-            } label: {
-                Text(NSLocalizedString("TBPopoverView.about.label",
-                                       comment: "About label"))
-                Spacer()
             }
-            Button {
+            SettingsActionButton(title: NSLocalizedString("TBPopoverView.quit.label",
+                                                           comment: "Quit label")) {
                 NSApplication.shared.terminate(self)
-            } label: {
-                Text(NSLocalizedString("TBPopoverView.quit.label",
-                                       comment: "Quit label"))
-                Spacer()
             }
-            .frame(maxWidth: SettingsLayout.rowLabelWidth, alignment: .leading)
         }
+    }
+}
+
+private struct SettingsActionButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(width: SettingsLayout.contentWidth, alignment: .leading)
     }
 }
 
@@ -486,22 +492,20 @@ struct TBSettingsWindowView: View {
             WindowAccessor(onWindowChange: registerSettingsWindow)
         )
         .frame(width: SettingsLayout.windowWidth, height: SettingsLayout.windowHeight)
+        .navigationTitle("Tomatt")
     }
 }
 
 struct TBPopoverView: View {
     @ObservedObject var timer: TBTimer
-    @ObservedObject var appearanceController: TBAppearanceController
     let openSettingsWindow: () -> Void
     let openStatsWindow: () -> Void
     @State private var buttonHovered = false
 
     init(timer: TBTimer,
-         appearanceController: TBAppearanceController,
          openSettingsWindow: @escaping () -> Void,
          openStatsWindow: @escaping () -> Void) {
         self.timer = timer
-        self.appearanceController = appearanceController
         self.openSettingsWindow = openSettingsWindow
         self.openStatsWindow = openStatsWindow
     }
@@ -565,15 +569,6 @@ struct TBPopoverView: View {
 
             PresetPickerView(timer: timer)
 
-            Divider()
-
-            HStack {
-                Text(NSLocalizedString("SettingsView.appearance.label",
-                                       comment: "Appearance setting label"))
-                Spacer()
-                AppearancePickerView(appearanceController: appearanceController)
-                    .frame(width: 150)
-            }
         }
         #if DEBUG
             /*
