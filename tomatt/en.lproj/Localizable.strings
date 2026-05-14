@@ -46,3 +46,18 @@
 "SettingsWindow.sounds.tab" = "Sounds";
 "SettingsWindow.shortcuts.tab" = "Shortcuts";
 "SettingsWindow.general.tab" = "General";
+
+"TBPopoverView.stats.help" = "Open Stats";
+"StatsWindow.title" = "Stats";
+"StatsView.day.label" = "Day";
+"StatsView.week.label" = "Week";
+"StatsView.today.label" = "Today";
+"StatsView.weekOf.label" = "Week of %@";
+"StatsView.sessions.label" = "Sessions";
+"StatsView.breaks.label" = "Breaks";
+"StatsView.sessionTime.label" = "Session Time";
+"StatsView.breakTime.label" = "Break Time";
+"StatsView.totalSessionTime.label" = "Total Session Time: %@";
+"StatsView.minutes.format" = "%dm";
+"StatsView.hours.format" = "%dh";
+"StatsView.hoursMinutes.format" = "%dh %dm";

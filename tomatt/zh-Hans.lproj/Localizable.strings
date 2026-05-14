@@ -46,3 +46,18 @@
 "SettingsWindow.sounds.tab" = "声音";
 "SettingsWindow.shortcuts.tab" = "快捷键";
 "SettingsWindow.general.tab" = "通用";
+
+"TBPopoverView.stats.help" = "打开统计";
+"StatsWindow.title" = "统计";
+"StatsView.day.label" = "日";
+"StatsView.week.label" = "周";
+"StatsView.today.label" = "今天";
+"StatsView.weekOf.label" = "%@ 周";
+"StatsView.sessions.label" = "专注";
+"StatsView.breaks.label" = "休息";
+"StatsView.sessionTime.label" = "专注时长";
+"StatsView.breakTime.label" = "休息时长";
+"StatsView.totalSessionTime.label" = "总专注时长：%@";
+"StatsView.minutes.format" = "%d分钟";
+"StatsView.hours.format" = "%d小时";
+"StatsView.hoursMinutes.format" = "%d小时 %d分钟";

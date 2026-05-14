@@ -46,3 +46,18 @@
 "SettingsWindow.sounds.tab" = "사운드";
 "SettingsWindow.shortcuts.tab" = "단축키";
 "SettingsWindow.general.tab" = "일반";
+
+"TBPopoverView.stats.help" = "통계 열기";
+"StatsWindow.title" = "통계";
+"StatsView.day.label" = "일";
+"StatsView.week.label" = "주";
+"StatsView.today.label" = "오늘";
+"StatsView.weekOf.label" = "%@ 주";
+"StatsView.sessions.label" = "세션";
+"StatsView.breaks.label" = "휴식";
+"StatsView.sessionTime.label" = "세션 시간";
+"StatsView.breakTime.label" = "휴식 시간";
+"StatsView.totalSessionTime.label" = "총 세션 시간: %@";
+"StatsView.minutes.format" = "%d분";
+"StatsView.hours.format" = "%d시간";
+"StatsView.hoursMinutes.format" = "%d시간 %d분";

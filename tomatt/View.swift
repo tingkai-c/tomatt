@@ -112,6 +112,16 @@ private struct OpenSettingsButton: View {
     }
 }
 
+private struct OpenStatsButton: View {
+    var body: some View {
+        Button {
+            TBStatusItem.shared.openStatsWindow()
+        } label: {
+            Image(systemName: "chart.bar")
+        }
+    }
+}
+
 private struct PresetPickerView: View {
     @ObservedObject var timer: TBTimer
 
@@ -454,9 +464,13 @@ struct TBPopoverView: View {
                     .help(skipLabel)
                 }
 
+                OpenStatsButton()
+                    .controlSize(.large)
+                    .help(NSLocalizedString("TBPopoverView.stats.help", comment: "Stats button help"))
+
                 OpenSettingsButton()
-                .controlSize(.large)
-                .help(NSLocalizedString("TBPopoverView.settings.help", comment: "Settings button help"))
+                    .controlSize(.large)
+                    .help(NSLocalizedString("TBPopoverView.settings.help", comment: "Settings button help"))
             }
 
             PresetPickerView(timer: timer)

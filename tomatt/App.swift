@@ -32,6 +32,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     let timer = TBTimer()
     private var popover = NSPopover()
     private var statusBarItem: NSStatusItem?
+    private var statsWindowController: NSWindowController?
     static var shared: TBStatusItem!
 
     func applicationDidFinishLaunching(_: Notification) {
@@ -90,6 +91,29 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
             return
         }
         logger.append(event: TBLogEventSettingsOpenFailed())
+    }
+
+    func openStatsWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+
+        if let window = statsWindowController?.window {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let view = TBStatsWindowView(store: TBStatsStore.shared)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 580),
+                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                              backing: .buffered,
+                              defer: false)
+        window.title = NSLocalizedString("StatsWindow.title", comment: "Stats window title")
+        window.contentView = NSHostingView(rootView: view)
+        window.isReleasedWhenClosed = false
+        window.center()
+
+        let controller = NSWindowController(window: window)
+        statsWindowController = controller
+        controller.showWindow(nil)
     }
 
     func closePopover(_ sender: AnyObject?) {

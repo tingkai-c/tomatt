@@ -39,6 +39,9 @@ class TBTimer: ObservableObject {
     private var timerFormatter = DateComponentsFormatter()
     private var pausedTimeRemaining: TimeInterval = 0
     private var activeIconName = NSImage.Name.idle
+    private let statsStore = TBStatsStore.shared
+    private var activeStatsInterval: TBActiveStatsInterval?
+    private var pendingStatsCompletion: TBStatsCompletion?
     @Published var paused: Bool = false
     @Published var timeLeftString: String = ""
     @Published var timer: DispatchSourceTimer?
@@ -284,9 +287,10 @@ class TBTimer: ObservableObject {
             if timeLeft <= 0 {
                 /*
                  Ticks can be missed during the machine sleep.
-                 Stop the timer if it goes beyond an overrun time limit.
+                Stop the timer if it goes beyond an overrun time limit.
                  */
                 if timeLeft < overrunTimeLimit {
+                    pendingStatsCompletion = .abandoned
                     stateMachine <-! .startStop
                 } else {
                     stateMachine <-! .timerFired
@@ -320,6 +324,8 @@ class TBTimer: ObservableObject {
         paused = false
         player.playWindup()
         player.startTicking()
+        startStatsInterval(kind: .work,
+                           plannedDuration: TimeInterval(timerPreset.workIntervalLength * 60))
         startTimer(seconds: timerPreset.workIntervalLength * 60)
     }
 
@@ -329,7 +335,8 @@ class TBTimer: ObservableObject {
         }
     }
 
-    private func onWorkEnd(context _: TBStateMachine.Context) {
+    private func onWorkEnd(context ctx: TBStateMachine.Context) {
+        closeStatsInterval(context: ctx)
         player.stopTicking()
     }
 
@@ -337,6 +344,7 @@ class TBTimer: ObservableObject {
         paused = true
         pausedTimeRemaining = max(0, finishTime.timeIntervalSince(Date()))
         finishTime = Date.distantFuture
+        activeStatsInterval?.pause(at: Date())
         if ctx.fromState == .work {
             player.stopTicking()
         }
@@ -346,6 +354,7 @@ class TBTimer: ObservableObject {
 
     private func onTimerResume(context ctx: TBStateMachine.Context) {
         paused = false
+        activeStatsInterval?.resume(at: Date())
         finishTime = Date().addingTimeInterval(pausedTimeRemaining)
         if ctx.toState == .work {
             player.startTicking()
@@ -376,10 +385,13 @@ class TBTimer: ObservableObject {
             )
         }
         setActiveIcon(name: imgName)
+        startStatsInterval(kind: imgName == .longRest ? .longRest : .shortRest,
+                           plannedDuration: TimeInterval(length * 60))
         startTimer(seconds: length * 60)
     }
 
-    private func onRestEnd(context _: TBStateMachine.Context) {
+    private func onRestEnd(context ctx: TBStateMachine.Context) {
+        closeStatsInterval(context: ctx)
         MaskHelper.shared.hideMaskWindow()
         if isCurrentRestLongRest() {
             currentWorkInterval = 0
@@ -404,6 +416,7 @@ class TBTimer: ObservableObject {
         setActiveIcon(name: .idle)
         currentWorkInterval = 0
         pausedTimeRemaining = 0
+        pendingStatsCompletion = nil
         activePreset = nil
     }
 
@@ -420,6 +433,38 @@ class TBTimer: ObservableObject {
 
     private func isCurrentRestLongRest() -> Bool {
         currentWorkInterval >= timerPreset.workIntervalsInSet
+    }
+
+    private func startStatsInterval(kind: TBStatsIntervalKind, plannedDuration: TimeInterval) {
+        activeStatsInterval = TBActiveStatsInterval(id: UUID(),
+                                                    kind: kind,
+                                                    startedAt: Date(),
+                                                    plannedDuration: plannedDuration,
+                                                    preset: TimerPresetSnapshot(preset: timerPreset),
+                                                    workIntervalIndex: currentWorkInterval)
+    }
+
+    private func closeStatsInterval(context ctx: TBStateMachine.Context) {
+        guard var interval = activeStatsInterval else { return }
+        activeStatsInterval = nil
+
+        let completion = pendingStatsCompletion ?? statsCompletion(for: ctx)
+        pendingStatsCompletion = nil
+        let record = interval.record(completion: completion, at: Date())
+        statsStore.append(record)
+    }
+
+    private func statsCompletion(for ctx: TBStateMachine.Context) -> TBStatsCompletion {
+        switch ctx.event {
+        case .timerFired?:
+            return .completed
+        case .skipEvent?:
+            return .skipped
+        case .startStop?:
+            return .stopped
+        default:
+            return .stopped
+        }
     }
 
     private func migrateLegacyPreferences() {
