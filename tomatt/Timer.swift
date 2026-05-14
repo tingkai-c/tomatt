@@ -567,7 +567,7 @@ class TBTimer: ObservableObject {
 
     private func hideRestMask() {
         strictFullScreenMaskActive = false
-        MaskHelper.shared.hideMaskWindow()
+        MaskHelper.shared.hideMaskWindow(animated: false)
         updateControlMode()
     }
 

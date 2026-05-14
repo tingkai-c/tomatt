@@ -1,28 +1,35 @@
 import Cocoa
 
+final class MaskWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 final class MaskHelper {
     static let shared = MaskHelper()
 
     private var windowControllers = [NSWindowController]()
     private var skipHandler: (() -> Void)?
     private var previousPresentationOptions: NSApplication.PresentationOptions?
+    private var strictKeyboardMonitor: Any?
 
     private init() {}
 
     func showMaskWindow(desc: String, strict: Bool = false, skipHandler: (() -> Void)? = nil) {
-        hideMaskWindow()
+        hideMaskWindow(animated: false)
         self.skipHandler = strict ? nil : skipHandler
 
         NSApp.activate(ignoringOtherApps: true)
         if strict {
             applyStrictPresentationLock()
+            installStrictKeyboardCapture()
         }
 
         for screen in NSScreen.screens {
-            let window = NSWindow(contentRect: screen.frame,
-                                  styleMask: .borderless,
-                                  backing: .buffered,
-                                  defer: false)
+            let window = MaskWindow(contentRect: screen.frame,
+                                    styleMask: .borderless,
+                                    backing: .buffered,
+                                    defer: false)
             configureMaskWindow(window, for: screen)
 
             let maskFrame = NSRect(origin: .zero, size: screen.frame.size)
@@ -41,19 +48,21 @@ final class MaskHelper {
             maskView.show()
         }
 
+        focusFrontmostMaskWindow()
     }
 
-    func hideMaskWindow() {
+    func hideMaskWindow(animated: Bool = true) {
         skipHandler = nil
+        removeStrictKeyboardCapture()
         restorePresentationOptions()
         let controllers = windowControllers
         windowControllers.removeAll()
         for controller in controllers {
-            if let mask = controller.window?.contentView as? MaskView {
-                mask.hide { controller.close() }
-            } else {
+            guard animated, let mask = controller.window?.contentView as? MaskView else {
                 controller.close()
+                continue
             }
+            mask.hide { controller.close() }
         }
     }
 
@@ -69,6 +78,26 @@ final class MaskHelper {
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
         window.acceptsMouseMovedEvents = true
+    }
+
+    private func focusFrontmostMaskWindow() {
+        guard let keyWindow = windowControllers.first?.window else { return }
+        keyWindow.makeKeyAndOrderFront(nil)
+        keyWindow.makeFirstResponder(keyWindow.contentView)
+        windowControllers.dropFirst().forEach { $0.window?.orderFrontRegardless() }
+    }
+
+    private func installStrictKeyboardCapture() {
+        guard strictKeyboardMonitor == nil else { return }
+        strictKeyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { _ in
+            nil
+        }
+    }
+
+    private func removeStrictKeyboardCapture() {
+        guard let strictKeyboardMonitor else { return }
+        NSEvent.removeMonitor(strictKeyboardMonitor)
+        self.strictKeyboardMonitor = nil
     }
 
     private func applyStrictPresentationLock() {
@@ -142,6 +171,13 @@ final class MaskView: NSView {
         setupSubviews()
     }
 
+    override var acceptsFirstResponder: Bool { true }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.makeFirstResponder(self)
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -161,6 +197,12 @@ final class MaskView: NSView {
             tipLabel.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.9)
         ])
     }
+
+    override func keyDown(with event: NSEvent) {}
+
+    override func keyUp(with event: NSEvent) {}
+
+    override func flagsChanged(with event: NSEvent) {}
 
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
