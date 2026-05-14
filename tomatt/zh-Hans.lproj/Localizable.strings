@@ -8,6 +8,10 @@
 "SettingsView.shortcut.label" = "快捷键";
 "SettingsView.stopAfterBreak.label" = "在休息后停止";
 "SettingsView.showTimerInMenuBar.label" = "在菜单栏中显示计时器";
+"SettingsView.appearance.label" = "外观";
+"SettingsView.appearance.system.label" = "系统";
+"SettingsView.appearance.light.label" = "浅色";
+"SettingsView.appearance.dark.label" = "深色";
 "SettingsView.launchAtLogin.label" = "登录时启动";
 "SoundsView.isWindupEnabled.label" = "发条声";
 "SoundsView.isDingEnabled.label" = "叮";

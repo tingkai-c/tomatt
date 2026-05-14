@@ -11,6 +11,54 @@ extension NSImage.Name {
 
 private let digitFont = NSFont.monospacedDigitSystemFont(ofSize: 0, weight: .regular)
 
+enum TBAppearanceMode: String, CaseIterable, Codable {
+    case system, light, dark
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system:
+            return nil
+        case .light:
+            return NSAppearance(named: .aqua)
+        case .dark:
+            return NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
+final class TBAppearanceController: ObservableObject {
+    private let managedWindows = NSHashTable<NSWindow>.weakObjects()
+
+    @AppStorage("appearanceMode") private var storedMode = TBAppearanceMode.system.rawValue
+
+    var mode: TBAppearanceMode {
+        get { TBAppearanceMode(rawValue: storedMode) ?? .system }
+        set {
+            guard newValue != mode else { return }
+            objectWillChange.send()
+            storedMode = newValue.rawValue
+            applyToManagedWindows()
+        }
+    }
+
+    func registerManagedWindow(_ window: NSWindow?) {
+        guard let window = window else { return }
+        // Register app-owned windows here instead of using global app/window
+        // sweeps or status-bar button appearance. Break-mask overlay windows
+        // and standard AppKit panels are intentionally unmanaged.
+        managedWindows.add(window)
+        apply(to: window)
+    }
+
+    private func applyToManagedWindows() {
+        managedWindows.allObjects.forEach { apply(to: $0) }
+    }
+
+    private func apply(to window: NSWindow) {
+        window.appearance = mode.nsAppearance
+    }
+}
+
 @main
 struct TBApp: App {
     @NSApplicationDelegateAdaptor(TBStatusItem.self) var appDelegate
@@ -23,13 +71,16 @@ struct TBApp: App {
 
     var body: some Scene {
         Settings {
-            TBSettingsWindowView(timer: appDelegate.timer)
+            TBSettingsWindowView(timer: appDelegate.timer,
+                                 appearanceController: appDelegate.appearanceController,
+                                 registerSettingsWindow: appDelegate.registerSettingsWindow)
         }
     }
 }
 
 class TBStatusItem: NSObject, NSApplicationDelegate {
     let timer = TBTimer()
+    let appearanceController = TBAppearanceController()
     private var popover = NSPopover()
     private var statusBarItem: NSStatusItem?
     private var statsWindowController: NSWindowController?
@@ -37,7 +88,14 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     static var shared: TBStatusItem!
 
     func applicationDidFinishLaunching(_: Notification) {
-        let view = TBPopoverView(timer: timer)
+        let view = TBPopoverView(timer: timer,
+                                 appearanceController: appearanceController,
+                                 openSettingsWindow: { [weak self] in
+                                     self?.openSettingsWindow()
+                                 },
+                                 openStatsWindow: { [weak self] in
+                                     self?.openStatsWindow()
+                                 })
 
         popover.behavior = .transient
         popover.contentViewController = NSViewController()
@@ -78,11 +136,11 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     func showPopover(_: AnyObject?) {
         if let button = statusBarItem?.button {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: NSRectEdge.minY)
+            appearanceController.registerManagedWindow(popover.contentViewController?.view.window)
             popover.contentViewController?.view.window?.makeKey()
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
     }
-
 
     func openSettingsWindow() {
         NSApp.activate(ignoringOtherApps: true)
@@ -99,6 +157,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
 
     func registerSettingsWindow(_ window: NSWindow) {
         settingsWindow = window
+        appearanceController.registerManagedWindow(window)
     }
 
     private func focusSettingsWindow(attempt: Int = 0) {
@@ -126,6 +185,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         if let window = statsWindowController?.window {
+            appearanceController.registerManagedWindow(window)
             window.makeKeyAndOrderFront(nil)
             return
         }
@@ -137,6 +197,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
                               defer: false)
         window.title = NSLocalizedString("StatsWindow.title", comment: "Stats window title")
         window.contentView = NSHostingView(rootView: view)
+        appearanceController.registerManagedWindow(window)
         window.isReleasedWhenClosed = false
         window.center()
 

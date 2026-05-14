@@ -67,6 +67,8 @@ final class MaskView: NSView {
         let blurEffect = NSVisualEffectView(frame: bounds)
         blurEffect.autoresizingMask = [.width, .height]
         blurEffect.alphaValue = 0.9
+        // The break mask is a dimming overlay and intentionally remains dark
+        // regardless of the app appearance preference.
         blurEffect.appearance = NSAppearance(named: .vibrantDark)
         blurEffect.blendingMode = .behindWindow
         blurEffect.state = .inactive

@@ -12,6 +12,22 @@ protocol DropdownDescribable: RawRepresentable {
     var localizedDescription: String { get }
 }
 
+extension TBAppearanceMode: DropdownDescribable {
+    var localizedDescription: String {
+        switch self {
+        case .system:
+            return NSLocalizedString("SettingsView.appearance.system.label",
+                                     comment: "System appearance label")
+        case .light:
+            return NSLocalizedString("SettingsView.appearance.light.label",
+                                     comment: "Light appearance label")
+        case .dark:
+            return NSLocalizedString("SettingsView.appearance.dark.label",
+                                     comment: "Dark appearance label")
+        }
+    }
+}
+
 extension StopAfterOption: DropdownDescribable {
     var localizedDescription: String {
         switch self {
@@ -118,21 +134,36 @@ private struct SettingsRow<Content: View>: View {
     }
 }
 
-private struct OpenSettingsButton: View {
+private struct AppearancePickerView: View {
+    @ObservedObject var appearanceController: TBAppearanceController
+
     var body: some View {
-        Button {
-            TBStatusItem.shared.openSettingsWindow()
-        } label: {
+        SegmentedDropdown(value: appearanceBinding)
+    }
+
+    private var appearanceBinding: Binding<TBAppearanceMode> {
+        Binding(
+            get: { appearanceController.mode },
+            set: { appearanceController.mode = $0 }
+        )
+    }
+}
+
+private struct OpenSettingsButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
             Image(systemName: "gearshape")
         }
     }
 }
 
 private struct OpenStatsButton: View {
+    let action: () -> Void
+
     var body: some View {
-        Button {
-            TBStatusItem.shared.openStatsWindow()
-        } label: {
+        Button(action: action) {
             Image(systemName: "chart.bar")
         }
     }
@@ -327,10 +358,15 @@ private struct ShortcutSettingsView: View {
 }
 
 private struct GeneralSettingsView: View {
+    @ObservedObject var appearanceController: TBAppearanceController
     @ObservedObject private var launchAtLogin = LaunchAtLogin.observable
 
     var body: some View {
         SettingsPane {
+            SettingsRow(title: NSLocalizedString("SettingsView.appearance.label",
+                                                 comment: "Appearance setting label")) {
+                AppearancePickerView(appearanceController: appearanceController)
+            }
             SettingsRow(title: NSLocalizedString("SettingsView.launchAtLogin.label",
                                                  comment: "Launch at login label")) {
                 Toggle("", isOn: $launchAtLogin.isEnabled)
@@ -403,6 +439,8 @@ private struct SoundsView: View {
 
 struct TBSettingsWindowView: View {
     @ObservedObject var timer: TBTimer
+    @ObservedObject var appearanceController: TBAppearanceController
+    let registerSettingsWindow: (NSWindow) -> Void
     @State private var selectedTab: SettingsTab = .timer
 
     var body: some View {
@@ -436,7 +474,7 @@ struct TBSettingsWindowView: View {
                           systemImage: "keyboard")
                 }
                 .tag(SettingsTab.shortcuts)
-            GeneralSettingsView()
+            GeneralSettingsView(appearanceController: appearanceController)
                 .tabItem {
                     Label(NSLocalizedString("SettingsWindow.general.tab",
                                              comment: "General settings tab"),
@@ -445,9 +483,7 @@ struct TBSettingsWindowView: View {
                 .tag(SettingsTab.general)
         }
         .background(
-            WindowAccessor { window in
-                TBStatusItem.shared.registerSettingsWindow(window)
-            }
+            WindowAccessor(onWindowChange: registerSettingsWindow)
         )
         .frame(width: SettingsLayout.windowWidth, height: SettingsLayout.windowHeight)
     }
@@ -455,10 +491,19 @@ struct TBSettingsWindowView: View {
 
 struct TBPopoverView: View {
     @ObservedObject var timer: TBTimer
+    @ObservedObject var appearanceController: TBAppearanceController
+    let openSettingsWindow: () -> Void
+    let openStatsWindow: () -> Void
     @State private var buttonHovered = false
 
-    init(timer: TBTimer) {
+    init(timer: TBTimer,
+         appearanceController: TBAppearanceController,
+         openSettingsWindow: @escaping () -> Void,
+         openStatsWindow: @escaping () -> Void) {
         self.timer = timer
+        self.appearanceController = appearanceController
+        self.openSettingsWindow = openSettingsWindow
+        self.openStatsWindow = openStatsWindow
     }
 
     private var startLabel = NSLocalizedString("TBPopoverView.start.label", comment: "Start label")
@@ -509,16 +554,26 @@ struct TBPopoverView: View {
                     .help(skipLabel)
                 }
 
-                OpenStatsButton()
+                OpenStatsButton(action: openStatsWindow)
                     .controlSize(.large)
                     .help(NSLocalizedString("TBPopoverView.stats.help", comment: "Stats button help"))
 
-                OpenSettingsButton()
+                OpenSettingsButton(action: openSettingsWindow)
                     .controlSize(.large)
                     .help(NSLocalizedString("TBPopoverView.settings.help", comment: "Settings button help"))
             }
 
             PresetPickerView(timer: timer)
+
+            Divider()
+
+            HStack {
+                Text(NSLocalizedString("SettingsView.appearance.label",
+                                       comment: "Appearance setting label"))
+                Spacer()
+                AppearancePickerView(appearanceController: appearanceController)
+                    .frame(width: 150)
+            }
         }
         #if DEBUG
             /*
