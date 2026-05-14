@@ -492,7 +492,6 @@ struct TBSettingsWindowView: View {
             WindowAccessor(onWindowChange: registerSettingsWindow)
         )
         .frame(width: SettingsLayout.windowWidth, height: SettingsLayout.windowHeight)
-        .navigationTitle("Tomatt")
     }
 }
 
