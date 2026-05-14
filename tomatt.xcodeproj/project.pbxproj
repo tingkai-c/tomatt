@@ -17,6 +17,7 @@
 		8A9F701F27EE536D0012A1EC /* Player.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9F701E27EE536D0012A1EC /* Player.swift */; };
 		8AA5434A2930F008002A47FC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 8AA54347293094AB002A47FC /* Localizable.strings */; };
 		8AA5B3EB281295DB00BE1A6C /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 8AA5B3EA281295DB00BE1A6C /* KeyboardShortcuts */; };
+		5E71A0012F00000100AA0001 /* Settings in Frameworks */ = {isa = PBXBuildFile; productRef = 5E71A0032F00000100AA0003 /* Settings */; };
 		8AA5B3F22812A74600BE1A6C /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA5B3F12812A74600BE1A6C /* Notifications.swift */; };
 		8AEE49AF2AA75A5E00243D2F /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AEE49AE2AA75A5E00243D2F /* Log.swift */; };
 		A1B2C3D45E6F001122334456 /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D45E6F001122334455 /* StatsStore.swift */; };
@@ -51,6 +52,7 @@
 				8A7403A027FA19BB00E7F90B /* LaunchAtLogin in Frameworks */,
 				8AA5B3EB281295DB00BE1A6C /* KeyboardShortcuts in Frameworks */,
 				8A8CFE402821D8C300F9F303 /* SwiftState in Frameworks */,
+				5E71A0012F00000100AA0001 /* Settings in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -122,6 +124,7 @@
 				8A74039F27FA19BB00E7F90B /* LaunchAtLogin */,
 				8AA5B3EA281295DB00BE1A6C /* KeyboardShortcuts */,
 				8A8CFE3F2821D8C300F9F303 /* SwiftState */,
+				5E71A0032F00000100AA0003 /* Settings */,
 			);
 			productName = tomatt;
 			productReference = 8A21B78827EE31A20009E5DB /* tomatt.app */;
@@ -157,6 +160,7 @@
 				8A74039E27FA19BB00E7F90B /* XCRemoteSwiftPackageReference "LaunchAtLogin" */,
 				8AA5B3E9281295DB00BE1A6C /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				8A8CFE3E2821D8C300F9F303 /* XCRemoteSwiftPackageReference "SwiftState" */,
+				5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */,
 			);
 			productRefGroup = 8A21B78927EE31A20009E5DB /* Products */;
 			projectDirPath = "";
@@ -474,6 +478,14 @@
 				version = 2.4.0;
 			};
 		};
+		5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/Settings";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -491,6 +503,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 8AA5B3E9281295DB00BE1A6C /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		5E71A0032F00000100AA0003 /* Settings */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */;
+			productName = Settings;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

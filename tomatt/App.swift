@@ -1,5 +1,6 @@
 import SwiftUI
 import LaunchAtLogin
+import Settings
 
 extension NSImage.Name {
     static let idle = Self("BarIconIdle")
@@ -70,10 +71,8 @@ struct TBApp: App {
     }
 
     var body: some Scene {
-        Settings {
-            TBSettingsWindowView(timer: appDelegate.timer,
-                                 appearanceController: appDelegate.appearanceController,
-                                 registerSettingsWindow: appDelegate.registerSettingsWindow)
+        SwiftUI.Settings {
+            EmptyView()
         }
         .commands {
             CommandGroup(replacing: .appSettings) {
@@ -87,13 +86,21 @@ struct TBApp: App {
     }
 }
 
+private extension Settings.PaneIdentifier {
+    static let timer = Self("timer")
+    static let presets = Self("presets")
+    static let sounds = Self("sounds")
+    static let shortcuts = Self("shortcuts")
+    static let general = Self("general")
+}
+
 class TBStatusItem: NSObject, NSApplicationDelegate {
     let timer = TBTimer()
     let appearanceController = TBAppearanceController()
     private var popover = NSPopover()
     private var statusBarItem: NSStatusItem?
     private var statsWindowController: NSWindowController?
-    private weak var settingsWindow: NSWindow?
+    private var settingsWindowController: SettingsWindowController?
     static var shared: TBStatusItem!
 
     func applicationDidFinishLaunching(_: Notification) {
@@ -162,36 +169,65 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     }
 
     private func presentSettingsWindow() {
-        NSApp.activate(ignoringOtherApps: true)
+        if settingsWindowController == nil {
+            settingsWindowController = makeSettingsWindowController()
+        }
 
-        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: self) ||
-            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: self) {
-            focusSettingsWindow()
+        settingsWindowController?.show()
+        if let window = settingsWindowController?.window {
+            appearanceController.registerManagedWindow(window)
+            window.orderFrontRegardless()
         } else {
             logger.append(event: TBLogEventSettingsOpenFailed())
         }
     }
 
-    func registerSettingsWindow(_ window: NSWindow) {
-        settingsWindow = window
-        appearanceController.registerManagedWindow(window)
+    private func makeSettingsWindowController() -> SettingsWindowController {
+        SettingsWindowController(
+            panes: [
+                Settings.Pane(
+                    identifier: .timer,
+                    title: NSLocalizedString("SettingsWindow.timer.tab", comment: "Timer settings tab"),
+                    toolbarIcon: toolbarIcon(systemName: "timer")
+                ) {
+                    TimerSettingsView(timer: timer)
+                },
+                Settings.Pane(
+                    identifier: .presets,
+                    title: NSLocalizedString("SettingsWindow.presets.tab", comment: "Presets settings tab"),
+                    toolbarIcon: toolbarIcon(systemName: "slider.horizontal.3")
+                ) {
+                    IntervalsView()
+                        .environmentObject(timer)
+                },
+                Settings.Pane(
+                    identifier: .sounds,
+                    title: NSLocalizedString("SettingsWindow.sounds.tab", comment: "Sounds settings tab"),
+                    toolbarIcon: toolbarIcon(systemName: "speaker.wave.2")
+                ) {
+                    SoundsView(player: timer.player)
+                },
+                Settings.Pane(
+                    identifier: .shortcuts,
+                    title: NSLocalizedString("SettingsWindow.shortcuts.tab", comment: "Shortcuts settings tab"),
+                    toolbarIcon: toolbarIcon(systemName: "keyboard")
+                ) {
+                    ShortcutSettingsView()
+                },
+                Settings.Pane(
+                    identifier: .general,
+                    title: NSLocalizedString("SettingsWindow.general.tab", comment: "General settings tab"),
+                    toolbarIcon: toolbarIcon(systemName: "gearshape")
+                ) {
+                    GeneralSettingsView(appearanceController: appearanceController)
+                }
+            ],
+            style: .toolbarItems
+        )
     }
 
-    private func focusSettingsWindow(attempt: Int = 0) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(75)) { [weak self] in
-            guard let self = self else { return }
-            NSApp.activate(ignoringOtherApps: true)
-
-            if let window = self.settingsWindow {
-                window.deminiaturize(nil)
-                window.makeKeyAndOrderFront(nil)
-                window.orderFrontRegardless()
-                return
-            }
-
-            guard attempt < 8 else { return }
-            self.focusSettingsWindow(attempt: attempt + 1)
-        }
+    private func toolbarIcon(systemName: String) -> NSImage {
+        NSImage(systemSymbolName: systemName, accessibilityDescription: systemName) ?? NSImage()
     }
 
     func openStatsWindow() {

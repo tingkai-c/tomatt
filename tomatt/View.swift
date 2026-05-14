@@ -58,36 +58,6 @@ private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribabl
     }
 }
 
-private struct WindowAccessor: NSViewRepresentable {
-    let onWindowChange: (NSWindow) -> Void
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        resolveWindow(for: view)
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        resolveWindow(for: nsView)
-    }
-
-    private func resolveWindow(for view: NSView) {
-        DispatchQueue.main.async {
-            if let window = view.window {
-                onWindowChange(window)
-            }
-        }
-    }
-}
-
-private enum SettingsTab: Hashable {
-    case timer
-    case presets
-    case sounds
-    case shortcuts
-    case general
-}
-
 enum SettingsLayout {
     static let windowWidth: CGFloat = 560
     static let windowHeight: CGFloat = 420
@@ -196,7 +166,7 @@ private struct PresetPickerView: View {
     }
 }
 
-private struct IntervalsView: View {
+struct IntervalsView: View {
     @EnvironmentObject var timer: TBTimer
     private var minStr = NSLocalizedString("IntervalsView.min",
                                             comment: "Minute unit suffix. The number is shown separately.")
@@ -277,7 +247,7 @@ private struct IntervalsView: View {
     }
 }
 
-private struct TimerSettingsView: View {
+struct TimerSettingsView: View {
     @ObservedObject var timer: TBTimer
 
     var body: some View {
@@ -331,7 +301,7 @@ private struct TimerSettingsView: View {
     }
 }
 
-private struct ShortcutSettingsView: View {
+struct ShortcutSettingsView: View {
     var body: some View {
         SettingsPane {
             SettingsRow(title: NSLocalizedString("SettingsView.shortcut.label",
@@ -356,7 +326,7 @@ private struct ShortcutSettingsView: View {
     }
 }
 
-private struct GeneralSettingsView: View {
+struct GeneralSettingsView: View {
     @ObservedObject var appearanceController: TBAppearanceController
     @ObservedObject private var launchAtLogin = LaunchAtLogin.observable
 
@@ -388,7 +358,7 @@ private struct VolumeSlider: View {
     }
 }
 
-private struct SoundsView: View {
+struct SoundsView: View {
     @ObservedObject var player: TBPlayer
 
     init(player: TBPlayer) {
@@ -415,59 +385,6 @@ private struct SoundsView: View {
             }
             .frame(maxWidth: SettingsLayout.contentWidth)
         }
-    }
-}
-
-struct TBSettingsWindowView: View {
-    @ObservedObject var timer: TBTimer
-    @ObservedObject var appearanceController: TBAppearanceController
-    let registerSettingsWindow: (NSWindow) -> Void
-    @State private var selectedTab: SettingsTab = .timer
-
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            TimerSettingsView(timer: timer)
-                .tabItem {
-                    Label(NSLocalizedString("SettingsWindow.timer.tab",
-                                             comment: "Timer settings tab"),
-                          systemImage: "timer")
-                }
-                .tag(SettingsTab.timer)
-            IntervalsView()
-                .environmentObject(timer)
-                .tabItem {
-                    Label(NSLocalizedString("SettingsWindow.presets.tab",
-                                             comment: "Presets settings tab"),
-                          systemImage: "slider.horizontal.3")
-                }
-                .tag(SettingsTab.presets)
-            SoundsView(player: timer.player)
-                .tabItem {
-                    Label(NSLocalizedString("SettingsWindow.sounds.tab",
-                                             comment: "Sounds settings tab"),
-                          systemImage: "speaker.wave.2")
-                }
-                .tag(SettingsTab.sounds)
-            ShortcutSettingsView()
-                .tabItem {
-                    Label(NSLocalizedString("SettingsWindow.shortcuts.tab",
-                                             comment: "Shortcuts settings tab"),
-                          systemImage: "keyboard")
-                }
-                .tag(SettingsTab.shortcuts)
-            GeneralSettingsView(appearanceController: appearanceController)
-                .tabItem {
-                    Label(NSLocalizedString("SettingsWindow.general.tab",
-                                             comment: "General settings tab"),
-                          systemImage: "gearshape")
-                }
-                .tag(SettingsTab.general)
-        }
-        .background(
-            WindowAccessor(onWindowChange: registerSettingsWindow)
-        )
-        .frame(width: SettingsLayout.windowWidth)
-        .fixedSize()
     }
 }
 
