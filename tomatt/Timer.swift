@@ -763,14 +763,14 @@ class TBTimer: ObservableObject {
 
     private func restoredStatsInterval(from session: PersistedTimerSession) -> TBActiveStatsInterval {
         let pausedDuration = restoredPausedDuration(for: session)
-        TBActiveStatsInterval(id: UUID(),
-                              kind: session.kind,
-                              startedAt: session.startedAt,
-                              plannedDuration: session.plannedDuration,
-                              preset: TimerPresetSnapshot(preset: session.preset),
-                              workIntervalIndex: session.currentWorkInterval,
-                              pausedDuration: pausedDuration,
-                              pauseStartedAt: nil)
+        return TBActiveStatsInterval(id: UUID(),
+                                     kind: session.kind,
+                                     startedAt: session.startedAt,
+                                     plannedDuration: session.plannedDuration,
+                                     preset: TimerPresetSnapshot(preset: session.preset),
+                                     workIntervalIndex: session.currentWorkInterval,
+                                     pausedDuration: pausedDuration,
+                                     pauseStartedAt: nil)
     }
 
     private func restoredPausedDuration(for session: PersistedTimerSession) -> TimeInterval {
