@@ -7,6 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B7DCF6E7688410D9EA5EC17 /* StatsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 388E3E479C6DCB4707993C61 /* StatsStoreTests.swift */; };
+		1F27E2E80EB0AA9B5F3B320A /* TimerCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7E2E1A36F23D870F4446B1 /* TimerCoreTests.swift */; };
+		2BD256D799B7889555B3E09F /* SwiftState in Frameworks */ = {isa = PBXBuildFile; productRef = 8A8CFE3F2821D8C300F9F303 /* SwiftState */; };
+		4C15FDB7CB99A3787BD262F1 /* tomattUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87073BDD98C2DE6CB206177B /* tomattUITests.swift */; };
+		56A8C70D6B03D1C004020CF9 /* State.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9F700827EE396E0012A1EC /* State.swift */; };
+		57E5B41458275BC362B10EA5 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA8B426215F805A3DC702485 /* Cocoa.framework */; };
+		58A073A7F324A70E63FA70C6 /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D45E6F001122334455 /* StatsStore.swift */; };
+		5E71A0012F00000100AA0001 /* Settings in Frameworks */ = {isa = PBXBuildFile; productRef = 5E71A0032F00000100AA0003 /* Settings */; };
+		877612D6CD6327DB95EC98E3 /* TimerCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223680CF684E6505B786436F /* TimerCore.swift */; };
 		8A21B78C27EE31A20009E5DB /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A21B78B27EE31A20009E5DB /* App.swift */; };
 		8A21B78E27EE31A20009E5DB /* View.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A21B78D27EE31A20009E5DB /* View.swift */; };
 		8A21B79027EE31A30009E5DB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8A21B78F27EE31A30009E5DB /* Assets.xcassets */; };
@@ -17,15 +26,32 @@
 		8A9F701F27EE536D0012A1EC /* Player.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9F701E27EE536D0012A1EC /* Player.swift */; };
 		8AA5434A2930F008002A47FC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 8AA54347293094AB002A47FC /* Localizable.strings */; };
 		8AA5B3EB281295DB00BE1A6C /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 8AA5B3EA281295DB00BE1A6C /* KeyboardShortcuts */; };
-		5E71A0012F00000100AA0001 /* Settings in Frameworks */ = {isa = PBXBuildFile; productRef = 5E71A0032F00000100AA0003 /* Settings */; };
 		8AA5B3F22812A74600BE1A6C /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA5B3F12812A74600BE1A6C /* Notifications.swift */; };
 		8AEE49AF2AA75A5E00243D2F /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AEE49AE2AA75A5E00243D2F /* Log.swift */; };
+		9EB9405C2B07605900198AD2 /* MaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EB9405B2B07605900198AD2 /* MaskView.swift */; };
 		A1B2C3D45E6F001122334456 /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D45E6F001122334455 /* StatsStore.swift */; };
 		A1B2C3D45E6F001122334458 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D45E6F001122334457 /* StatsView.swift */; };
-		9EB9405C2B07605900198AD2 /* MaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EB9405B2B07605900198AD2 /* MaskView.swift */; };
+		AB2035D433978B43DE6C7022 /* TimerCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223680CF684E6505B786436F /* TimerCore.swift */; };
+		D045C8A63CA6AE9FD86A14AF /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA8B426215F805A3DC702485 /* Cocoa.framework */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		A002D447E2B842C2A2EE1340 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8A21B78027EE31A20009E5DB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8A21B78727EE31A20009E5DB;
+			remoteInfo = tomatt;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		223680CF684E6505B786436F /* TimerCore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimerCore.swift; sourceTree = "<group>"; };
+		388E3E479C6DCB4707993C61 /* StatsStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatsStoreTests.swift; sourceTree = "<group>"; };
+		4CC11A472B6A28500012E8EC /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
+		4F7E2E1A36F23D870F4446B1 /* TimerCoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimerCoreTests.swift; sourceTree = "<group>"; };
+		8572FA031991DEC4085BEF53 /* tomattUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tomattUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		87073BDD98C2DE6CB206177B /* tomattUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = tomattUITests.swift; sourceTree = "<group>"; };
 		8A21B78827EE31A20009E5DB /* tomatt.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = tomatt.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8A21B78B27EE31A20009E5DB /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		8A21B78D27EE31A20009E5DB /* View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = View.swift; sourceTree = "<group>"; };
@@ -37,14 +63,24 @@
 		8AA54346293094AB002A47FC /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		8AA5B3F12812A74600BE1A6C /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
 		8AEE49AE2AA75A5E00243D2F /* Log.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
+		9E155026319C29FA989179EC /* tomattTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tomattTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9EB9405B2B07605900198AD2 /* MaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaskView.swift; sourceTree = "<group>"; };
 		A1B2C3D45E6F001122334455 /* StatsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsStore.swift; sourceTree = "<group>"; };
 		A1B2C3D45E6F001122334457 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
-		9EB9405B2B07605900198AD2 /* MaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaskView.swift; sourceTree = "<group>"; };
+		AA8B426215F805A3DC702485 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		C4C8DE0E2930DBB4003B1110 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		4CC11A472B6A28500012E8EC /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		41562071F22901C52EA3475C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57E5B41458275BC362B10EA5 /* Cocoa.framework in Frameworks */,
+				2BD256D799B7889555B3E09F /* SwiftState in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8A21B78527EE31A20009E5DB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -56,15 +92,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		919FCC29447BA9798F00D9B5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D045C8A63CA6AE9FD86A14AF /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		7E634B0C058937B67224E336 /* tomattUITests */ = {
+			isa = PBXGroup;
+			children = (
+				87073BDD98C2DE6CB206177B /* tomattUITests.swift */,
+			);
+			name = tomattUITests;
+			path = tomattUITests;
+			sourceTree = "<group>";
+		};
 		8A21B77F27EE31A20009E5DB = {
 			isa = PBXGroup;
 			children = (
 				8A21B78A27EE31A20009E5DB /* tomatt */,
 				8A21B78927EE31A20009E5DB /* Products */,
 				8A9F700D27EE3AED0012A1EC /* Frameworks */,
+				FF80B78CB02E1493D588E507 /* tomattTests */,
+				7E634B0C058937B67224E336 /* tomattUITests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -72,6 +127,8 @@
 			isa = PBXGroup;
 			children = (
 				8A21B78827EE31A20009E5DB /* tomatt.app */,
+				9E155026319C29FA989179EC /* tomattTests.xctest */,
+				8572FA031991DEC4085BEF53 /* tomattUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -92,6 +149,7 @@
 				8A21B78F27EE31A30009E5DB /* Assets.xcassets */,
 				8A21B79427EE31A30009E5DB /* tomatt.entitlements */,
 				8AA54347293094AB002A47FC /* Localizable.strings */,
+				223680CF684E6505B786436F /* TimerCore.swift */,
 			);
 			path = tomatt;
 			sourceTree = "<group>";
@@ -99,13 +157,70 @@
 		8A9F700D27EE3AED0012A1EC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B8CCFD7B53E7412EE6B60165 /* OS X */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B8CCFD7B53E7412EE6B60165 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				AA8B426215F805A3DC702485 /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		FF80B78CB02E1493D588E507 /* tomattTests */ = {
+			isa = PBXGroup;
+			children = (
+				388E3E479C6DCB4707993C61 /* StatsStoreTests.swift */,
+				4F7E2E1A36F23D870F4446B1 /* TimerCoreTests.swift */,
+			);
+			name = tomattTests;
+			path = tomattTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		03CC429A5201B8B2DF440087 /* tomattTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E17E93C0BBAA6A7BC30E9414 /* Build configuration list for PBXNativeTarget "tomattTests" */;
+			buildPhases = (
+				48E95268F4668E4D16F2EBB4 /* Sources */,
+				41562071F22901C52EA3475C /* Frameworks */,
+				448B0CAF72CDE71A1EF8CD63 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = tomattTests;
+			packageProductDependencies = (
+				8A8CFE3F2821D8C300F9F303 /* SwiftState */,
+			);
+			productName = tomattTests;
+			productReference = 9E155026319C29FA989179EC /* tomattTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		87E639B3F6D3965CC3AB5778 /* tomattUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B6396D05A439515A7E87B359 /* Build configuration list for PBXNativeTarget "tomattUITests" */;
+			buildPhases = (
+				80E48A2FDED7B838FAF5B4BA /* Sources */,
+				919FCC29447BA9798F00D9B5 /* Frameworks */,
+				A0BCFA671DC3C36D58A59317 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DA0F4A5DA994276F8221085E /* PBXTargetDependency */,
+			);
+			name = tomattUITests;
+			productName = tomattUITests;
+			productReference = 8572FA031991DEC4085BEF53 /* tomattUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		8A21B78727EE31A20009E5DB /* tomatt */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8A21B79727EE31A30009E5DB /* Build configuration list for PBXNativeTarget "tomatt" */;
@@ -167,17 +282,33 @@
 			projectRoot = "";
 			targets = (
 				8A21B78727EE31A20009E5DB /* tomatt */,
+				03CC429A5201B8B2DF440087 /* tomattTests */,
+				87E639B3F6D3965CC3AB5778 /* tomattUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		448B0CAF72CDE71A1EF8CD63 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8A21B78627EE31A20009E5DB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				8A21B79027EE31A30009E5DB /* Assets.xcassets in Resources */,
 				8AA5434A2930F008002A47FC /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A0BCFA671DC3C36D58A59317 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -206,6 +337,26 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		48E95268F4668E4D16F2EBB4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB2035D433978B43DE6C7022 /* TimerCore.swift in Sources */,
+				56A8C70D6B03D1C004020CF9 /* State.swift in Sources */,
+				58A073A7F324A70E63FA70C6 /* StatsStore.swift in Sources */,
+				0B7DCF6E7688410D9EA5EC17 /* StatsStoreTests.swift in Sources */,
+				1F27E2E80EB0AA9B5F3B320A /* TimerCoreTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		80E48A2FDED7B838FAF5B4BA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C15FDB7CB99A3787BD262F1 /* tomattUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8A21B78427EE31A20009E5DB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -220,10 +371,20 @@
 				8A21B78C27EE31A20009E5DB /* App.swift in Sources */,
 				8AA5B3F22812A74600BE1A6C /* Notifications.swift in Sources */,
 				8A9F700927EE396E0012A1EC /* State.swift in Sources */,
+				877612D6CD6327DB95EC98E3 /* TimerCore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DA0F4A5DA994276F8221085E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = tomatt;
+			target = 8A21B78727EE31A20009E5DB /* tomatt */;
+			targetProxy = A002D447E2B842C2A2EE1340 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		8AA54347293094AB002A47FC /* Localizable.strings */ = {
@@ -239,6 +400,21 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		0DB85AB0623C538AA09E9151 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.ivoronin.tomatt.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
 		8A21B79527EE31A30009E5DB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -430,6 +606,53 @@
 			};
 			name = Release;
 		};
+		9259C9771F23B2A640DEC4E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.ivoronin.tomatt.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = tomatt;
+			};
+			name = Release;
+		};
+		C050A8C6E1A7F6AC24BCD3B9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.ivoronin.tomatt.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CA212EE557EADB42C846BB83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.github.ivoronin.tomatt.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = tomatt;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -451,9 +674,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		B6396D05A439515A7E87B359 /* Build configuration list for PBXNativeTarget "tomattUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9259C9771F23B2A640DEC4E4 /* Release */,
+				CA212EE557EADB42C846BB83 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E17E93C0BBAA6A7BC30E9414 /* Build configuration list for PBXNativeTarget "tomattTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C050A8C6E1A7F6AC24BCD3B9 /* Release */,
+				0DB85AB0623C538AA09E9151 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/Settings";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.1;
+			};
+		};
 		8A74039E27FA19BB00E7F90B /* XCRemoteSwiftPackageReference "LaunchAtLogin" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sindresorhus/LaunchAtLogin";
@@ -478,17 +727,14 @@
 				version = 2.4.0;
 			};
 		};
-		5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sindresorhus/Settings";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 3.1.1;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		5E71A0032F00000100AA0003 /* Settings */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */;
+			productName = Settings;
+		};
 		8A74039F27FA19BB00E7F90B /* LaunchAtLogin */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 8A74039E27FA19BB00E7F90B /* XCRemoteSwiftPackageReference "LaunchAtLogin" */;
@@ -503,11 +749,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 8AA5B3E9281295DB00BE1A6C /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
-		};
-		5E71A0032F00000100AA0003 /* Settings */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */;
-			productName = Settings;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
