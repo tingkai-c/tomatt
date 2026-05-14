@@ -146,7 +146,7 @@ private struct MetricRow: View {
             Divider().frame(height: 96)
             MetricCell(value: "\(summary.breaks)",
                        title: NSLocalizedString("StatsView.breaks.label", comment: "Breaks label"),
-                       color: .indigo)
+                       color: TBStatsColors.breakColor)
             Divider().frame(height: 96)
             MetricCell(value: formatDuration(summary.sessionTime),
                        title: NSLocalizedString("StatsView.sessionTime.label", comment: "Session time label"),
@@ -169,7 +169,6 @@ private struct MetricCell: View {
             Text(value)
                 .font(.system(size: 54, weight: .regular, design: .rounded))
                 .foregroundColor(color)
-                .monospacedDigit()
             Text(title)
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(.secondary)
@@ -204,7 +203,6 @@ private struct TBStatsDayTimeline: View {
             }
             .font(.system(size: 18, weight: .semibold))
             .foregroundColor(.secondary)
-            .monospacedDigit()
         }
     }
 
@@ -237,7 +235,7 @@ private struct TBStatsDayTimeline: View {
     }
 
     private func color(for kind: TBStatsIntervalKind) -> Color {
-        kind == .work ? .pink : .indigo
+        kind == .work ? .pink : TBStatsColors.breakColor
     }
 }
 
@@ -283,13 +281,16 @@ private struct TBStatsWeekColumns: View {
             }
             if summary.breaks > 0 {
                 Text("\(summary.breaks)")
-                    .foregroundColor(.indigo)
+                    .foregroundColor(TBStatsColors.breakColor)
             }
         }
         .font(.system(size: 40, weight: .regular, design: .rounded))
-        .monospacedDigit()
         .frame(height: 100, alignment: .bottom)
     }
+}
+
+private enum TBStatsColors {
+    static let breakColor = Color(red: 0.48, green: 0.44, blue: 1.0)
 }
 
 private enum TBStatsFormatters {
