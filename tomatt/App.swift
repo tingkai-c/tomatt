@@ -33,6 +33,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     private var popover = NSPopover()
     private var statusBarItem: NSStatusItem?
     private var statsWindowController: NSWindowController?
+    private weak var settingsWindow: NSWindow?
     static var shared: TBStatusItem!
 
     func applicationDidFinishLaunching(_: Notification) {
@@ -85,12 +86,39 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     func openSettingsWindow() {
         NSApp.activate(ignoringOtherApps: true)
         if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            focusSettingsWindow()
             return
         }
         if NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) {
+            focusSettingsWindow()
             return
         }
         logger.append(event: TBLogEventSettingsOpenFailed())
+    }
+
+    func registerSettingsWindow(_ window: NSWindow) {
+        settingsWindow = window
+    }
+
+    private func focusSettingsWindow(attempt: Int = 0) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            NSApp.activate(ignoringOtherApps: true)
+
+            if let window = self.settingsWindow, window.isVisible {
+                window.deminiaturize(nil)
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+                return
+            }
+
+            guard attempt < 4 else { return }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(75)) { [weak self] in
+                self?.focusSettingsWindow(attempt: attempt + 1)
+            }
+        }
     }
 
     func openStatsWindow() {

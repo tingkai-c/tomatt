@@ -42,6 +42,28 @@ private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribabl
     }
 }
 
+private struct WindowAccessor: NSViewRepresentable {
+    let onWindowChange: (NSWindow) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        resolveWindow(for: view)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        resolveWindow(for: nsView)
+    }
+
+    private func resolveWindow(for view: NSView) {
+        DispatchQueue.main.async {
+            if let window = view.window {
+                onWindowChange(window)
+            }
+        }
+    }
+}
+
 private enum SettingsTab: Hashable {
     case timer
     case presets
@@ -98,16 +120,10 @@ private struct SettingsRow<Content: View>: View {
 
 private struct OpenSettingsButton: View {
     var body: some View {
-        if #available(macOS 14.0, *) {
-            SettingsLink {
-                Image(systemName: "gearshape")
-            }
-        } else {
-            Button {
-                TBStatusItem.shared.openSettingsWindow()
-            } label: {
-                Image(systemName: "gearshape")
-            }
+        Button {
+            TBStatusItem.shared.openSettingsWindow()
+        } label: {
+            Image(systemName: "gearshape")
         }
     }
 }
@@ -404,6 +420,11 @@ struct TBSettingsWindowView: View {
                 }
                 .tag(SettingsTab.general)
         }
+        .background(
+            WindowAccessor { window in
+                TBStatusItem.shared.registerSettingsWindow(window)
+            }
+        )
         .frame(width: SettingsLayout.windowWidth, height: SettingsLayout.windowHeight)
     }
 }
