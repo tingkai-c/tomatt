@@ -32,7 +32,8 @@ After any agent completes a task, feature, or bug fix:
 9. Quit any running `tomatt` process.
 10. Back up an existing `/Applications/tomatt.app` using a timestamped backup path.
 11. Install the downloaded CI artifact to `/Applications/tomatt.app`.
-12. Report the CI URL, artifact path/name, install path, and backup path when present.
+12. Launch the `tomatt` app from the installed path.
+13. Report the CI URL, artifact path/name, install path, and backup path when present.
 
 Reference command shape:
 
