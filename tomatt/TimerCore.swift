@@ -4,6 +4,11 @@ import Foundation
 // constructing AppKit, notification, audio, status-item, or DispatchSourceTimer side effects.
 enum StopAfterOption: String, CaseIterable, Codable {
     case disabled, work, rest, set
+
+    // Keep `.work` decodable for older preferences, but do not expose it as a
+    // selectable mode because work completion now only auto-starts break or
+    // auto-extends until the user manually starts break.
+    static var allCases: [StopAfterOption] { [.disabled, .rest, .set] }
 }
 
 struct TimerPreset: Codable, Equatable {
@@ -28,20 +33,18 @@ struct PersistedTimerSession: Codable, Equatable {
     var workExtensionActive: Bool
     var workLimitNotificationSent: Bool
     var restPresentationPending: Bool
+    var workStartPending: Bool? = nil
 }
 
 struct TimerCoreSettings: Equatable {
     var stopAfter: StopAfterOption
-    var pauseAfterWorkFinish: Bool
     var pauseAfterRestFinish: Bool
     var extendWorkAfterFinish: Bool
 
     init(stopAfter: StopAfterOption = .disabled,
-         pauseAfterWorkFinish: Bool = false,
          pauseAfterRestFinish: Bool = false,
          extendWorkAfterFinish: Bool = false) {
         self.stopAfter = stopAfter
-        self.pauseAfterWorkFinish = pauseAfterWorkFinish
         self.pauseAfterRestFinish = pauseAfterRestFinish
         self.extendWorkAfterFinish = extendWorkAfterFinish
     }
@@ -60,12 +63,23 @@ struct TimerRestoreDecision: Equatable {
     let action: TimerRestoreAction
 }
 
+enum TimerControlMode: Equatable {
+    case inactive
+    case workRunning
+    case workPaused
+    case workExtended
+    case restRunning
+    case restPaused
+    case workStartPending
+}
+
 enum TimerCore {
     static func transition(from state: TBStateMachineStates,
                            event: TBStateMachineEvents,
                            settings: TimerCoreSettings,
                            currentWorkInterval: Int,
-                           preset: TimerPreset) -> TBStateMachineStates? {
+                           preset: TimerPreset,
+                           workExtensionActive: Bool = false) -> TBStateMachineStates? {
         switch event {
         case .startStop:
             switch state {
@@ -87,6 +101,13 @@ enum TimerCore {
             case .idle:
                 return nil
             }
+        case .startBreak:
+            switch state {
+            case .work, .workPaused:
+                return workExtensionActive ? .rest : nil
+            case .idle, .rest, .restPaused:
+                return nil
+            }
         case .restoreWork:
             return state == .idle ? .work : nil
         case .restoreRest:
@@ -98,13 +119,10 @@ enum TimerCore {
         case .timerFired:
             switch state {
             case .work:
-                if settings.stopAfter == .work {
-                    return .idle
-                }
                 if settings.extendWorkAfterFinish {
                     return nil
                 }
-                return settings.pauseAfterWorkFinish ? .restPaused : .rest
+                return .rest
             case .rest:
                 if shouldStopAfterRest(stopAfter: settings.stopAfter,
                                        currentWorkInterval: currentWorkInterval,
@@ -118,7 +136,7 @@ enum TimerCore {
         case .skipEvent:
             switch state {
             case .work, .workPaused:
-                return settings.stopAfter == .work ? .idle : .rest
+                return .rest
             case .rest, .restPaused:
                 return shouldStopAfterRest(stopAfter: settings.stopAfter,
                                            currentWorkInterval: currentWorkInterval,
@@ -142,7 +160,47 @@ enum TimerCore {
 
     static func shouldExtendWorkSessionAtLimit(extendWorkAfterFinish: Bool,
                                                stopAfter: StopAfterOption) -> Bool {
-        extendWorkAfterFinish && stopAfter != .work
+        extendWorkAfterFinish
+    }
+
+    static func controlMode(timerActive: Bool,
+                            state: TBStateMachineStates,
+                            paused: Bool,
+                            workExtensionActive: Bool,
+                            workStartPending: Bool) -> TimerControlMode {
+        guard timerActive else { return .inactive }
+        switch state {
+        case .idle:
+            return .inactive
+        case .work where workExtensionActive:
+            return .workExtended
+        case .work:
+            return .workRunning
+        case .workPaused where workStartPending:
+            return .workStartPending
+        case .workPaused:
+            return paused ? .workPaused : .workRunning
+        case .rest:
+            return .restRunning
+        case .restPaused:
+            return .restPaused
+        }
+    }
+
+    static func clockString(from duration: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(duration.rounded(.down)))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        }
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    static func overtimeClockString(from duration: TimeInterval) -> String {
+        "+\(clockString(from: duration))"
     }
 
     static func restoreDecision(for session: PersistedTimerSession,

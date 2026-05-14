@@ -18,6 +18,8 @@
 "SoundsView.isTickingEnabled.label" = "滴答声";
 "TBPopoverView.start.label" = "开始";
 "TBPopoverView.stop.label" = "停止";
+"TBPopoverView.startBreak.label" = "开始休息";
+"TBPopoverView.startWork.label" = "开始工作";
 "TBPopoverView.intervals.label" = "时长";
 "TBPopoverView.settings.label" = "设置";
 "TBPopoverView.sounds.label" = "声音";
@@ -39,12 +41,10 @@
 "SettingsView.dropdownSet.label" = "一组";
 "SettingsView.showFullScreenMask.label" = "使用全屏遮罩";
 "SettingsView.showFullScreenMask.help" = "休息期间使用全屏遮罩代替通知";
-"SettingsView.pauseAfterWorkFinish.label" = "工作后暂停";
-"SettingsView.pauseAfterWorkFinish.help" = "工作结束时准备休息，并等你手动继续";
 "SettingsView.pauseAfterRestFinish.label" = "休息后暂停";
 "SettingsView.pauseAfterRestFinish.help" = "休息结束时准备下一次工作，并等你手动继续";
 "SettingsView.extendWorkAfterFinish.label" = "延长工作直到休息";
-"SettingsView.extendWorkAfterFinish.help" = "工作结束后，将工作计时器停在零，直到你手动开始休息";
+"SettingsView.extendWorkAfterFinish.help" = "工作结束后，计时器会向上累计超时时间，直到你手动开始休息";
 "TBTimer.onWorkFinish.title" = "工作时段完成";
 "TBTimer.onWorkFinish.body" = "继续专注，或在准备好时开始休息。";
 "TBPopoverView.pause.help" = "暂停";

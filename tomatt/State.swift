@@ -3,7 +3,7 @@ import SwiftState
 typealias TBStateMachine = StateMachine<TBStateMachineStates, TBStateMachineEvents>
 
 enum TBStateMachineEvents: EventType {
-    case startStop, timerFired, skipEvent, pauseResume
+    case startStop, timerFired, skipEvent, pauseResume, startBreak
     case restoreWork, restoreRest, restoreWorkPaused, restoreRestPaused
 }
 

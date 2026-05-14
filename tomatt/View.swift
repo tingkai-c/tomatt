@@ -273,14 +273,6 @@ struct TimerSettingsView: View {
                     .help(NSLocalizedString("SettingsView.showFullScreenMask.help",
                                             comment: "show full screen mask hint"))
             }
-            SettingsRow(title: NSLocalizedString("SettingsView.pauseAfterWorkFinish.label",
-                                                 comment: "Pause after work finish label")) {
-                Toggle("", isOn: $timer.pauseAfterWorkFinish)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .help(NSLocalizedString("SettingsView.pauseAfterWorkFinish.help",
-                                            comment: "Pause after work finish hint"))
-            }
             SettingsRow(title: NSLocalizedString("SettingsView.pauseAfterRestFinish.label",
                                                  comment: "Pause after rest finish label")) {
                 Toggle("", isOn: $timer.pauseAfterRestFinish)
@@ -392,7 +384,6 @@ struct TBPopoverView: View {
     @ObservedObject var timer: TBTimer
     let openSettingsWindow: () -> Void
     let openStatsWindow: () -> Void
-    @State private var buttonHovered = false
 
     init(timer: TBTimer,
          openSettingsWindow: @escaping () -> Void,
@@ -407,48 +398,13 @@ struct TBPopoverView: View {
     private var pauseLabel = NSLocalizedString("TBPopoverView.pause.help", comment: "Pause hint")
     private var resumeLabel = NSLocalizedString("TBPopoverView.resume.help", comment: "Resume hint")
     private var skipLabel = NSLocalizedString("TBPopoverView.skip.help", comment: "Skip hint")
+    private var startBreakLabel = NSLocalizedString("TBPopoverView.startBreak.label", comment: "Start break label")
+    private var startWorkLabel = NSLocalizedString("TBPopoverView.startWork.label", comment: "Start work label")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 4) {
-                Button {
-                    timer.startStop()
-                } label: {
-                    Text(timer.timer != nil ?
-                         (buttonHovered ? stopLabel : timerDisplayString()) :
-                            startLabel)
-                        /*
-                          When appearance is set to "Dark" and accent color is set to "Graphite"
-                          "defaultAction" button label's color is set to the same color as the
-                          button, making the button look blank. #24
-                         */
-                        .foregroundColor(Color.white)
-                        .font(.system(.body).monospacedDigit())
-                        .frame(maxWidth: .infinity)
-                }
-                .onHover { over in
-                    buttonHovered = over
-                }
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-
-                if timer.timer != nil {
-                    Button {
-                        timer.pauseResume()
-                    } label: {
-                        Image(systemName: timer.paused ? "play.circle.fill" : "pause.circle.fill")
-                    }
-                    .controlSize(.large)
-                    .help(timer.paused ? resumeLabel : pauseLabel)
-
-                    Button {
-                        timer.skip()
-                    } label: {
-                        Image(systemName: "forward.circle.fill")
-                    }
-                    .controlSize(.large)
-                    .help(skipLabel)
-                }
+                timerControlButtons
 
                 OpenStatsButton(action: openStatsWindow)
                     .controlSize(.large)
@@ -457,6 +413,12 @@ struct TBPopoverView: View {
                 OpenSettingsButton(action: openSettingsWindow)
                     .controlSize(.large)
                     .help(NSLocalizedString("TBPopoverView.settings.help", comment: "Settings button help"))
+            }
+
+            if timer.controlMode != .inactive {
+                Text(timerDisplayString())
+                    .font(.system(.body).monospacedDigit())
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
 
             PresetPickerView(timer: timer)
@@ -506,6 +468,86 @@ struct TBPopoverView: View {
             result += " (\(timer.currentWorkInterval)/\(timer.sessionPresetInstance.workIntervalsInSet))"
         }
         return result
+    }
+
+    @ViewBuilder
+    private var timerControlButtons: some View {
+        switch timer.controlMode {
+        case .inactive:
+            startButton
+        case .workExtended:
+            stopButton
+            startBreakButton
+        case .workStartPending:
+            stopButton
+            startWorkButton
+        case .workRunning, .workPaused, .restRunning, .restPaused:
+            stopButton
+            skipButton
+            pauseResumeButton
+        }
+    }
+
+    private var startButton: some View {
+        Button {
+            timer.startStop()
+        } label: {
+            Text(startLabel)
+                .foregroundColor(Color.white)
+                .frame(maxWidth: .infinity)
+        }
+        .controlSize(.large)
+        .keyboardShortcut(.defaultAction)
+    }
+
+    private var stopButton: some View {
+        Button {
+            timer.startStop()
+        } label: {
+            Text(stopLabel)
+                .foregroundColor(Color.white)
+        }
+        .controlSize(.large)
+    }
+
+    private var startBreakButton: some View {
+        Button {
+            timer.startBreak()
+        } label: {
+            Text(startBreakLabel)
+        }
+        .controlSize(.large)
+        .keyboardShortcut(.defaultAction)
+    }
+
+    private var startWorkButton: some View {
+        Button {
+            timer.startWork()
+        } label: {
+            Text(startWorkLabel)
+        }
+        .controlSize(.large)
+        .keyboardShortcut(.defaultAction)
+    }
+
+    private var skipButton: some View {
+        Button {
+            timer.skip()
+        } label: {
+            Image(systemName: "forward.circle.fill")
+        }
+        .controlSize(.large)
+        .help(skipLabel)
+    }
+
+    private var pauseResumeButton: some View {
+        Button {
+            timer.pauseResume()
+        } label: {
+            Image(systemName: timer.paused ? "play.circle.fill" : "pause.circle.fill")
+        }
+        .controlSize(.large)
+        .help(timer.paused ? resumeLabel : pauseLabel)
     }
 }
 

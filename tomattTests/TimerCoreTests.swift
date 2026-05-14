@@ -6,13 +6,12 @@ final class TimerCoreTests: XCTestCase {
                                      longRestIntervalLength: 15,
                                      workIntervalsInSet: 4)
 
-    func testAutoPauseTransitionsAfterWorkAndRest() {
-        let workPause = TimerCoreSettings(pauseAfterWorkFinish: true)
+    func testPauseAfterWorkIsIgnoredButPauseAfterRestStillPauses() {
         XCTAssertEqual(TimerCore.transition(from: .work,
                                             event: .timerFired,
-                                            settings: workPause,
+                                            settings: TimerCoreSettings(),
                                             currentWorkInterval: 1,
-                                            preset: preset), .restPaused)
+                                            preset: preset), .rest)
 
         let restPause = TimerCoreSettings(pauseAfterRestFinish: true)
         XCTAssertEqual(TimerCore.transition(from: .rest,
@@ -41,7 +40,7 @@ final class TimerCoreTests: XCTestCase {
                                             event: .skipEvent,
                                             settings: TimerCoreSettings(stopAfter: .work),
                                             currentWorkInterval: 1,
-                                            preset: preset), .idle)
+                                            preset: preset), .rest)
         XCTAssertEqual(TimerCore.transition(from: .workPaused,
                                             event: .skipEvent,
                                             settings: TimerCoreSettings(),
@@ -80,6 +79,22 @@ final class TimerCoreTests: XCTestCase {
                                             settings: TimerCoreSettings(),
                                             currentWorkInterval: 1,
                                             preset: preset), .idle)
+        XCTAssertEqual(TimerCore.transition(from: .work,
+                                            event: .timerFired,
+                                            settings: TimerCoreSettings(stopAfter: .work),
+                                            currentWorkInterval: 1,
+                                            preset: preset), .rest)
+        XCTAssertNil(TimerCore.transition(from: .work,
+                                           event: .startBreak,
+                                           settings: TimerCoreSettings(stopAfter: .work),
+                                           currentWorkInterval: 1,
+                                           preset: preset))
+        XCTAssertEqual(TimerCore.transition(from: .work,
+                                            event: .startBreak,
+                                            settings: TimerCoreSettings(stopAfter: .work),
+                                            currentWorkInterval: 1,
+                                            preset: preset,
+                                            workExtensionActive: true), .rest)
     }
 
     func testRestoreDecisionForRunningPausedExpiredAndInvalidSessions() {
@@ -115,7 +130,8 @@ final class TimerCoreTests: XCTestCase {
                                   plannedDuration: 300)
         XCTAssertEqual(TimerCore.restoreDecision(for: expiredWork,
                                                  now: now,
-                                                 settings: TimerCoreSettings(extendWorkAfterFinish: true)),
+                                                 settings: TimerCoreSettings(stopAfter: .work,
+                                                                             extendWorkAfterFinish: true)),
                        TimerRestoreDecision(state: .work, action: .extendExpiredWork))
         XCTAssertEqual(TimerCore.restoreDecision(for: expiredWork,
                                                  now: now,
@@ -145,6 +161,50 @@ final class TimerCoreTests: XCTestCase {
                                    workIntervalsInSet: 10))
         XCTAssertFalse(TimerCore.isCurrentRestLongRest(currentWorkInterval: 3, preset: preset))
         XCTAssertTrue(TimerCore.isCurrentRestLongRest(currentWorkInterval: 4, preset: preset))
+    }
+
+    func testControlModesDescribePopoverButtonStates() {
+        XCTAssertEqual(TimerCore.controlMode(timerActive: false,
+                                             state: .idle,
+                                             paused: false,
+                                             workExtensionActive: false,
+                                             workStartPending: false), .inactive)
+        XCTAssertEqual(TimerCore.controlMode(timerActive: true,
+                                             state: .work,
+                                             paused: false,
+                                             workExtensionActive: false,
+                                             workStartPending: false), .workRunning)
+        XCTAssertEqual(TimerCore.controlMode(timerActive: true,
+                                             state: .workPaused,
+                                             paused: true,
+                                             workExtensionActive: false,
+                                             workStartPending: false), .workPaused)
+        XCTAssertEqual(TimerCore.controlMode(timerActive: true,
+                                             state: .work,
+                                             paused: false,
+                                             workExtensionActive: true,
+                                             workStartPending: false), .workExtended)
+        XCTAssertEqual(TimerCore.controlMode(timerActive: true,
+                                             state: .rest,
+                                             paused: false,
+                                             workExtensionActive: false,
+                                             workStartPending: false), .restRunning)
+        XCTAssertEqual(TimerCore.controlMode(timerActive: true,
+                                             state: .restPaused,
+                                             paused: true,
+                                             workExtensionActive: false,
+                                             workStartPending: false), .restPaused)
+        XCTAssertEqual(TimerCore.controlMode(timerActive: true,
+                                             state: .workPaused,
+                                             paused: true,
+                                             workExtensionActive: false,
+                                             workStartPending: true), .workStartPending)
+    }
+
+    func testClockFormattingSupportsOvertimeCountUp() {
+        XCTAssertEqual(TimerCore.clockString(from: 72), "01:12")
+        XCTAssertEqual(TimerCore.overtimeClockString(from: 72), "+01:12")
+        XCTAssertEqual(TimerCore.overtimeClockString(from: 3_661), "+1:01:01")
     }
 
     private func session(state: TBStateMachineStates,
