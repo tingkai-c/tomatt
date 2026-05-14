@@ -233,15 +233,13 @@ enum TimerCore {
 
 extension TimerPreset {
     func clamped() -> TimerPreset {
-        TimerPreset(workIntervalLength: workIntervalLength.clamped(to: 1 ... 120),
-                    shortRestIntervalLength: shortRestIntervalLength.clamped(to: 1 ... 120),
-                    longRestIntervalLength: longRestIntervalLength.clamped(to: 1 ... 120),
-                    workIntervalsInSet: workIntervalsInSet.clamped(to: 1 ... 10))
+        TimerPreset(workIntervalLength: Self.clamp(workIntervalLength, to: 1 ... 120),
+                    shortRestIntervalLength: Self.clamp(shortRestIntervalLength, to: 1 ... 120),
+                    longRestIntervalLength: Self.clamp(longRestIntervalLength, to: 1 ... 120),
+                    workIntervalsInSet: Self.clamp(workIntervalsInSet, to: 1 ... 10))
     }
-}
 
-extension Comparable {
-    func clamped(to limits: ClosedRange<Self>) -> Self {
-        min(max(self, limits.lowerBound), limits.upperBound)
+    private static func clamp<T: Comparable>(_ value: T, to limits: ClosedRange<T>) -> T {
+        min(max(value, limits.lowerBound), limits.upperBound)
     }
 }
