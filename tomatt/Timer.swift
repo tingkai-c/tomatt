@@ -40,7 +40,7 @@ class TBTimer: ObservableObject {
     @Published var timer: DispatchSourceTimer?
     @Published private(set) var controlMode: TimerControlMode = .inactive
     @Published private(set) var strictFullScreenMaskActive = false
-    @Published private(set) var strictFullScreenMaskPermissionRequired = false
+    @Published private(set) var strictFullScreenMaskShortcutBlockingUnavailable = false
 
     var selectedPresetIndex: Int {
         get { clampedPresetIndex(currentPreset) }
@@ -254,14 +254,8 @@ class TBTimer: ObservableObject {
     }
 
     func setStrictFullScreenMask(_ enabled: Bool) {
-        guard enabled else {
-            strictFullScreenMask = false
-            strictFullScreenMaskPermissionRequired = false
-            return
-        }
-
-        strictFullScreenMaskPermissionRequired = !MaskHelper.shared.requestStrictKeyboardCaptureAccessIfNeeded()
-        strictFullScreenMask = !strictFullScreenMaskPermissionRequired
+        strictFullScreenMask = enabled
+        strictFullScreenMaskShortcutBlockingUnavailable = enabled && !MaskHelper.shared.requestStrictKeyboardCaptureAccessIfNeeded()
     }
 
     func startBreak() {
@@ -576,10 +570,7 @@ class TBTimer: ObservableObject {
         strictFullScreenMaskActive = MaskHelper.shared.showMaskWindow(desc: desc, strict: strictRequested) { [weak self] in
             self?.skip()
         }
-        if strictRequested && !strictFullScreenMaskActive {
-            strictFullScreenMask = false
-            strictFullScreenMaskPermissionRequired = true
-        }
+        strictFullScreenMaskShortcutBlockingUnavailable = strictRequested && !MaskHelper.shared.strictKeyboardCaptureActive
         updateControlMode()
     }
 

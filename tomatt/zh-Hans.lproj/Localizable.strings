@@ -77,4 +77,4 @@
 "StatsView.minutes.format" = "%d分钟";
 "StatsView.hours.format" = "%d小时";
 "StatsView.hoursMinutes.format" = "%d小时 %d分钟";
-"SettingsView.strictFullScreenMask.permissionRequired" = "严格模式需要输入监控和辅助功能权限。请在系统设置中授予访问权限，然后再次开启严格全屏遮罩。";
+"SettingsView.strictFullScreenMask.shortcutBlockingUnavailable" = "严格模式已开启，但系统快捷键拦截需要输入监控和辅助功能权限。请在系统设置中授予访问权限以获得更强拦截。";

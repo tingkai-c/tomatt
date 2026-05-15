@@ -77,4 +77,4 @@
 "StatsView.minutes.format" = "%dm";
 "StatsView.hours.format" = "%dh";
 "StatsView.hoursMinutes.format" = "%dh %dm";
-"SettingsView.strictFullScreenMask.permissionRequired" = "Strict mode needs Input Monitoring and Accessibility permission. Grant access in System Settings, then turn Strict full-screen mask on again.";
+"SettingsView.strictFullScreenMask.shortcutBlockingUnavailable" = "Strict mode is on, but system shortcut blocking needs Input Monitoring and Accessibility permission. Grant access in System Settings for stronger blocking.";

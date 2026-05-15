@@ -304,9 +304,9 @@ struct TimerSettingsView: View {
                     .help(NSLocalizedString("SettingsView.strictFullScreenMask.help",
                                             comment: "strict full screen mask hint"))
             }
-            if timer.strictFullScreenMaskPermissionRequired {
-                Text(NSLocalizedString("SettingsView.strictFullScreenMask.permissionRequired",
-                                       comment: "strict full screen mask permission required"))
+            if timer.strictFullScreenMaskShortcutBlockingUnavailable {
+                Text(NSLocalizedString("SettingsView.strictFullScreenMask.shortcutBlockingUnavailable",
+                                       comment: "strict full screen mask shortcut blocking unavailable"))
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

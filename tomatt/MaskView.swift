@@ -17,6 +17,8 @@ final class MaskHelper {
 
     private init() {}
 
+    private(set) var strictKeyboardCaptureActive = false
+
     var hasStrictKeyboardCaptureAccess: Bool {
         let hasListenAccess: Bool
         if #available(macOS 10.15, *) {
@@ -41,16 +43,15 @@ final class MaskHelper {
     @discardableResult
     func showMaskWindow(desc: String, strict: Bool = false, skipHandler: (() -> Void)? = nil) -> Bool {
         hideMaskWindow(animated: false)
-        let effectiveStrict: Bool
-        if strict {
-            effectiveStrict = installStrictKeyboardCapture()
-            if effectiveStrict {
-                applyStrictPresentationLock()
-            } else {
-                NSLog("tomatt strict keyboard capture failed")
+        let effectiveStrict = strict
+        if effectiveStrict {
+            strictKeyboardCaptureActive = installStrictKeyboardCapture()
+            if !strictKeyboardCaptureActive {
+                NSLog("tomatt strict keyboard shortcut blocking unavailable")
             }
+            applyStrictPresentationLock()
         } else {
-            effectiveStrict = false
+            strictKeyboardCaptureActive = false
         }
         self.skipHandler = effectiveStrict ? nil : skipHandler
 
@@ -86,6 +87,7 @@ final class MaskHelper {
     func hideMaskWindow(animated: Bool = true) {
         skipHandler = nil
         removeStrictKeyboardCapture()
+        strictKeyboardCaptureActive = false
         restorePresentationOptions()
         let controllers = windowControllers
         windowControllers.removeAll()
