@@ -41,7 +41,10 @@ final class MaskHelper {
     }
 
     @discardableResult
-    func showMaskWindow(desc: String, strict: Bool = false, skipHandler: (() -> Void)? = nil) -> Bool {
+    func showMaskWindow(desc: String,
+                        strict: Bool = false,
+                        presentationLock: Bool = false,
+                        skipHandler: (() -> Void)? = nil) -> Bool {
         hideMaskWindow(animated: false)
         let effectiveStrict = strict
         if effectiveStrict {
@@ -49,7 +52,9 @@ final class MaskHelper {
             if !strictKeyboardCaptureActive {
                 NSLog("tomatt strict keyboard shortcut blocking unavailable")
             }
-            applyStrictPresentationLock()
+            if presentationLock {
+                applyStrictPresentationLock()
+            }
         } else {
             strictKeyboardCaptureActive = false
         }

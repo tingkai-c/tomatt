@@ -78,3 +78,5 @@
 "StatsView.hours.format" = "%d시간";
 "StatsView.hoursMinutes.format" = "%d시간 %d분";
 "SettingsView.strictFullScreenMask.shortcutBlockingUnavailable" = "엄격 모드는 켜져 있지만 시스템 단축키 차단에는 입력 모니터링 및 손쉬운 사용 권한이 필요합니다. 더 강하게 차단하려면 시스템 설정에서 접근을 허용하세요.";
+"SettingsView.strictFullScreenMaskPresentationLock.label" = "프레젠테이션 잠금 사용";
+"SettingsView.strictFullScreenMaskPresentationLock.help" = "엄격한 휴식 중 Dock과 메뉴 막대를 숨기고 앱 전환, 강제 종료, 세션 종료를 방지합니다. 마스크 모양은 그대로 유지됩니다.";

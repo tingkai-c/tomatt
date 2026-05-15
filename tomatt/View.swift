@@ -60,7 +60,7 @@ private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribabl
 
 enum SettingsLayout {
     static let windowWidth: CGFloat = 560
-    static let windowHeight: CGFloat = 460
+    static let windowHeight: CGFloat = 490
     static let panePadding: CGFloat = 24
     static let rowLabelWidth: CGFloat = 220
     static let rowControlWidth: CGFloat = 230
@@ -310,6 +310,15 @@ struct TimerSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            SettingsRow(title: NSLocalizedString("SettingsView.strictFullScreenMaskPresentationLock.label",
+                                                 comment: "strict full screen mask presentation lock label")) {
+                Toggle("", isOn: $timer.strictFullScreenMaskPresentationLock)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .disabled(!timer.showFullScreenMask || !timer.strictFullScreenMask)
+                    .help(NSLocalizedString("SettingsView.strictFullScreenMaskPresentationLock.help",
+                                            comment: "strict full screen mask presentation lock hint"))
             }
             SettingsRow(title: NSLocalizedString("SettingsView.pauseAfterRestFinish.label",
                                                  comment: "Pause after rest finish label")) {

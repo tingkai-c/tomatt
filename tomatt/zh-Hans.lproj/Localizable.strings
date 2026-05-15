@@ -78,3 +78,5 @@
 "StatsView.hours.format" = "%d小时";
 "StatsView.hoursMinutes.format" = "%d小时 %d分钟";
 "SettingsView.strictFullScreenMask.shortcutBlockingUnavailable" = "严格模式已开启，但系统快捷键拦截需要输入监控和辅助功能权限。请在系统设置中授予访问权限以获得更强拦截。";
+"SettingsView.strictFullScreenMaskPresentationLock.label" = "使用演示锁定";
+"SettingsView.strictFullScreenMaskPresentationLock.help" = "严格休息期间隐藏程序坞和菜单栏，并防止应用切换、强制退出和会话终止。遮罩外观保持不变。";

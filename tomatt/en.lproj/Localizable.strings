@@ -78,3 +78,5 @@
 "StatsView.hours.format" = "%dh";
 "StatsView.hoursMinutes.format" = "%dh %dm";
 "SettingsView.strictFullScreenMask.shortcutBlockingUnavailable" = "Strict mode is on, but system shortcut blocking needs Input Monitoring and Accessibility permission. Grant access in System Settings for stronger blocking.";
+"SettingsView.strictFullScreenMaskPresentationLock.label" = "Use presentation lock";
+"SettingsView.strictFullScreenMaskPresentationLock.help" = "Hide the Dock and menu bar and prevent app switching, Force Quit, and session termination during strict breaks. The mask appearance stays unchanged.";
