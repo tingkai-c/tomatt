@@ -37,6 +37,7 @@ class TBTimer: ObservableObject {
     @Published var paused: Bool = false
     @Published var timeLeftString: String = ""
     @Published var timer: DispatchSourceTimer?
+    @Published private(set) var remainingTimeProgress: Double = 1
     @Published private(set) var controlMode: TimerControlMode = .inactive
     @Published private(set) var strictFullScreenMaskActive = false
     @Published private(set) var strictFullScreenMaskShortcutBlockingUnavailable = false
@@ -277,19 +278,24 @@ class TBTimer: ObservableObject {
     func updateTimeLeft() {
         guard timer != nil else {
             timeLeftString = ""
+            remainingTimeProgress = 1
             TBStatusItem.shared.setTitle(title: nil)
             updateControlMode()
             return
         }
 
+        let timeLeft: TimeInterval
         if workFinishedPendingBreak, stateMachine.state == .work {
+            timeLeft = 0
             timeLeftString = TimerCore.clockString(from: 0)
         } else if workExtensionActive, stateMachine.state == .work {
+            timeLeft = 0
             timeLeftString = TimerCore.overtimeClockString(from: Date().timeIntervalSince(finishTime))
         } else {
-            let timeLeft = max(0, paused ? pausedTimeRemaining : finishTime.timeIntervalSince(Date()))
+            timeLeft = max(0, paused ? pausedTimeRemaining : finishTime.timeIntervalSince(Date()))
             timeLeftString = TimerCore.clockString(from: timeLeft)
         }
+        remainingTimeProgress = remainingProgress(for: timeLeft)
 
         updateControlMode()
         if !paused, showTimerInMenuBar {
@@ -297,6 +303,15 @@ class TBTimer: ObservableObject {
         } else {
             TBStatusItem.shared.setTitle(title: nil)
         }
+    }
+
+    private func remainingProgress(for timeLeft: TimeInterval) -> Double {
+        guard let plannedDuration = activeStatsInterval?.plannedDuration,
+              plannedDuration > 0 else {
+            return 0
+        }
+
+        return min(max(timeLeft / plannedDuration, 0), 1)
     }
 
     private func startTimer(seconds: Int) {

@@ -137,21 +137,20 @@ private struct OpenStatsButton: View {
 }
 
 private enum PopoverLayout {
-    static let width: CGFloat = 300
-    static let height: CGFloat = 356
-    static let inactiveCircleDiameter: CGFloat = 214
-    static let activeCircleDiameter: CGFloat = 174
-    static let panelCornerRadius: CGFloat = 26
+    static let width: CGFloat = 284
+    static let height: CGFloat = 338
+    static let inactiveCircleDiameter: CGFloat = 204
+    static let activeCircleDiameter: CGFloat = 168
     static let actionCornerRadius: CGFloat = 10
-    static let strokeWidth: CGFloat = 2
+    static let strokeWidth: CGFloat = 1.6
 }
 
 private struct PopoverIconButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 20, weight: .semibold))
+            .font(.system(size: 16, weight: .semibold))
             .foregroundColor(.primary)
-            .frame(width: 34, height: 32)
+            .frame(width: 26, height: 24)
             .contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.55 : 1)
             .background(
@@ -162,14 +161,14 @@ private struct PopoverIconButtonStyle: ButtonStyle {
 }
 
 private struct PopoverActionButtonStyle: ButtonStyle {
-    var minWidth: CGFloat = 54
+    var minWidth: CGFloat = 48
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15, weight: .semibold))
+            .font(.system(size: 14, weight: .semibold))
             .foregroundColor(.primary)
-            .padding(.horizontal, 12)
-            .frame(minWidth: minWidth, minHeight: 38)
+            .padding(.horizontal, 10)
+            .frame(minWidth: minWidth, minHeight: 34)
             .contentShape(RoundedRectangle(cornerRadius: PopoverLayout.actionCornerRadius))
             .background(
                 RoundedRectangle(cornerRadius: PopoverLayout.actionCornerRadius)
@@ -185,37 +184,39 @@ private struct PopoverActionButtonStyle: ButtonStyle {
 private struct CircularTimerFace<Title: View>: View {
     let diameter: CGFloat
     let time: String
+    let detail: String?
+    let progress: Double
     let title: Title
 
-    init(diameter: CGFloat, time: String, @ViewBuilder title: () -> Title) {
+    init(diameter: CGFloat,
+         time: String,
+         detail: String? = nil,
+         progress: Double,
+         @ViewBuilder title: () -> Title) {
         self.diameter = diameter
         self.time = time
+        self.detail = detail
+        self.progress = progress.clamped(to: 0 ... 1)
         self.title = title()
     }
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.primary.opacity(0.18), lineWidth: 3)
+                .stroke(Color.primary.opacity(0.14), lineWidth: 3)
                 .frame(width: diameter, height: diameter)
             Circle()
-                .trim(from: 0.05, to: 0.90)
+                .trim(from: 0, to: progress)
                 .stroke(Color.primary,
-                        style: StrokeStyle(lineWidth: 6,
+                        style: StrokeStyle(lineWidth: 5,
                                            lineCap: .round,
                                            lineJoin: .round))
-                .rotationEffect(.degrees(-72))
+                .rotationEffect(.degrees(-90))
                 .frame(width: diameter, height: diameter)
-            Circle()
-                .trim(from: 0.60, to: 0.78)
-                .stroke(Color.primary.opacity(0.42),
-                        style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                .rotationEffect(.degrees(32))
-                .frame(width: diameter - 18, height: diameter - 18)
 
-            VStack(spacing: 12) {
+            VStack(spacing: 8) {
                 title
-                    .font(.system(size: 21, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                 Text(time)
                     .font(.system(size: diameter > 190 ? 43 : 34,
                                   weight: .regular,
@@ -223,6 +224,12 @@ private struct CircularTimerFace<Title: View>: View {
                         .monospacedDigit())
                     .minimumScaleFactor(0.75)
                     .lineLimit(1)
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                }
             }
             .padding(.horizontal, 18)
         }
@@ -571,11 +578,12 @@ struct TBPopoverView: View {
                 .padding(.horizontal, 26)
 
             CircularTimerFace(diameter: PopoverLayout.inactiveCircleDiameter,
-                              time: inactiveDurationString) {
+                              time: inactiveDurationString,
+                              progress: 1) {
                 presetMenu
             }
 
-            startButton(minWidth: 168)
+            startButton(minWidth: 108)
 
             Spacer(minLength: 0)
         }
@@ -591,7 +599,9 @@ struct TBPopoverView: View {
             Spacer(minLength: 8)
 
             CircularTimerFace(diameter: PopoverLayout.activeCircleDiameter,
-                              time: timerDisplayString()) {
+                              time: timer.timeLeftString,
+                              detail: activeIntervalDetail,
+                              progress: timer.remainingTimeProgress) {
                 Text(activeTimerTitle)
             }
 
@@ -601,14 +611,6 @@ struct TBPopoverView: View {
                 .padding(.bottom, 18)
         }
         .frame(width: PopoverLayout.width - 8, height: PopoverLayout.height - 40)
-        .background(
-            RoundedRectangle(cornerRadius: PopoverLayout.panelCornerRadius)
-                .fill(Color(NSColor.windowBackgroundColor).opacity(0.55))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: PopoverLayout.panelCornerRadius)
-                .stroke(Color.primary.opacity(0.82), lineWidth: PopoverLayout.strokeWidth)
-        )
     }
 
     private var popoverNavigationButtons: some View {
@@ -682,12 +684,11 @@ struct TBPopoverView: View {
         }
     }
 
-    private func timerDisplayString() -> String {
-        var result = timer.timeLeftString
+    private var activeIntervalDetail: String? {
         if timer.sessionPresetInstance.workIntervalsInSet > 1 {
-            result += " (\(timer.currentWorkInterval)/\(timer.sessionPresetInstance.workIntervalsInSet))"
+            return "\(timer.currentWorkInterval)/\(timer.sessionPresetInstance.workIntervalsInSet)"
         }
-        return result
+        return nil
     }
 
     private var inactiveDurationString: String {
@@ -723,8 +724,8 @@ struct TBPopoverView: View {
                 startWorkButton
             case .workRunning, .workPaused, .restRunning, .restPaused:
                 stopButton
-                skipButton
                 pauseResumeButton
+                skipButton
             }
         }
     }
@@ -734,7 +735,6 @@ struct TBPopoverView: View {
             timer.startStop()
         } label: {
             Text(startLabel)
-                .frame(maxWidth: .infinity)
         }
         .buttonStyle(PopoverActionButtonStyle(minWidth: minWidth))
         .keyboardShortcut(.defaultAction)
