@@ -646,7 +646,7 @@ struct TBPopoverView: View {
             }
             .foregroundColor(.primary)
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
         .fixedSize()
         .help(presetMenuHelp)
         .accessibilityLabel(Text(presetMenuHelp))
