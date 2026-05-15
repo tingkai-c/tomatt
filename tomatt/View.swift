@@ -228,7 +228,6 @@ private struct CircularTimerFace<Title: View>: View {
                     Text(detail)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundColor(.secondary)
-                        .monospacedDigit()
                 }
             }
             .padding(.horizontal, 18)
