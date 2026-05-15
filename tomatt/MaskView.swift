@@ -12,18 +12,49 @@ final class MaskHelper {
     private var skipHandler: (() -> Void)?
     private var previousPresentationOptions: NSApplication.PresentationOptions?
     private var strictKeyboardMonitor: Any?
+    private var strictKeyboardEventTap: CFMachPort?
+    private var strictKeyboardEventTapRunLoopSource: CFRunLoopSource?
 
     private init() {}
 
-    func showMaskWindow(desc: String, strict: Bool = false, skipHandler: (() -> Void)? = nil) {
+    var hasStrictKeyboardCaptureAccess: Bool {
+        let hasListenAccess: Bool
+        if #available(macOS 10.15, *) {
+            hasListenAccess = CGPreflightListenEventAccess()
+        } else {
+            hasListenAccess = true
+        }
+        return hasListenAccess && AXIsProcessTrusted()
+    }
+
+    @discardableResult
+    func requestStrictKeyboardCaptureAccessIfNeeded() -> Bool {
+        if #available(macOS 10.15, *), !CGPreflightListenEventAccess() {
+            CGRequestListenEventAccess()
+        }
+
+        let accessibilityOptions = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        AXIsProcessTrustedWithOptions(accessibilityOptions)
+        return hasStrictKeyboardCaptureAccess
+    }
+
+    @discardableResult
+    func showMaskWindow(desc: String, strict: Bool = false, skipHandler: (() -> Void)? = nil) -> Bool {
         hideMaskWindow(animated: false)
-        self.skipHandler = strict ? nil : skipHandler
+        let effectiveStrict: Bool
+        if strict {
+            effectiveStrict = installStrictKeyboardCapture()
+            if effectiveStrict {
+                applyStrictPresentationLock()
+            } else {
+                NSLog("tomatt strict keyboard capture failed")
+            }
+        } else {
+            effectiveStrict = false
+        }
+        self.skipHandler = effectiveStrict ? nil : skipHandler
 
         NSApp.activate(ignoringOtherApps: true)
-        if strict {
-            applyStrictPresentationLock()
-            installStrictKeyboardCapture()
-        }
 
         for screen in NSScreen.screens {
             let window = MaskWindow(contentRect: screen.frame,
@@ -33,7 +64,7 @@ final class MaskHelper {
             configureMaskWindow(window, for: screen)
 
             let maskFrame = NSRect(origin: .zero, size: screen.frame.size)
-            let maskView = MaskView(desc: desc, frame: maskFrame, strict: strict) { [weak self] shouldSkip in
+            let maskView = MaskView(desc: desc, frame: maskFrame, strict: effectiveStrict) { [weak self] shouldSkip in
                 if shouldSkip {
                     self?.consumeSkipHandler()
                 }
@@ -49,6 +80,7 @@ final class MaskHelper {
         }
 
         focusFrontmostMaskWindow()
+        return effectiveStrict
     }
 
     func hideMaskWindow(animated: Bool = true) {
@@ -87,17 +119,60 @@ final class MaskHelper {
         windowControllers.dropFirst().forEach { $0.window?.orderFrontRegardless() }
     }
 
-    private func installStrictKeyboardCapture() {
-        guard strictKeyboardMonitor == nil else { return }
+    private func installStrictKeyboardCapture() -> Bool {
+        guard installStrictKeyboardEventTapIfPossible() else { return false }
+
+        guard strictKeyboardMonitor == nil else { return true }
         strictKeyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { _ in
             nil
         }
+        return true
+    }
+
+    private func installStrictKeyboardEventTapIfPossible() -> Bool {
+        guard strictKeyboardEventTap == nil else { return true }
+
+        let eventMask = [CGEventType.keyDown, .keyUp, .flagsChanged]
+            .reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
+        let userInfo = Unmanaged.passUnretained(self).toOpaque()
+
+        for tapLocation in [CGEventTapLocation.cghidEventTap, .cgSessionEventTap] {
+            guard let eventTap = CGEvent.tapCreate(tap: tapLocation,
+                                                   place: .headInsertEventTap,
+                                                   options: .defaultTap,
+                                                   eventsOfInterest: eventMask,
+                                                   callback: strictKeyboardEventTapCallback,
+                                                   userInfo: userInfo),
+                  let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0) else {
+                continue
+            }
+            strictKeyboardEventTap = eventTap
+            strictKeyboardEventTapRunLoopSource = runLoopSource
+            CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+            CGEvent.tapEnable(tap: eventTap, enable: true)
+            return true
+        }
+        return false
+    }
+
+    fileprivate func reenableStrictKeyboardEventTap() {
+        guard let strictKeyboardEventTap else { return }
+        CGEvent.tapEnable(tap: strictKeyboardEventTap, enable: true)
     }
 
     private func removeStrictKeyboardCapture() {
-        guard let strictKeyboardMonitor else { return }
-        NSEvent.removeMonitor(strictKeyboardMonitor)
-        self.strictKeyboardMonitor = nil
+        if let strictKeyboardMonitor {
+            NSEvent.removeMonitor(strictKeyboardMonitor)
+            self.strictKeyboardMonitor = nil
+        }
+        if let strictKeyboardEventTapRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), strictKeyboardEventTapRunLoopSource, .commonModes)
+            self.strictKeyboardEventTapRunLoopSource = nil
+        }
+        if let strictKeyboardEventTap {
+            CFMachPortInvalidate(strictKeyboardEventTap)
+            self.strictKeyboardEventTap = nil
+        }
     }
 
     private func applyStrictPresentationLock() {
@@ -107,6 +182,8 @@ final class MaskHelper {
             .hideDock,
             .hideMenuBar,
             .disableProcessSwitching,
+            .disableForceQuit,
+            .disableSessionTermination,
             .disableHideApplication
         ])
     }
@@ -121,6 +198,23 @@ final class MaskHelper {
         let handler = skipHandler
         skipHandler = nil
         handler?()
+    }
+}
+
+
+private let strictKeyboardEventTapCallback: CGEventTapCallBack = { _, type, event, refcon in
+    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+        if let refcon {
+            Unmanaged<MaskHelper>.fromOpaque(refcon).takeUnretainedValue().reenableStrictKeyboardEventTap()
+        }
+        return Unmanaged.passUnretained(event)
+    }
+
+    switch type {
+    case .keyDown, .keyUp, .flagsChanged:
+        return nil
+    default:
+        return Unmanaged.passUnretained(event)
     }
 }
 

@@ -126,6 +126,10 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
         statusBarItem?.button?.imagePosition = .imageLeft
         setIcon(name: .idle)
         statusBarItem?.button?.action = #selector(TBStatusItem.togglePopover(_:))
+        if timer.strictFullScreenMask,
+           !MaskHelper.shared.requestStrictKeyboardCaptureAccessIfNeeded() {
+            timer.setStrictFullScreenMask(false)
+        }
         timer.restoreTimerIfNeeded()
     }
 

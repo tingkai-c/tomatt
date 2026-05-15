@@ -40,6 +40,7 @@ class TBTimer: ObservableObject {
     @Published var timer: DispatchSourceTimer?
     @Published private(set) var controlMode: TimerControlMode = .inactive
     @Published private(set) var strictFullScreenMaskActive = false
+    @Published private(set) var strictFullScreenMaskPermissionRequired = false
 
     var selectedPresetIndex: Int {
         get { clampedPresetIndex(currentPreset) }
@@ -178,6 +179,7 @@ class TBTimer: ObservableObject {
         stateMachine.addAnyHandler(.workPaused => .rest, order: 2, handler: onRestStart)
         stateMachine.addAnyHandler(.work => .restPaused, order: 2, handler: onRestStartPaused)
         stateMachine.addAnyHandler(.rest => .work, order: 0, handler: onRestEnd)
+        stateMachine.addAnyHandler(.rest => .workPaused, order: 0, handler: onRestEnd)
         stateMachine.addAnyHandler(.rest => .idle, order: 0, handler: onRestEnd)
         stateMachine.addAnyHandler(.restPaused => .work, order: 0, handler: onRestEnd)
         stateMachine.addAnyHandler(.restPaused => .idle, order: 0, handler: onRestEnd)
@@ -249,6 +251,17 @@ class TBTimer: ObservableObject {
         }
         paused = false
         stateMachine <-! .skipEvent
+    }
+
+    func setStrictFullScreenMask(_ enabled: Bool) {
+        guard enabled else {
+            strictFullScreenMask = false
+            strictFullScreenMaskPermissionRequired = false
+            return
+        }
+
+        strictFullScreenMaskPermissionRequired = !MaskHelper.shared.requestStrictKeyboardCaptureAccessIfNeeded()
+        strictFullScreenMask = !strictFullScreenMaskPermissionRequired
     }
 
     func startBreak() {
@@ -500,6 +513,7 @@ class TBTimer: ObservableObject {
         if ctx.event == .skipEvent {
             return
         }
+        hideRestMask()
         notificationCenter.send(
             title: NSLocalizedString("TBTimer.onRestFinish.title", comment: "Break is over title"),
             body: NSLocalizedString("TBTimer.onRestFinish.body", comment: "Break is over body"),
@@ -558,9 +572,13 @@ class TBTimer: ObservableObject {
     }
 
     private func showRestMask(desc: String) {
-        strictFullScreenMaskActive = strictFullScreenMask
-        MaskHelper.shared.showMaskWindow(desc: desc, strict: strictFullScreenMaskActive) { [weak self] in
+        let strictRequested = strictFullScreenMask
+        strictFullScreenMaskActive = MaskHelper.shared.showMaskWindow(desc: desc, strict: strictRequested) { [weak self] in
             self?.skip()
+        }
+        if strictRequested && !strictFullScreenMaskActive {
+            strictFullScreenMask = false
+            strictFullScreenMaskPermissionRequired = true
         }
         updateControlMode()
     }

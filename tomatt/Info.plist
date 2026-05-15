@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSInputMonitoringUsageDescription</key>
+	<string>tomatt uses keyboard monitoring only during strict full-screen breaks to block escape shortcuts such as Command-Space.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

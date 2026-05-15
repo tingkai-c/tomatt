@@ -77,3 +77,4 @@
 "StatsView.minutes.format" = "%d분";
 "StatsView.hours.format" = "%d시간";
 "StatsView.hoursMinutes.format" = "%d시간 %d분";
+"SettingsView.strictFullScreenMask.permissionRequired" = "엄격 모드에는 입력 모니터링 및 손쉬운 사용 권한이 필요합니다. 시스템 설정에서 접근을 허용한 뒤 엄격 전체 화면 마스크를 다시 켜세요.";

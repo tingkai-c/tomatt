@@ -287,18 +287,29 @@ struct TimerSettingsView: View {
                                             comment: "show full screen mask hint"))
                     .onChange(of: timer.showFullScreenMask) { enabled in
                         if !enabled {
-                            timer.strictFullScreenMask = false
+                            timer.setStrictFullScreenMask(false)
                         }
                     }
             }
             SettingsRow(title: NSLocalizedString("SettingsView.strictFullScreenMask.label",
                                                  comment: "strict full screen mask on rest")) {
-                Toggle("", isOn: $timer.strictFullScreenMask)
+                Toggle("", isOn: Binding(get: {
+                    timer.strictFullScreenMask
+                }, set: { enabled in
+                    timer.setStrictFullScreenMask(enabled)
+                }))
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .disabled(!timer.showFullScreenMask)
                     .help(NSLocalizedString("SettingsView.strictFullScreenMask.help",
                                             comment: "strict full screen mask hint"))
+            }
+            if timer.strictFullScreenMaskPermissionRequired {
+                Text(NSLocalizedString("SettingsView.strictFullScreenMask.permissionRequired",
+                                       comment: "strict full screen mask permission required"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             SettingsRow(title: NSLocalizedString("SettingsView.pauseAfterRestFinish.label",
                                                  comment: "Pause after rest finish label")) {
