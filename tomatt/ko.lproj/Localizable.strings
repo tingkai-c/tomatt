@@ -17,6 +17,11 @@
 "SoundsView.isTickingEnabled.label" = "Ticking";
 "TBPopoverView.start.label" = "시작";
 "TBPopoverView.stop.label" = "중지";
+"TBPopoverView.leave.label" = "나가기";
+"TBPopoverView.focus.label" = "집중";
+"TBPopoverView.break.label" = "휴식";
+"TBPopoverView.preset.format" = "프리셋 %d";
+"TBPopoverView.presetMenu.help" = "집중 프리셋 선택";
 "TBPopoverView.startBreak.label" = "휴식 시작";
 "TBPopoverView.startWork.label" = "작업 시작";
 "TBPopoverView.intervals.label" = "간격";

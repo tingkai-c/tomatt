@@ -17,6 +17,11 @@
 "SoundsView.isTickingEnabled.label" = "滴答声";
 "TBPopoverView.start.label" = "开始";
 "TBPopoverView.stop.label" = "停止";
+"TBPopoverView.leave.label" = "离开";
+"TBPopoverView.focus.label" = "专注";
+"TBPopoverView.break.label" = "休息";
+"TBPopoverView.preset.format" = "预设 %d";
+"TBPopoverView.presetMenu.help" = "选择专注预设";
 "TBPopoverView.startBreak.label" = "开始休息";
 "TBPopoverView.startWork.label" = "开始工作";
 "TBPopoverView.intervals.label" = "时长";

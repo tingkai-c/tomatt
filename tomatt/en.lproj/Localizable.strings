@@ -17,6 +17,11 @@
 "SoundsView.isTickingEnabled.label" = "Ticking";
 "TBPopoverView.start.label" = "Start";
 "TBPopoverView.stop.label" = "Stop";
+"TBPopoverView.leave.label" = "Leave";
+"TBPopoverView.focus.label" = "Focus";
+"TBPopoverView.break.label" = "Break";
+"TBPopoverView.preset.format" = "Preset %d";
+"TBPopoverView.presetMenu.help" = "Select focus preset";
 "TBPopoverView.startBreak.label" = "Start Break";
 "TBPopoverView.startWork.label" = "Start Work";
 "TBPopoverView.intervals.label" = "Intervals";

@@ -121,6 +121,7 @@ private struct OpenSettingsButton: View {
         Button(action: action) {
             Image(systemName: "gearshape")
         }
+        .buttonStyle(PopoverIconButtonStyle())
     }
 }
 
@@ -131,6 +132,101 @@ private struct OpenStatsButton: View {
         Button(action: action) {
             Image(systemName: "chart.bar")
         }
+        .buttonStyle(PopoverIconButtonStyle())
+    }
+}
+
+private enum PopoverLayout {
+    static let width: CGFloat = 300
+    static let height: CGFloat = 356
+    static let inactiveCircleDiameter: CGFloat = 214
+    static let activeCircleDiameter: CGFloat = 174
+    static let panelCornerRadius: CGFloat = 26
+    static let actionCornerRadius: CGFloat = 10
+    static let strokeWidth: CGFloat = 2
+}
+
+private struct PopoverIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundColor(.primary)
+            .frame(width: 34, height: 32)
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.55 : 1)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.08 : 0))
+            )
+    }
+}
+
+private struct PopoverActionButtonStyle: ButtonStyle {
+    var minWidth: CGFloat = 54
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundColor(.primary)
+            .padding(.horizontal, 12)
+            .frame(minWidth: minWidth, minHeight: 38)
+            .contentShape(RoundedRectangle(cornerRadius: PopoverLayout.actionCornerRadius))
+            .background(
+                RoundedRectangle(cornerRadius: PopoverLayout.actionCornerRadius)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : 0))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: PopoverLayout.actionCornerRadius)
+                    .stroke(Color.primary.opacity(0.82), lineWidth: PopoverLayout.strokeWidth)
+            )
+    }
+}
+
+private struct CircularTimerFace<Title: View>: View {
+    let diameter: CGFloat
+    let time: String
+    let title: Title
+
+    init(diameter: CGFloat, time: String, @ViewBuilder title: () -> Title) {
+        self.diameter = diameter
+        self.time = time
+        self.title = title()
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.primary.opacity(0.18), lineWidth: 3)
+                .frame(width: diameter, height: diameter)
+            Circle()
+                .trim(from: 0.05, to: 0.90)
+                .stroke(Color.primary,
+                        style: StrokeStyle(lineWidth: 6,
+                                           lineCap: .round,
+                                           lineJoin: .round))
+                .rotationEffect(.degrees(-72))
+                .frame(width: diameter, height: diameter)
+            Circle()
+                .trim(from: 0.60, to: 0.78)
+                .stroke(Color.primary.opacity(0.42),
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(32))
+                .frame(width: diameter - 18, height: diameter - 18)
+
+            VStack(spacing: 12) {
+                title
+                    .font(.system(size: 21, weight: .semibold))
+                Text(time)
+                    .font(.system(size: diameter > 190 ? 43 : 34,
+                                  weight: .regular,
+                                  design: .rounded)
+                        .monospacedDigit())
+                    .minimumScaleFactor(0.75)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 18)
+        }
+        .frame(width: diameter, height: diameter)
     }
 }
 
@@ -421,8 +517,13 @@ struct TBPopoverView: View {
         self.openStatsWindow = openStatsWindow
     }
 
+    private var focusLabel = NSLocalizedString("TBPopoverView.focus.label", comment: "Focus timer title")
+    private var breakLabel = NSLocalizedString("TBPopoverView.break.label", comment: "Break timer title")
+    private var presetFormat = NSLocalizedString("TBPopoverView.preset.format", comment: "Preset menu item format")
+    private var presetMenuHelp = NSLocalizedString("TBPopoverView.presetMenu.help", comment: "Preset menu help")
     private var startLabel = NSLocalizedString("TBPopoverView.start.label", comment: "Start label")
     private var stopLabel = NSLocalizedString("TBPopoverView.stop.label", comment: "Stop label")
+    private var leaveLabel = NSLocalizedString("TBPopoverView.leave.label", comment: "Leave active timer label")
     private var pauseLabel = NSLocalizedString("TBPopoverView.pause.help", comment: "Pause hint")
     private var resumeLabel = NSLocalizedString("TBPopoverView.resume.help", comment: "Resume hint")
     private var skipLabel = NSLocalizedString("TBPopoverView.skip.help", comment: "Skip hint")
@@ -430,46 +531,11 @@ struct TBPopoverView: View {
     private var startWorkLabel = NSLocalizedString("TBPopoverView.startWork.label", comment: "Start work label")
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 4) {
-                timerControlButtons
+        VStack(spacing: 8) {
+            primaryContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                OpenStatsButton(action: openStatsWindow)
-                    .controlSize(.large)
-                    .help(NSLocalizedString("TBPopoverView.stats.help", comment: "Stats button help"))
-
-                OpenSettingsButton(action: openSettingsWindow)
-                    .controlSize(.large)
-                    .help(NSLocalizedString("TBPopoverView.settings.help", comment: "Settings button help"))
-            }
-
-            if timer.controlMode != .inactive {
-                Text(timerDisplayString())
-                    .font(.system(.body).monospacedDigit())
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
-
-            PresetPickerView(timer: timer)
-
-            Divider()
-
-            Button {
-                NSApp.activate(ignoringOtherApps: true)
-                NSApp.orderFrontStandardAboutPanel()
-            } label: {
-                Text(NSLocalizedString("TBPopoverView.about.label",
-                                       comment: "About label"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            Button {
-                NSApplication.shared.terminate(self)
-            } label: {
-                Text(NSLocalizedString("TBPopoverView.quit.label",
-                                       comment: "Quit label"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .disabled(timer.strictFullScreenMaskActive)
+            utilityFooter
         }
         #if DEBUG
             /*
@@ -485,9 +551,135 @@ struct TBPopoverView: View {
                 }
             )
         #endif
-            .frame(width: 255)
+            .frame(width: PopoverLayout.width, height: PopoverLayout.height)
             .fixedSize()
             .padding(12)
+    }
+
+    @ViewBuilder
+    private var primaryContent: some View {
+        if timer.controlMode == .inactive {
+            inactiveContent
+        } else {
+            activeContent
+        }
+    }
+
+    private var inactiveContent: some View {
+        VStack(spacing: 16) {
+            popoverNavigationButtons
+                .padding(.horizontal, 26)
+
+            CircularTimerFace(diameter: PopoverLayout.inactiveCircleDiameter,
+                              time: inactiveDurationString) {
+                presetMenu
+            }
+
+            startButton(minWidth: 168)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 2)
+    }
+
+    private var activeContent: some View {
+        VStack(spacing: 0) {
+            popoverNavigationButtons
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+
+            Spacer(minLength: 8)
+
+            CircularTimerFace(diameter: PopoverLayout.activeCircleDiameter,
+                              time: timerDisplayString()) {
+                Text(activeTimerTitle)
+            }
+
+            Spacer(minLength: 14)
+
+            activeActionBar
+                .padding(.bottom, 18)
+        }
+        .frame(width: PopoverLayout.width - 8, height: PopoverLayout.height - 40)
+        .background(
+            RoundedRectangle(cornerRadius: PopoverLayout.panelCornerRadius)
+                .fill(Color(NSColor.windowBackgroundColor).opacity(0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: PopoverLayout.panelCornerRadius)
+                .stroke(Color.primary.opacity(0.82), lineWidth: PopoverLayout.strokeWidth)
+        )
+    }
+
+    private var popoverNavigationButtons: some View {
+        HStack(alignment: .center) {
+            OpenStatsButton(action: openStatsWindow)
+                .help(NSLocalizedString("TBPopoverView.stats.help", comment: "Stats button help"))
+                .accessibilityLabel(Text(NSLocalizedString("TBPopoverView.stats.help",
+                                                           comment: "Stats button accessibility label")))
+            Spacer()
+            OpenSettingsButton(action: openSettingsWindow)
+                .help(NSLocalizedString("TBPopoverView.settings.help", comment: "Settings button help"))
+                .accessibilityLabel(Text(NSLocalizedString("TBPopoverView.settings.help",
+                                                           comment: "Settings button accessibility label")))
+        }
+    }
+
+    private var presetMenu: some View {
+        Menu {
+            ForEach(0..<4, id: \.self) { index in
+                Button {
+                    timer.selectedPresetIndex = index
+                } label: {
+                    if index == timer.selectedPresetIndex {
+                        Label(presetName(for: index), systemImage: "checkmark")
+                    } else {
+                        Text(presetName(for: index))
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(focusLabel)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
+            }
+            .foregroundColor(.primary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(presetMenuHelp)
+        .accessibilityLabel(Text(presetMenuHelp))
+    }
+
+    private var utilityFooter: some View {
+        HStack(spacing: 16) {
+            Button {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.orderFrontStandardAboutPanel()
+            } label: {
+                Text(NSLocalizedString("TBPopoverView.about.label",
+                                       comment: "About label"))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                NSApplication.shared.terminate(self)
+            } label: {
+                Text(NSLocalizedString("TBPopoverView.quit.label",
+                                       comment: "Quit label"))
+            }
+            .buttonStyle(.plain)
+            .disabled(timer.strictFullScreenMaskActive)
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
+    }
+
+    private var activeActionBar: some View {
+        HStack(spacing: 12) {
+            timerControlButtons
+        }
     }
 
     private func timerDisplayString() -> String {
@@ -498,6 +690,23 @@ struct TBPopoverView: View {
         return result
     }
 
+    private var inactiveDurationString: String {
+        TimerCore.clockString(from: TimeInterval(timer.currentPresetInstance.workIntervalLength * 60))
+    }
+
+    private var activeTimerTitle: String {
+        switch timer.controlMode {
+        case .restRunning, .restPaused:
+            return breakLabel
+        case .inactive, .workRunning, .workPaused, .workExtended, .workFinishedPendingBreak, .workStartPending:
+            return focusLabel
+        }
+    }
+
+    private func presetName(for index: Int) -> String {
+        String(format: presetFormat, index + 1)
+    }
+
     @ViewBuilder
     private var timerControlButtons: some View {
         if timer.strictFullScreenMaskActive {
@@ -505,7 +714,7 @@ struct TBPopoverView: View {
         } else {
             switch timer.controlMode {
             case .inactive:
-                startButton
+                startButton()
             case .workExtended, .workFinishedPendingBreak:
                 stopButton
                 startBreakButton
@@ -520,15 +729,14 @@ struct TBPopoverView: View {
         }
     }
 
-    private var startButton: some View {
+    private func startButton(minWidth: CGFloat = 88) -> some View {
         Button {
             timer.startStop()
         } label: {
             Text(startLabel)
-                .foregroundColor(Color.white)
                 .frame(maxWidth: .infinity)
         }
-        .controlSize(.large)
+        .buttonStyle(PopoverActionButtonStyle(minWidth: minWidth))
         .keyboardShortcut(.defaultAction)
     }
 
@@ -536,10 +744,10 @@ struct TBPopoverView: View {
         Button {
             timer.startStop()
         } label: {
-            Text(stopLabel)
-                .foregroundColor(Color.white)
+            Text(leaveLabel)
         }
-        .controlSize(.large)
+        .buttonStyle(PopoverActionButtonStyle(minWidth: 62))
+        .help(stopLabel)
     }
 
     private var startBreakButton: some View {
@@ -548,7 +756,7 @@ struct TBPopoverView: View {
         } label: {
             Text(startBreakLabel)
         }
-        .controlSize(.large)
+        .buttonStyle(PopoverActionButtonStyle(minWidth: 118))
         .keyboardShortcut(.defaultAction)
     }
 
@@ -558,7 +766,7 @@ struct TBPopoverView: View {
         } label: {
             Text(startWorkLabel)
         }
-        .controlSize(.large)
+        .buttonStyle(PopoverActionButtonStyle(minWidth: 112))
         .keyboardShortcut(.defaultAction)
     }
 
@@ -566,20 +774,24 @@ struct TBPopoverView: View {
         Button {
             timer.skip()
         } label: {
-            Image(systemName: "forward.circle.fill")
+            Image(systemName: "forward.fill")
+                .frame(width: 20)
         }
-        .controlSize(.large)
+        .buttonStyle(PopoverActionButtonStyle(minWidth: 48))
         .help(skipLabel)
+        .accessibilityLabel(Text(skipLabel))
     }
 
     private var pauseResumeButton: some View {
         Button {
             timer.pauseResume()
         } label: {
-            Image(systemName: timer.paused ? "play.circle.fill" : "pause.circle.fill")
+            Image(systemName: timer.paused ? "play.fill" : "pause.fill")
+                .frame(width: 20)
         }
-        .controlSize(.large)
+        .buttonStyle(PopoverActionButtonStyle(minWidth: 48))
         .help(timer.paused ? resumeLabel : pauseLabel)
+        .accessibilityLabel(Text(timer.paused ? resumeLabel : pauseLabel))
     }
 }
 
