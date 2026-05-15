@@ -34,6 +34,7 @@ struct PersistedTimerSession: Codable, Equatable {
     var workLimitNotificationSent: Bool
     var restPresentationPending: Bool
     var workStartPending: Bool? = nil
+    var workFinishedPendingBreak: Bool? = nil
 }
 
 struct TimerCoreSettings: Equatable {
@@ -55,7 +56,7 @@ enum TimerRestoreAction: Equatable {
     case running(remaining: TimeInterval)
     case paused(remaining: TimeInterval)
     case fireExpired
-    case extendExpiredWork
+    case workFinishedBoundary
 }
 
 struct TimerRestoreDecision: Equatable {
@@ -68,6 +69,7 @@ enum TimerControlMode: Equatable {
     case workRunning
     case workPaused
     case workExtended
+    case workFinishedPendingBreak
     case restRunning
     case restPaused
     case workStartPending
@@ -79,7 +81,8 @@ enum TimerCore {
                            settings: TimerCoreSettings,
                            currentWorkInterval: Int,
                            preset: TimerPreset,
-                           workExtensionActive: Bool = false) -> TBStateMachineStates? {
+                           workExtensionActive: Bool = false,
+                           workFinishedPendingBreak: Bool = false) -> TBStateMachineStates? {
         switch event {
         case .startStop:
             switch state {
@@ -104,7 +107,7 @@ enum TimerCore {
         case .startBreak:
             switch state {
             case .work, .workPaused:
-                return workExtensionActive ? .rest : nil
+                return workExtensionActive || workFinishedPendingBreak ? .rest : nil
             case .idle, .rest, .restPaused:
                 return nil
             }
@@ -119,7 +122,7 @@ enum TimerCore {
         case .timerFired:
             switch state {
             case .work:
-                if settings.extendWorkAfterFinish {
+                if workFinishedPendingBreak || settings.extendWorkAfterFinish {
                     return nil
                 }
                 return .rest
@@ -167,13 +170,16 @@ enum TimerCore {
                             state: TBStateMachineStates,
                             paused: Bool,
                             workExtensionActive: Bool,
-                            workStartPending: Bool) -> TimerControlMode {
+                            workStartPending: Bool,
+                            workFinishedPendingBreak: Bool) -> TimerControlMode {
         guard timerActive else { return .inactive }
         switch state {
         case .idle:
             return .inactive
         case .work where workExtensionActive:
             return .workExtended
+        case .work where workFinishedPendingBreak:
+            return .workFinishedPendingBreak
         case .work:
             return .workRunning
         case .workPaused where workStartPending:
@@ -216,9 +222,12 @@ enum TimerCore {
             if remaining > 0 {
                 return TimerRestoreDecision(state: .work, action: .running(remaining: remaining))
             }
+            if session.workFinishedPendingBreak ?? false || session.workExtensionActive {
+                return TimerRestoreDecision(state: .work, action: .workFinishedBoundary)
+            }
             if shouldExtendWorkSessionAtLimit(extendWorkAfterFinish: settings.extendWorkAfterFinish,
                                                stopAfter: settings.stopAfter) {
-                return TimerRestoreDecision(state: .work, action: .extendExpiredWork)
+                return TimerRestoreDecision(state: .work, action: .workFinishedBoundary)
             }
             return TimerRestoreDecision(state: .work, action: .fireExpired)
         case .rest:
@@ -251,7 +260,7 @@ enum TimerCore {
               session.finishAt.timeIntervalSinceReferenceDate.isFinite,
               session.startedAt <= now,
               session.finishAt >= session.startedAt,
-              session.finishAt.timeIntervalSince(session.startedAt) <= session.plannedDuration + restoredPausedDuration + 1,
+              isValidFinishAnchor(for: session, now: now, restoredPausedDuration: restoredPausedDuration),
               session.currentWorkInterval >= 1,
               session.currentWorkInterval <= session.preset.clamped().workIntervalsInSet else {
             return false
@@ -265,8 +274,32 @@ enum TimerCore {
             }
         }
 
+        if session.workFinishedPendingBreak ?? false || session.workExtensionActive {
+            guard session.state == .work,
+                  session.finishAt <= now,
+                  session.pauseStartedAt == nil,
+                  session.pausedTimeRemaining == 0 else {
+                return false
+            }
+        }
+
         let wallDuration = max(0, now.timeIntervalSince(session.startedAt))
         return restoredPausedDuration <= wallDuration + 1
+    }
+
+
+    private static func isValidFinishAnchor(for session: PersistedTimerSession,
+                                            now: Date,
+                                            restoredPausedDuration: TimeInterval) -> Bool {
+        let finishOffset = session.finishAt.timeIntervalSince(session.startedAt)
+        if finishOffset <= session.plannedDuration + restoredPausedDuration + 1 {
+            return true
+        }
+
+        let isFinishedWorkBoundary = session.state == .work
+            && (session.workFinishedPendingBreak ?? false || session.workExtensionActive)
+            && session.finishAt <= now
+        return isFinishedWorkBoundary
     }
 
     static func restoredPausedDuration(for session: PersistedTimerSession, now: Date) -> TimeInterval {

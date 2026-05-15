@@ -85,6 +85,12 @@ final class TimerCoreTests: XCTestCase {
                                             currentWorkInterval: 1,
                                             preset: preset), .rest)
         XCTAssertNil(TimerCore.transition(from: .work,
+                                           event: .timerFired,
+                                           settings: TimerCoreSettings(),
+                                           currentWorkInterval: 1,
+                                           preset: preset,
+                                           workFinishedPendingBreak: true))
+        XCTAssertNil(TimerCore.transition(from: .work,
                                            event: .startBreak,
                                            settings: TimerCoreSettings(stopAfter: .work),
                                            currentWorkInterval: 1,
@@ -95,6 +101,12 @@ final class TimerCoreTests: XCTestCase {
                                             currentWorkInterval: 1,
                                             preset: preset,
                                             workExtensionActive: true), .rest)
+        XCTAssertEqual(TimerCore.transition(from: .work,
+                                            event: .startBreak,
+                                            settings: TimerCoreSettings(stopAfter: .work),
+                                            currentWorkInterval: 1,
+                                            preset: preset,
+                                            workFinishedPendingBreak: true), .rest)
     }
 
     func testRestoreDecisionForRunningPausedExpiredAndInvalidSessions() {
@@ -132,11 +144,46 @@ final class TimerCoreTests: XCTestCase {
                                                  now: now,
                                                  settings: TimerCoreSettings(stopAfter: .work,
                                                                              extendWorkAfterFinish: true)),
-                       TimerRestoreDecision(state: .work, action: .extendExpiredWork))
+                       TimerRestoreDecision(state: .work, action: .workFinishedBoundary))
         XCTAssertEqual(TimerCore.restoreDecision(for: expiredWork,
                                                  now: now,
                                                  settings: TimerCoreSettings()),
                        TimerRestoreDecision(state: .work, action: .fireExpired))
+
+        let restoredFinishedBoundary = session(state: .work,
+                                               kind: .work,
+                                               startedAt: now.addingTimeInterval(-3_600),
+                                               finishAt: now,
+                                               plannedDuration: 300,
+                                               workFinishedPendingBreak: true)
+        XCTAssertTrue(TimerCore.isValidPersistedSession(restoredFinishedBoundary, now: now))
+        XCTAssertEqual(TimerCore.restoreDecision(for: restoredFinishedBoundary,
+                                                 now: now,
+                                                 settings: TimerCoreSettings()),
+                       TimerRestoreDecision(state: .work, action: .workFinishedBoundary))
+
+        let legacyExtensionBoundary = session(state: .work,
+                                              kind: .work,
+                                              startedAt: now.addingTimeInterval(-3_600),
+                                              finishAt: now,
+                                              plannedDuration: 300,
+                                              workExtensionActive: true)
+        XCTAssertTrue(TimerCore.isValidPersistedSession(legacyExtensionBoundary, now: now))
+        XCTAssertEqual(TimerCore.restoreDecision(for: legacyExtensionBoundary,
+                                                 now: now,
+                                                 settings: TimerCoreSettings()),
+                       TimerRestoreDecision(state: .work, action: .workFinishedBoundary))
+
+        let invalidFutureBoundary = session(state: .work,
+                                            kind: .work,
+                                            startedAt: now.addingTimeInterval(-100),
+                                            finishAt: now.addingTimeInterval(200),
+                                            plannedDuration: 300,
+                                            workFinishedPendingBreak: true)
+        XCTAssertFalse(TimerCore.isValidPersistedSession(invalidFutureBoundary, now: now))
+        XCTAssertEqual(TimerCore.restoreDecision(for: invalidFutureBoundary,
+                                                 now: now,
+                                                 settings: TimerCoreSettings()).action, .discard)
 
         let invalidMismatch = session(state: .work,
                                       kind: .shortRest,
@@ -168,37 +215,50 @@ final class TimerCoreTests: XCTestCase {
                                              state: .idle,
                                              paused: false,
                                              workExtensionActive: false,
-                                             workStartPending: false), .inactive)
+                                             workStartPending: false,
+                                             workFinishedPendingBreak: false), .inactive)
         XCTAssertEqual(TimerCore.controlMode(timerActive: true,
                                              state: .work,
                                              paused: false,
                                              workExtensionActive: false,
-                                             workStartPending: false), .workRunning)
+                                             workStartPending: false,
+                                             workFinishedPendingBreak: false), .workRunning)
         XCTAssertEqual(TimerCore.controlMode(timerActive: true,
                                              state: .workPaused,
                                              paused: true,
                                              workExtensionActive: false,
-                                             workStartPending: false), .workPaused)
+                                             workStartPending: false,
+                                             workFinishedPendingBreak: false), .workPaused)
         XCTAssertEqual(TimerCore.controlMode(timerActive: true,
                                              state: .work,
                                              paused: false,
                                              workExtensionActive: true,
-                                             workStartPending: false), .workExtended)
+                                             workStartPending: false,
+                                             workFinishedPendingBreak: false), .workExtended)
+        XCTAssertEqual(TimerCore.controlMode(timerActive: true,
+                                             state: .work,
+                                             paused: false,
+                                             workExtensionActive: false,
+                                             workStartPending: false,
+                                             workFinishedPendingBreak: true), .workFinishedPendingBreak)
         XCTAssertEqual(TimerCore.controlMode(timerActive: true,
                                              state: .rest,
                                              paused: false,
                                              workExtensionActive: false,
-                                             workStartPending: false), .restRunning)
+                                             workStartPending: false,
+                                             workFinishedPendingBreak: false), .restRunning)
         XCTAssertEqual(TimerCore.controlMode(timerActive: true,
                                              state: .restPaused,
                                              paused: true,
                                              workExtensionActive: false,
-                                             workStartPending: false), .restPaused)
+                                             workStartPending: false,
+                                             workFinishedPendingBreak: false), .restPaused)
         XCTAssertEqual(TimerCore.controlMode(timerActive: true,
                                              state: .workPaused,
                                              paused: true,
                                              workExtensionActive: false,
-                                             workStartPending: true), .workStartPending)
+                                             workStartPending: true,
+                                             workFinishedPendingBreak: false), .workStartPending)
     }
 
     func testClockFormattingSupportsOvertimeCountUp() {
@@ -214,7 +274,9 @@ final class TimerCoreTests: XCTestCase {
                          plannedDuration: TimeInterval,
                          pausedTimeRemaining: TimeInterval = 0,
                          pausedDuration: TimeInterval = 0,
-                         pauseStartedAt: Date? = nil) -> PersistedTimerSession {
+                         pauseStartedAt: Date? = nil,
+                         workExtensionActive: Bool = false,
+                         workFinishedPendingBreak: Bool = false) -> PersistedTimerSession {
         PersistedTimerSession(state: state,
                               preset: preset,
                               currentWorkInterval: 1,
@@ -225,8 +287,9 @@ final class TimerCoreTests: XCTestCase {
                               pauseStartedAt: pauseStartedAt,
                               pausedTimeRemaining: pausedTimeRemaining,
                               pausedDuration: pausedDuration,
-                              workExtensionActive: false,
+                              workExtensionActive: workExtensionActive,
                               workLimitNotificationSent: false,
-                              restPresentationPending: false)
+                              restPresentationPending: false,
+                              workFinishedPendingBreak: workFinishedPendingBreak)
     }
 }

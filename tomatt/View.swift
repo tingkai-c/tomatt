@@ -517,7 +517,7 @@ struct TBPopoverView: View {
             switch timer.controlMode {
             case .inactive:
                 startButton
-            case .workExtended:
+            case .workExtended, .workFinishedPendingBreak:
                 stopButton
                 startBreakButton
             case .workStartPending:

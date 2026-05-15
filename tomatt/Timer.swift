@@ -35,6 +35,7 @@ class TBTimer: ObservableObject {
     private var workStartPending = false
     private var workLimitNotificationSent = false
     private var restPresentationPending = false
+    private var workFinishedPendingBreak = false
     @Published var paused: Bool = false
     @Published var timeLeftString: String = ""
     @Published var timer: DispatchSourceTimer?
@@ -246,7 +247,7 @@ class TBTimer: ObservableObject {
     func skip() {
         guard timer != nil else { return }
         guard !strictFullScreenMaskBlocksRestControls else { return }
-        guard !workExtensionActive, !workStartPending else {
+        guard !workExtensionActive, !workStartPending, !workFinishedPendingBreak else {
             return
         }
         paused = false
@@ -261,7 +262,7 @@ class TBTimer: ObservableObject {
     func startBreak() {
         guard timer != nil,
               stateMachine.state == .work || stateMachine.state == .workPaused,
-              workExtensionActive else {
+              workExtensionActive || workFinishedPendingBreak else {
             return
         }
         pendingStatsCompletion = .completed
@@ -281,7 +282,7 @@ class TBTimer: ObservableObject {
     func pauseResume() {
         guard timer != nil else { return }
         guard !strictFullScreenMaskBlocksRestControls else { return }
-        guard !workExtensionActive, !workStartPending else { return }
+        guard !workExtensionActive, !workStartPending, !workFinishedPendingBreak else { return }
         stateMachine <-! .pauseResume
     }
 
@@ -293,7 +294,9 @@ class TBTimer: ObservableObject {
             return
         }
 
-        if workExtensionActive, stateMachine.state == .work {
+        if workFinishedPendingBreak, stateMachine.state == .work {
+            timeLeftString = TimerCore.clockString(from: 0)
+        } else if workExtensionActive, stateMachine.state == .work {
             timeLeftString = TimerCore.overtimeClockString(from: Date().timeIntervalSince(finishTime))
         } else {
             let timeLeft = max(0, paused ? pausedTimeRemaining : finishTime.timeIntervalSince(Date()))
@@ -345,7 +348,7 @@ class TBTimer: ObservableObject {
             updateTimeLeft()
             let timeLeft = finishTime.timeIntervalSince(Date())
             if timeLeft <= 0 {
-                if stateMachine.state == .work, workExtensionActive {
+                if stateMachine.state == .work, workExtensionActive || workFinishedPendingBreak {
                     return
                 }
                 if stateMachine.state == .work && shouldExtendWorkSessionAtLimit() {
@@ -382,6 +385,7 @@ class TBTimer: ObservableObject {
         paused = false
         workExtensionActive = false
         workStartPending = false
+        workFinishedPendingBreak = false
         workLimitNotificationSent = false
         player.playWindup()
         player.startTicking()
@@ -414,6 +418,7 @@ class TBTimer: ObservableObject {
         setActiveIcon(name: .work)
         workExtensionActive = false
         workStartPending = true
+        workFinishedPendingBreak = false
         workLimitNotificationSent = false
         startStatsInterval(kind: .work,
                            plannedDuration: TimeInterval(timerPreset.workIntervalLength * 60))
@@ -462,6 +467,7 @@ class TBTimer: ObservableObject {
         }
         paused = false
         workStartPending = false
+        workFinishedPendingBreak = false
         if showFullScreenMask {
             showRestMask(desc: body)
         } else if ctx.event == .timerFired {
@@ -526,6 +532,7 @@ class TBTimer: ObservableObject {
         activePreset = nil
         workExtensionActive = false
         workStartPending = false
+        workFinishedPendingBreak = false
         workLimitNotificationSent = false
         restPresentationPending = false
         clearPersistedTimerSession()
@@ -543,7 +550,8 @@ class TBTimer: ObservableObject {
                                             state: stateMachine.state,
                                             paused: paused,
                                             workExtensionActive: workExtensionActive,
-                                            workStartPending: workStartPending)
+                                            workStartPending: workStartPending,
+                                            workFinishedPendingBreak: workFinishedPendingBreak)
     }
 
     private func shouldStopAfterRest() -> Bool {
@@ -602,7 +610,8 @@ class TBTimer: ObservableObject {
                              settings: coreSettings,
                              currentWorkInterval: currentWorkInterval,
                              preset: timerPreset,
-                             workExtensionActive: workExtensionActive)
+                             workExtensionActive: workExtensionActive,
+                             workFinishedPendingBreak: workFinishedPendingBreak)
     }
 
     private var effectiveStopAfter: StopAfterOption {
@@ -620,6 +629,7 @@ class TBTimer: ObservableObject {
     private func extendWorkSessionAtLimit() {
         guard !workExtensionActive else { return }
         workExtensionActive = true
+        workFinishedPendingBreak = false
         finishTime = Date()
         updateTimeLeft()
         sendWorkFinishedNotification()
@@ -656,6 +666,7 @@ class TBTimer: ObservableObject {
         activeStatsInterval = restoredStatsInterval(from: session)
         workExtensionActive = session.workExtensionActive
         workStartPending = session.workStartPending ?? false
+        workFinishedPendingBreak = session.workFinishedPendingBreak ?? false
         workLimitNotificationSent = session.workLimitNotificationSent
         restPresentationPending = session.restPresentationPending
 
@@ -686,28 +697,36 @@ class TBTimer: ObservableObject {
     private func restoreWorkSession(_ session: PersistedTimerSession) {
         stateMachine <-! .restoreWork
 
-        let remaining = session.finishAt.timeIntervalSince(Date())
-        if remaining > 0 {
+        switch TimerCore.restoreDecision(for: session, now: Date(), settings: coreSettings).action {
+        case let .running(remaining):
             restoreRunningSession(session, remaining: remaining, iconName: .work)
             player.startTicking()
-            return
+        case .workFinishedBoundary:
+            restoreWorkFinishedBoundary(session)
+        case .fireExpired:
+            setActiveIcon(name: .work)
+            paused = false
+            pausedTimeRemaining = 0
+            startTimer(until: Date())
+            stateMachine <-! .timerFired
+        case .discard, .paused:
+            discardPersistedTimerSession()
         }
+    }
 
+    private func restoreWorkFinishedBoundary(_ session: PersistedTimerSession) {
         setActiveIcon(name: .work)
         paused = false
         pausedTimeRemaining = 0
-        startTimer(until: session.finishAt)
-
-        if shouldExtendWorkSessionAtLimit() {
-            workExtensionActive = true
-            workStartPending = false
-            player.startTicking()
-            updateTimeLeft()
-            sendWorkFinishedNotification()
-            persistActiveTimerSession()
-        } else {
-            stateMachine <-! .timerFired
-        }
+        workExtensionActive = false
+        workStartPending = false
+        workFinishedPendingBreak = true
+        workLimitNotificationSent = session.workLimitNotificationSent
+        restPresentationPending = session.restPresentationPending
+        startTimer(until: Date())
+        updateTimeLeft()
+        sendWorkFinishedNotification()
+        persistActiveTimerSession()
     }
 
     private func restoreRestSession(_ session: PersistedTimerSession) {
@@ -736,6 +755,7 @@ class TBTimer: ObservableObject {
         pausedTimeRemaining = 0
         workExtensionActive = session.workExtensionActive
         workStartPending = session.workStartPending ?? false
+        workFinishedPendingBreak = session.workFinishedPendingBreak ?? false
         workLimitNotificationSent = session.workLimitNotificationSent
         restPresentationPending = session.restPresentationPending
         startTimer(until: Date().addingTimeInterval(remaining))
@@ -798,7 +818,8 @@ class TBTimer: ObservableObject {
             workExtensionActive: workExtensionActive,
             workLimitNotificationSent: workLimitNotificationSent,
             restPresentationPending: restPresentationPending,
-            workStartPending: workStartPending
+            workStartPending: workStartPending,
+            workFinishedPendingBreak: workFinishedPendingBreak
         )
 
         guard let data = try? JSONEncoder().encode(session),
@@ -821,6 +842,7 @@ class TBTimer: ObservableObject {
         pausedTimeRemaining = 0
         workExtensionActive = false
         workStartPending = false
+        workFinishedPendingBreak = false
         workLimitNotificationSent = false
         restPresentationPending = false
     }
