@@ -7,6 +7,7 @@ class TBTimer: ObservableObject {
     @AppStorage("showTimerInMenuBar") var showTimerInMenuBar = true
     @AppStorage("showFullScreenMask") var showFullScreenMask = false
     @AppStorage("strictFullScreenMask") var strictFullScreenMask = false
+    @AppStorage("strictFullScreenMaskPresentationLock") var strictFullScreenMaskPresentationLock = true
     @AppStorage("pauseAfterRestFinish") var pauseAfterRestFinish = false
     @AppStorage("extendWorkAfterFinish") var extendWorkAfterFinish = false
     @AppStorage("currentPreset") private var currentPreset = 0
@@ -575,7 +576,11 @@ class TBTimer: ObservableObject {
 
     private func showRestMask(desc: String) {
         let strictRequested = strictFullScreenMask
-        strictFullScreenMaskActive = MaskHelper.shared.showMaskWindow(desc: desc, strict: strictRequested) { [weak self] in
+        strictFullScreenMaskActive = MaskHelper.shared.showMaskWindow(
+            desc: desc,
+            strict: strictRequested,
+            presentationLock: strictRequested && strictFullScreenMaskPresentationLock
+        ) { [weak self] in
             self?.skip()
         }
         strictFullScreenMaskShortcutBlockingUnavailable = strictRequested && !MaskHelper.shared.strictKeyboardCaptureActive
@@ -737,6 +742,7 @@ class TBTimer: ObservableObject {
             restoreRunningSession(session,
                                   remaining: remaining,
                                   iconName: session.kind == .longRest ? .longRest : .shortRest)
+            restoreRunningRestPresentationIfNeeded()
             return
         }
 
@@ -745,6 +751,18 @@ class TBTimer: ObservableObject {
         pausedTimeRemaining = 0
         startTimer(until: Date())
         stateMachine <-! .timerFired
+    }
+
+    private func restoreRunningRestPresentationIfNeeded() {
+        guard showFullScreenMask else {
+            restPresentationPending = false
+            persistActiveTimerSession()
+            return
+        }
+
+        showCurrentRestMaskIfNeeded()
+        restPresentationPending = false
+        persistActiveTimerSession()
     }
 
     private func restoreRunningSession(_ session: PersistedTimerSession,
