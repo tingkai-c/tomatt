@@ -6,7 +6,6 @@
 "IntervalsView.workIntervalsInSet.label" = "작업 시간 반복 횟수:";
 "IntervalsView.workIntervalsInSet.help" = "긴 휴식 시간 전까지 작업 시간을 몇 번 반복 할 것인지";
 "SettingsView.shortcut.label" = "단축키";
-"SettingsView.stopAfterBreak.label" = "휴식 후 중지";
 "SettingsView.showTimerInMenuBar.label" = "메뉴 막대에서 타이머 보기";
 "SettingsView.appearance.label" = "화면 모드";
 "SettingsView.appearance.system.label" = "시스템";
@@ -34,11 +33,6 @@
 "IntervalsView.presets.label" = "프리셋";
 "SettingsView.pauseShortcut.label" = "일시정지/재개";
 "SettingsView.skipShortcut.label" = "건너뛰기";
-"SettingsView.stopAfter.label" = "다음 후 중지";
-"SettingsView.dropdownDisabled.label" = "끔";
-"SettingsView.dropdownWork.label" = "작업";
-"SettingsView.dropdownBreak.label" = "휴식";
-"SettingsView.dropdownSet.label" = "세트";
 "SettingsView.showFullScreenMask.label" = "전체 화면 마스크 사용";
 "SettingsView.showFullScreenMask.help" = "휴식 중 알림 대신 전체 화면 마스크를 사용합니다";
 "SettingsView.strictFullScreenMask.help" = "휴식 중에는 휴식이 끝날 때까지 일반 닫기, 건너뛰기, 종료 동작을 차단합니다";

@@ -3,7 +3,6 @@ import SwiftState
 import SwiftUI
 
 class TBTimer: ObservableObject {
-    @AppStorage("stopAfter") var stopAfter = StopAfterOption.disabled
     @AppStorage("showTimerInMenuBar") var showTimerInMenuBar = true
     @AppStorage("showFullScreenMask") var showFullScreenMask = false
     @AppStorage("strictFullScreenMask") var strictFullScreenMask = false
@@ -14,13 +13,11 @@ class TBTimer: ObservableObject {
     @AppStorage("timerPresets") private var timerPresetsData = ""
     @AppStorage("activeTimerSession") private var activeTimerSessionData = ""
 
-    // Legacy preferences seed/migrate the first preset and previous stop-after-break behavior.
+    // Legacy preferences seed the first preset.
     @AppStorage("workIntervalLength") private var legacyWorkIntervalLength = 25
     @AppStorage("shortRestIntervalLength") private var legacyShortRestIntervalLength = 5
     @AppStorage("longRestIntervalLength") private var legacyLongRestIntervalLength = 15
     @AppStorage("workIntervalsInSet") private var legacyWorkIntervalsInSet = 4
-    @AppStorage("stopAfterBreak") private var legacyStopAfterBreak = false
-    @AppStorage("stopAfterBreakMigratedToStopAfter") private var stopAfterBreakMigrated = false
     private var stateMachine = TBStateMachine(state: .idle)
     public let player = TBPlayer()
     public private(set) var currentWorkInterval: Int = 0
@@ -84,7 +81,6 @@ class TBTimer: ObservableObject {
     }
 
     init() {
-        migrateLegacyPreferences()
         /*
          * State diagram
          *
@@ -104,11 +100,11 @@ class TBTimer: ObservableObject {
          *   |         +------------+ +------------+
          *   |                  A        |    |
          *   |                  +--------+    |
-         *   |  timerFired/skip (!stopAfter)  |
-         *   |             skip               |
+         *   |      short rest timerFired/skip |
+         *   |              skip              |
          *   |                                |
          *   +--------------------------------+
-         *      timerFired/skip (stopAfter)
+         *      long rest timerFired/skip
          *
          */
         stateMachine.addRoutes(event: .startStop, transitions: [
@@ -123,17 +119,8 @@ class TBTimer: ObservableObject {
         stateMachine.addRoutes(event: .restoreRest, transitions: [.idle => .rest])
         stateMachine.addRoutes(event: .restoreWorkPaused, transitions: [.idle => .workPaused])
         stateMachine.addRoutes(event: .restoreRestPaused, transitions: [.idle => .restPaused])
-        stateMachine.addRoutes(event: .timerFired, transitions: [.work => .idle]) { _ in
-            self.coreTransition(from: .work, event: .timerFired) == .idle
-        }
-        stateMachine.addRoutes(event: .timerFired, transitions: [.work => .restPaused]) { _ in
-            self.coreTransition(from: .work, event: .timerFired) == .restPaused
-        }
         stateMachine.addRoutes(event: .timerFired, transitions: [.work => .rest]) { _ in
             self.coreTransition(from: .work, event: .timerFired) == .rest
-        }
-        stateMachine.addRoutes(event: .skipEvent, transitions: [.work => .idle, .workPaused => .idle]) { _ in
-            self.coreTransition(from: .work, event: .skipEvent) == .idle
         }
         stateMachine.addRoutes(event: .skipEvent, transitions: [.work => .rest, .workPaused => .rest]) { _ in
             self.coreTransition(from: .work, event: .skipEvent) == .rest
@@ -555,12 +542,6 @@ class TBTimer: ObservableObject {
                                             workFinishedPendingBreak: workFinishedPendingBreak)
     }
 
-    private func shouldStopAfterRest() -> Bool {
-        TimerCore.shouldStopAfterRest(stopAfter: effectiveStopAfter,
-                                      currentWorkInterval: currentWorkInterval,
-                                      preset: timerPreset)
-    }
-
     private func isCurrentRestLongRest() -> Bool {
         TimerCore.isCurrentRestLongRest(currentWorkInterval: currentWorkInterval,
                                         preset: timerPreset)
@@ -598,13 +579,11 @@ class TBTimer: ObservableObject {
     }
 
     private func shouldExtendWorkSessionAtLimit() -> Bool {
-        TimerCore.shouldExtendWorkSessionAtLimit(extendWorkAfterFinish: effectiveExtendWorkAfterFinish,
-                                                 stopAfter: effectiveStopAfter)
+        TimerCore.shouldExtendWorkSessionAtLimit(extendWorkAfterFinish: effectiveExtendWorkAfterFinish)
     }
 
     private var coreSettings: TimerCoreSettings {
-        TimerCoreSettings(stopAfter: effectiveStopAfter,
-                          pauseAfterRestFinish: effectivePauseAfterRestFinish,
+        TimerCoreSettings(pauseAfterRestFinish: effectivePauseAfterRestFinish,
                           extendWorkAfterFinish: effectiveExtendWorkAfterFinish)
     }
 
@@ -617,10 +596,6 @@ class TBTimer: ObservableObject {
                              preset: timerPreset,
                              workExtensionActive: workExtensionActive,
                              workFinishedPendingBreak: workFinishedPendingBreak)
-    }
-
-    private var effectiveStopAfter: StopAfterOption {
-        stopAfter
     }
 
     private var effectivePauseAfterRestFinish: Bool {
@@ -897,17 +872,6 @@ class TBTimer: ObservableObject {
         }
     }
 
-    private func migrateLegacyPreferences() {
-        if !stopAfterBreakMigrated {
-            if stopAfter == .disabled, legacyStopAfterBreak {
-                stopAfter = .rest
-            }
-            stopAfterBreakMigrated = true
-        }
-        if stopAfter == .work {
-            stopAfter = .disabled
-        }
-    }
 
     private func normalizedPresets() -> [TimerPreset] {
         guard !timerPresetsData.isEmpty,

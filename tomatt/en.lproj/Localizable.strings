@@ -6,7 +6,6 @@
 "IntervalsView.workIntervalsInSet.label" = "Work intervals in a set:";
 "IntervalsView.workIntervalsInSet.help" = "Number of working intervals in the set, after which a lengthy break taken";
 "SettingsView.shortcut.label" = "Shortcut";
-"SettingsView.stopAfterBreak.label" = "Stop after break";
 "SettingsView.showTimerInMenuBar.label" = "Show timer in menu bar";
 "SettingsView.appearance.label" = "Appearance";
 "SettingsView.appearance.system.label" = "System";
@@ -34,11 +33,6 @@
 "IntervalsView.presets.label" = "Presets";
 "SettingsView.pauseShortcut.label" = "Pause/resume";
 "SettingsView.skipShortcut.label" = "Skip";
-"SettingsView.stopAfter.label" = "Stop after";
-"SettingsView.dropdownDisabled.label" = "Off";
-"SettingsView.dropdownWork.label" = "Work";
-"SettingsView.dropdownBreak.label" = "Break";
-"SettingsView.dropdownSet.label" = "Set";
 "SettingsView.showFullScreenMask.label" = "Use full-screen mask";
 "SettingsView.showFullScreenMask.help" = "During breaks, use a full-screen mask instead of notifications";
 "SettingsView.strictFullScreenMask.help" = "During breaks, block normal dismiss, skip, and quit controls until the break ends";

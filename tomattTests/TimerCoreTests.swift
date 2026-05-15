@@ -19,6 +19,11 @@ final class TimerCoreTests: XCTestCase {
                                             settings: restPause,
                                             currentWorkInterval: 1,
                                             preset: preset), .workPaused)
+        XCTAssertEqual(TimerCore.transition(from: .rest,
+                                            event: .timerFired,
+                                            settings: restPause,
+                                            currentWorkInterval: 4,
+                                            preset: preset), .idle)
     }
 
     func testDisabledAutoPauseContinuesToActiveIntervals() {
@@ -33,12 +38,17 @@ final class TimerCoreTests: XCTestCase {
                                             settings: settings,
                                             currentWorkInterval: 1,
                                             preset: preset), .work)
+        XCTAssertEqual(TimerCore.transition(from: .rest,
+                                            event: .timerFired,
+                                            settings: settings,
+                                            currentWorkInterval: 4,
+                                            preset: preset), .idle)
     }
 
-    func testSkipAndStopAfterBoundaries() {
+    func testSkipFollowsPresetRestBoundaries() {
         XCTAssertEqual(TimerCore.transition(from: .work,
                                             event: .skipEvent,
-                                            settings: TimerCoreSettings(stopAfter: .work),
+                                            settings: TimerCoreSettings(),
                                             currentWorkInterval: 1,
                                             preset: preset), .rest)
         XCTAssertEqual(TimerCore.transition(from: .workPaused,
@@ -48,12 +58,12 @@ final class TimerCoreTests: XCTestCase {
                                             preset: preset), .rest)
         XCTAssertEqual(TimerCore.transition(from: .rest,
                                             event: .skipEvent,
-                                            settings: TimerCoreSettings(stopAfter: .rest),
+                                            settings: TimerCoreSettings(),
                                             currentWorkInterval: 1,
-                                            preset: preset), .idle)
+                                            preset: preset), .work)
         XCTAssertEqual(TimerCore.transition(from: .restPaused,
                                             event: .skipEvent,
-                                            settings: TimerCoreSettings(stopAfter: .set),
+                                            settings: TimerCoreSettings(),
                                             currentWorkInterval: 4,
                                             preset: preset), .idle)
     }
@@ -81,7 +91,7 @@ final class TimerCoreTests: XCTestCase {
                                             preset: preset), .idle)
         XCTAssertEqual(TimerCore.transition(from: .work,
                                             event: .timerFired,
-                                            settings: TimerCoreSettings(stopAfter: .work),
+                                            settings: TimerCoreSettings(),
                                             currentWorkInterval: 1,
                                             preset: preset), .rest)
         XCTAssertNil(TimerCore.transition(from: .work,
@@ -92,18 +102,18 @@ final class TimerCoreTests: XCTestCase {
                                            workFinishedPendingBreak: true))
         XCTAssertNil(TimerCore.transition(from: .work,
                                            event: .startBreak,
-                                           settings: TimerCoreSettings(stopAfter: .work),
+                                           settings: TimerCoreSettings(),
                                            currentWorkInterval: 1,
                                            preset: preset))
         XCTAssertEqual(TimerCore.transition(from: .work,
                                             event: .startBreak,
-                                            settings: TimerCoreSettings(stopAfter: .work),
+                                            settings: TimerCoreSettings(),
                                             currentWorkInterval: 1,
                                             preset: preset,
                                             workExtensionActive: true), .rest)
         XCTAssertEqual(TimerCore.transition(from: .work,
                                             event: .startBreak,
-                                            settings: TimerCoreSettings(stopAfter: .work),
+                                            settings: TimerCoreSettings(),
                                             currentWorkInterval: 1,
                                             preset: preset,
                                             workFinishedPendingBreak: true), .rest)
@@ -142,8 +152,7 @@ final class TimerCoreTests: XCTestCase {
                                   plannedDuration: 300)
         XCTAssertEqual(TimerCore.restoreDecision(for: expiredWork,
                                                  now: now,
-                                                 settings: TimerCoreSettings(stopAfter: .work,
-                                                                             extendWorkAfterFinish: true)),
+                                                 settings: TimerCoreSettings(extendWorkAfterFinish: true)),
                        TimerRestoreDecision(state: .work, action: .workFinishedBoundary))
         XCTAssertEqual(TimerCore.restoreDecision(for: expiredWork,
                                                  now: now,

@@ -2,15 +2,6 @@ import Foundation
 
 // Core timer values live outside TBTimer so state decisions can be tested without
 // constructing AppKit, notification, audio, status-item, or DispatchSourceTimer side effects.
-enum StopAfterOption: String, CaseIterable, Codable {
-    case disabled, work, rest, set
-
-    // Keep `.work` decodable for older preferences, but do not expose it as a
-    // selectable mode because work completion now only auto-starts break or
-    // auto-extends until the user manually starts break.
-    static var allCases: [StopAfterOption] { [.disabled, .rest, .set] }
-}
-
 struct TimerPreset: Codable, Equatable {
     var workIntervalLength = 25
     var shortRestIntervalLength = 5
@@ -38,14 +29,11 @@ struct PersistedTimerSession: Codable, Equatable {
 }
 
 struct TimerCoreSettings: Equatable {
-    var stopAfter: StopAfterOption
     var pauseAfterRestFinish: Bool
     var extendWorkAfterFinish: Bool
 
-    init(stopAfter: StopAfterOption = .disabled,
-         pauseAfterRestFinish: Bool = false,
+    init(pauseAfterRestFinish: Bool = false,
          extendWorkAfterFinish: Bool = false) {
-        self.stopAfter = stopAfter
         self.pauseAfterRestFinish = pauseAfterRestFinish
         self.extendWorkAfterFinish = extendWorkAfterFinish
     }
@@ -127,9 +115,8 @@ enum TimerCore {
                 }
                 return .rest
             case .rest:
-                if shouldStopAfterRest(stopAfter: settings.stopAfter,
-                                       currentWorkInterval: currentWorkInterval,
-                                       preset: preset) {
+                if isCurrentRestLongRest(currentWorkInterval: currentWorkInterval,
+                                         preset: preset) {
                     return .idle
                 }
                 return settings.pauseAfterRestFinish ? .workPaused : .work
@@ -141,28 +128,19 @@ enum TimerCore {
             case .work, .workPaused:
                 return .rest
             case .rest, .restPaused:
-                return shouldStopAfterRest(stopAfter: settings.stopAfter,
-                                           currentWorkInterval: currentWorkInterval,
-                                           preset: preset) ? .idle : .work
+                return isCurrentRestLongRest(currentWorkInterval: currentWorkInterval,
+                                             preset: preset) ? .idle : .work
             case .idle:
                 return nil
             }
         }
     }
 
-    static func shouldStopAfterRest(stopAfter: StopAfterOption,
-                                    currentWorkInterval: Int,
-                                    preset: TimerPreset) -> Bool {
-        stopAfter == .rest || (stopAfter == .set && isCurrentRestLongRest(currentWorkInterval: currentWorkInterval,
-                                                                         preset: preset))
-    }
-
     static func isCurrentRestLongRest(currentWorkInterval: Int, preset: TimerPreset) -> Bool {
         currentWorkInterval >= preset.clamped().workIntervalsInSet
     }
 
-    static func shouldExtendWorkSessionAtLimit(extendWorkAfterFinish: Bool,
-                                               stopAfter: StopAfterOption) -> Bool {
+    static func shouldExtendWorkSessionAtLimit(extendWorkAfterFinish: Bool) -> Bool {
         extendWorkAfterFinish
     }
 
@@ -225,8 +203,7 @@ enum TimerCore {
             if session.workFinishedPendingBreak ?? false || session.workExtensionActive {
                 return TimerRestoreDecision(state: .work, action: .workFinishedBoundary)
             }
-            if shouldExtendWorkSessionAtLimit(extendWorkAfterFinish: settings.extendWorkAfterFinish,
-                                               stopAfter: settings.stopAfter) {
+            if shouldExtendWorkSessionAtLimit(extendWorkAfterFinish: settings.extendWorkAfterFinish) {
                 return TimerRestoreDecision(state: .work, action: .workFinishedBoundary)
             }
             return TimerRestoreDecision(state: .work, action: .fireExpired)

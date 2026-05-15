@@ -28,21 +28,6 @@ extension TBAppearanceMode: DropdownDescribable {
     }
 }
 
-extension StopAfterOption: DropdownDescribable {
-    var localizedDescription: String {
-        switch self {
-        case .disabled:
-            return NSLocalizedString("SettingsView.dropdownDisabled.label", comment: "Disabled label")
-        case .work:
-            return NSLocalizedString("SettingsView.dropdownWork.label", comment: "Work label")
-        case .rest:
-            return NSLocalizedString("SettingsView.dropdownBreak.label", comment: "Break label")
-        case .set:
-            return NSLocalizedString("SettingsView.dropdownSet.label", comment: "Set label")
-        }
-    }
-}
-
 private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribable>: View
     where E.RawValue == String, E.AllCases: RandomAccessCollection {
     @Binding var value: E
@@ -263,10 +248,6 @@ struct TimerSettingsView: View {
 
     var body: some View {
         SettingsPane {
-            SettingsRow(title: NSLocalizedString("SettingsView.stopAfter.label",
-                                                 comment: "Stop after label")) {
-                SegmentedDropdown(value: $timer.stopAfter)
-            }
             SettingsRow(title: NSLocalizedString("SettingsView.showTimerInMenuBar.label",
                                                  comment: "Show timer in menu bar label")) {
                 Toggle("", isOn: $timer.showTimerInMenuBar)
@@ -511,8 +492,7 @@ struct TBPopoverView: View {
 
     private func timerDisplayString() -> String {
         var result = timer.timeLeftString
-        if timer.sessionPresetInstance.workIntervalsInSet > 1,
-           timer.stopAfter == .disabled || timer.stopAfter == .set {
+        if timer.sessionPresetInstance.workIntervalsInSet > 1 {
             result += " (\(timer.currentWorkInterval)/\(timer.sessionPresetInstance.workIntervalsInSet))"
         }
         return result
