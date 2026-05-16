@@ -48,7 +48,7 @@ enum SettingsLayout {
     static let windowHeight: CGFloat = 560
     static let panePadding: CGFloat = 28
     static let paneSpacing: CGFloat = 22
-    static let contentWidth: CGFloat = 600
+    static let contentWidth: CGFloat = windowWidth
     static let groupCornerRadius: CGFloat = 14
     static let itemHorizontalPadding: CGFloat = 16
     static let itemVerticalPadding: CGFloat = 13
