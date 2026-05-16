@@ -3,31 +3,31 @@ import SwiftUI
 
 enum TBDesignTokens {
     enum ColorToken {
-        static let glassOverlay = Color(nsColor: NSColor(name: NSColor.Name("TBGlassOverlay")) { appearance in
+        static let glassOverlay = Color(NSColor(name: NSColor.Name("TBGlassOverlay")) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 ? NSColor.black.withAlphaComponent(0.26)
                 : NSColor.white.withAlphaComponent(0.46)
         })
 
-        static let glassFill = Color(nsColor: NSColor(name: NSColor.Name("TBGlassFill")) { appearance in
+        static let glassFill = Color(NSColor(name: NSColor.Name("TBGlassFill")) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 ? NSColor.white.withAlphaComponent(0.08)
                 : NSColor.white.withAlphaComponent(0.70)
         })
 
-        static let glassFillHover = Color(nsColor: NSColor(name: NSColor.Name("TBGlassFillHover")) { appearance in
+        static let glassFillHover = Color(NSColor(name: NSColor.Name("TBGlassFillHover")) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 ? NSColor.white.withAlphaComponent(0.14)
                 : NSColor.white.withAlphaComponent(0.88)
         })
 
-        static let hairline = Color(nsColor: NSColor(name: NSColor.Name("TBGlassHairline")) { appearance in
+        static let hairline = Color(NSColor(name: NSColor.Name("TBGlassHairline")) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 ? NSColor.white.withAlphaComponent(0.16)
                 : NSColor.black.withAlphaComponent(0.10)
         })
 
-        static let hairlineHover = Color(nsColor: NSColor(name: NSColor.Name("TBGlassHairlineHover")) { appearance in
+        static let hairlineHover = Color(NSColor(name: NSColor.Name("TBGlassHairlineHover")) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 ? NSColor.white.withAlphaComponent(0.25)
                 : NSColor.black.withAlphaComponent(0.18)
