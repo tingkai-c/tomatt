@@ -110,6 +110,9 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
                                  },
                                  openStatsWindow: { [weak self] in
                                      self?.openStatsWindow()
+                                 },
+                                 closePopover: { [weak self] in
+                                     self?.closePopover(nil)
                                  })
 
         popover.behavior = .transient

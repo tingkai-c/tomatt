@@ -121,9 +121,7 @@ private struct OpenSettingsButton: View {
         Button(action: action) {
             Image(systemName: "gearshape")
         }
-        .font(.system(size: 14, weight: .medium))
-        .frame(width: 22, height: 22)
-        .buttonStyle(BorderlessButtonStyle())
+        .tbIconButton()
         .controlSize(.small)
     }
 }
@@ -135,9 +133,7 @@ private struct OpenStatsButton: View {
         Button(action: action) {
             Image(systemName: "chart.bar")
         }
-        .font(.system(size: 14, weight: .medium))
-        .frame(width: 22, height: 22)
-        .buttonStyle(BorderlessButtonStyle())
+        .tbIconButton()
         .controlSize(.small)
     }
 }
@@ -173,20 +169,24 @@ private struct CircularTimerFace<Title: View>: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.primary.opacity(0.14), lineWidth: 3)
-                .frame(width: diameter, height: diameter)
+                .stroke(TBDesignTokens.ColorToken.timerTrackShadow, lineWidth: 10)
+                .frame(width: diameter - 8, height: diameter - 8)
+            Circle()
+                .stroke(TBDesignTokens.ColorToken.timerTrack, lineWidth: 4)
+                .frame(width: diameter - 14, height: diameter - 14)
             Circle()
                 .trim(from: progress >= 1 ? 0 : 1 - progress, to: 1)
-                .stroke(Color.primary,
+                .stroke(TBDesignTokens.ColorToken.accent,
                         style: StrokeStyle(lineWidth: 5,
                                            lineCap: .round,
                                            lineJoin: .round))
                 .rotationEffect(.degrees(-90))
-                .frame(width: diameter, height: diameter)
+                .frame(width: diameter - 14, height: diameter - 14)
+                .animation(TBDesignTokens.Animation.smooth)
 
             VStack(spacing: 8) {
                 title
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold, design: .rounded))
                 Text(time)
                     .font(.system(size: diameter > 190 ? 43 : 34,
                                   weight: .regular,
@@ -203,6 +203,7 @@ private struct CircularTimerFace<Title: View>: View {
             .padding(.horizontal, 18)
         }
         .frame(width: diameter, height: diameter)
+        .tbTimerFaceSurface()
     }
 }
 
@@ -484,13 +485,16 @@ struct TBPopoverView: View {
     @ObservedObject var timer: TBTimer
     let openSettingsWindow: () -> Void
     let openStatsWindow: () -> Void
+    let closePopover: () -> Void
 
     init(timer: TBTimer,
          openSettingsWindow: @escaping () -> Void,
-         openStatsWindow: @escaping () -> Void) {
+         openStatsWindow: @escaping () -> Void,
+         closePopover: @escaping () -> Void) {
         self.timer = timer
         self.openSettingsWindow = openSettingsWindow
         self.openStatsWindow = openStatsWindow
+        self.closePopover = closePopover
     }
 
     private var focusLabel = NSLocalizedString("TBPopoverView.focus.label", comment: "Focus timer title")
@@ -536,6 +540,13 @@ struct TBPopoverView: View {
             .frame(width: PopoverLayout.width, height: PopoverLayout.height)
             .fixedSize()
             .padding(12)
+            .tbGlassPopoverBackground()
+            .animation(TBDesignTokens.Animation.smooth)
+            .background(
+                Button("") { closePopover() }
+                    .keyboardShortcut(.cancelAction)
+                    .hidden()
+            )
     }
 
     @ViewBuilder
@@ -560,6 +571,7 @@ struct TBPopoverView: View {
             Spacer(minLength: 0)
         }
         .padding(.top, 24)
+        .transition(.opacity.combined(with: .scale(scale: 0.985)))
     }
 
     private var activeContent: some View {
@@ -579,6 +591,7 @@ struct TBPopoverView: View {
                 .padding(.bottom, 4)
         }
         .frame(width: PopoverLayout.width - 8, height: PopoverLayout.height - 58)
+        .transition(.opacity.combined(with: .scale(scale: 0.985)))
     }
 
     private var popoverNavigationButtons: some View {
@@ -615,6 +628,7 @@ struct TBPopoverView: View {
                     .font(.system(size: 11, weight: .bold))
             }
             .foregroundColor(.primary)
+            .tbGlassCapsule(horizontalPadding: 12, verticalPadding: 5)
         }
         .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
         .fixedSize()
@@ -632,6 +646,7 @@ struct TBPopoverView: View {
                                        comment: "About label"))
             }
             .buttonStyle(.plain)
+            .tbGlassCapsule(horizontalPadding: 9, verticalPadding: 4)
 
             Button {
                 NSApplication.shared.terminate(self)
@@ -640,6 +655,7 @@ struct TBPopoverView: View {
                                        comment: "Quit label"))
             }
             .buttonStyle(.plain)
+            .tbGlassCapsule(horizontalPadding: 9, verticalPadding: 4)
             .disabled(timer.strictFullScreenMaskActive)
         }
         .font(.caption)
@@ -704,7 +720,7 @@ struct TBPopoverView: View {
         } label: {
             Text(startLabel)
         }
-        .popoverActionStyle(minWidth: minWidth)
+        .popoverActionStyle(role: .primary, minWidth: minWidth)
         .keyboardShortcut(.defaultAction)
     }
 
@@ -714,7 +730,7 @@ struct TBPopoverView: View {
         } label: {
             Text(leaveLabel)
         }
-        .popoverActionStyle(minWidth: 62)
+        .popoverActionStyle(role: .destructiveQuiet, minWidth: 62)
         .help(stopLabel)
     }
 
@@ -724,7 +740,7 @@ struct TBPopoverView: View {
         } label: {
             Text(startBreakLabel)
         }
-        .popoverActionStyle(minWidth: 118)
+        .popoverActionStyle(role: .primary, minWidth: 118)
         .keyboardShortcut(.defaultAction)
     }
 
@@ -734,7 +750,7 @@ struct TBPopoverView: View {
         } label: {
             Text(startWorkLabel)
         }
-        .popoverActionStyle(minWidth: 112)
+        .popoverActionStyle(role: .primary, minWidth: 112)
         .keyboardShortcut(.defaultAction)
     }
 
@@ -745,7 +761,7 @@ struct TBPopoverView: View {
             Image(systemName: "forward.fill")
                 .frame(width: 20)
         }
-        .popoverActionStyle(minWidth: 48)
+        .popoverActionStyle(role: .secondary, minWidth: 48)
         .help(skipLabel)
         .accessibilityLabel(Text(skipLabel))
     }
@@ -757,17 +773,16 @@ struct TBPopoverView: View {
             Image(systemName: timer.paused ? "play.fill" : "pause.fill")
                 .frame(width: 20)
         }
-        .popoverActionStyle(minWidth: 48)
+        .popoverActionStyle(role: .secondary, minWidth: 48)
         .help(timer.paused ? resumeLabel : pauseLabel)
         .accessibilityLabel(Text(timer.paused ? resumeLabel : pauseLabel))
     }
 }
 
 private extension View {
-    func popoverActionStyle(minWidth: CGFloat) -> some View {
-        font(.system(size: 14, weight: .semibold))
-            .frame(minWidth: minWidth, minHeight: 30)
-            .buttonStyle(BorderedButtonStyle())
+    func popoverActionStyle(role: TBPopoverButtonRole = .secondary,
+                            minWidth: CGFloat) -> some View {
+        tbPopoverButton(role: role, minWidth: minWidth)
             .controlSize(.regular)
     }
 }
