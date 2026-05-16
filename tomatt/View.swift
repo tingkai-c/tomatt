@@ -582,7 +582,7 @@ struct TBPopoverView: View {
             inactivePresetMenu
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
         } else {
-            timerTitlePill(title: activeTimerTitle, isInteractive: false)
+            timerTitleText(activeTimerTitle)
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
         }
     }
@@ -639,7 +639,7 @@ struct TBPopoverView: View {
                 }
             }
         } label: {
-            timerTitlePill(title: focusLabel, isInteractive: true)
+            inactiveTimerTitle
         }
         .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
         .fixedSize()
@@ -647,15 +647,22 @@ struct TBPopoverView: View {
         .accessibilityLabel(Text(presetMenuHelp))
     }
 
-    private func timerTitlePill(title: String, isInteractive: Bool) -> some View {
-        HStack(spacing: 5) {
-            Text(title)
-            Image(systemName: "chevron.down")
-                .font(.system(size: 11, weight: .bold))
-        }
-        .foregroundColor(.primary)
-        .tbGlassCapsule(horizontalPadding: 12, verticalPadding: 5)
-        .accessibilityHint(Text(isInteractive ? presetMenuHelp : title))
+    private var inactiveTimerTitle: some View {
+        timerTitleText(focusLabel)
+            .overlay(alignment: .trailing) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.primary)
+                    .offset(x: 19)
+                    .transition(.opacity.combined(with: .scale(scale: 0.82)))
+                    .accessibilityHidden(true)
+            }
+            .animation(TBDesignTokens.Animation.smooth, value: timer.controlMode)
+    }
+
+    private func timerTitleText(_ title: String) -> some View {
+        Text(title)
+            .foregroundColor(.primary)
     }
 
     private var utilityFooter: some View {
