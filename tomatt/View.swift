@@ -234,14 +234,16 @@ private struct OpenStatsButton: View {
 
 private enum PopoverLayout {
     static let width: CGFloat = 284
-    static let height: CGFloat = 338
+    static let height: CGFloat = 314
     static let timerCircleDiameter: CGFloat = 204
     static let timerTitleOffset: CGFloat = -58
     static let timerDetailOffset: CGFloat = 54
     static let navigationHorizontalPadding: CGFloat = 10
     static let navigationTopPadding: CGFloat = 6
-    static let utilityFooterTopSpacing: CGFloat = 8
+    static let timerContentTopPadding: CGFloat = 14
+    static let utilityFooterTopSpacing: CGFloat = 16
     static let utilityFooterItemSpacing: CGFloat = 2
+    static let utilityFooterSeparatorWidth: CGFloat = 8
     static let utilityFooterHitPaddingHorizontal: CGFloat = 4
     static let utilityFooterHitPaddingVertical: CGFloat = 2
 }
@@ -800,7 +802,6 @@ struct TBPopoverView: View {
     private var breakLabel = NSLocalizedString("TBPopoverView.break.label", comment: "Break timer title")
     private var presetMenuHelp = NSLocalizedString("TBPopoverView.presetMenu.help", comment: "Preset menu help")
     private var startLabel = NSLocalizedString("TBPopoverView.start.label", comment: "Start label")
-    private var stopLabel = NSLocalizedString("TBPopoverView.stop.label", comment: "Stop label")
     private var leaveLabel = NSLocalizedString("TBPopoverView.leave.label", comment: "Leave active timer label")
     private var pauseLabel = NSLocalizedString("TBPopoverView.pause.help", comment: "Pause hint")
     private var resumeLabel = NSLocalizedString("TBPopoverView.resume.help", comment: "Resume hint")
@@ -885,7 +886,7 @@ struct TBPopoverView: View {
             }
             controls()
         }
-        .padding(.top, 24)
+        .padding(.top, PopoverLayout.timerContentTopPadding)
         .animation(TBDesignTokens.Animation.smooth, value: timer.controlMode)
         .animation(TBDesignTokens.Animation.smooth, value: timer.timeLeftString)
         .animation(TBDesignTokens.Animation.smooth, value: timerFaceDetail ?? "")
@@ -963,6 +964,8 @@ struct TBPopoverView: View {
             .buttonStyle(.plain)
 
             Text("·")
+                .frame(width: PopoverLayout.utilityFooterSeparatorWidth,
+                       alignment: .center)
                 .accessibilityHidden(true)
 
             Button {
@@ -985,6 +988,7 @@ struct TBPopoverView: View {
         HStack(spacing: 12) {
             timerControlButtons
         }
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     @ViewBuilder
@@ -1066,10 +1070,13 @@ struct TBPopoverView: View {
         Button {
             timer.startStop()
         } label: {
-            Text(leaveLabel)
+            Image(systemName: "rectangle.portrait.and.arrow.right")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 20)
         }
-        .popoverActionStyle(role: .destructiveQuiet, minWidth: 62)
-        .help(stopLabel)
+        .popoverActionStyle(role: .destructiveQuiet, minWidth: 48)
+        .help(leaveLabel)
+        .accessibilityLabel(Text(leaveLabel))
     }
 
     private var startBreakButton: some View {
