@@ -75,7 +75,7 @@ private struct SettingsPane<Content: View>: View {
         .frame(minWidth: SettingsLayout.windowWidth,
                minHeight: SettingsLayout.windowHeight,
                alignment: .topLeading)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Color(NSColor.controlBackgroundColor))
     }
 }
 
@@ -113,11 +113,11 @@ private struct SettingsGroup<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: SettingsLayout.groupCornerRadius, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor))
+                .fill(Color(NSColor.windowBackgroundColor))
         )
         .overlay(
             RoundedRectangle(cornerRadius: SettingsLayout.groupCornerRadius, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+                .stroke(Color(NSColor.separatorColor).opacity(0.55), lineWidth: 1)
         )
     }
 }
@@ -178,7 +178,7 @@ private struct SettingsInlineMessage: View {
             .padding(.horizontal, SettingsLayout.itemHorizontalPadding)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.35))
     }
 }
 
