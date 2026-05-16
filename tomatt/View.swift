@@ -358,8 +358,6 @@ struct IntervalsView: View {
 
     private var presetList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(NSLocalizedString("IntervalsView.presets.label", comment: "Presets label"))
-                .font(.system(size: 13, weight: .semibold))
             VStack(spacing: 4) {
                 ForEach(timer.presetConfigurations) { preset in
                     presetRow(preset)
@@ -518,7 +516,21 @@ struct IntervalsView: View {
                                  value: Binding<Int>,
                                  range: ClosedRange<Int>,
                                  suffix: String? = nil) -> some View {
-        SettingsItem(title: title, subtitle: subtitle) {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Stepper(value: value, in: range) {
                 HStack(spacing: 4) {
                     TextField("", value: value, formatter: clampedNumberFormatter(range: range))
@@ -532,6 +544,8 @@ struct IntervalsView: View {
             }
             .frame(width: 120, alignment: .trailing)
         }
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
 
     private func clampedNumberFormatter(range: ClosedRange<Int>) -> NumberFormatter {
