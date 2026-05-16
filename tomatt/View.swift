@@ -240,6 +240,10 @@ private enum PopoverLayout {
     static let timerDetailOffset: CGFloat = 54
     static let navigationHorizontalPadding: CGFloat = 10
     static let navigationTopPadding: CGFloat = 6
+    static let utilityFooterTopSpacing: CGFloat = 8
+    static let utilityFooterItemSpacing: CGFloat = 2
+    static let utilityFooterHitPaddingHorizontal: CGFloat = 4
+    static let utilityFooterHitPaddingVertical: CGFloat = 2
 }
 
 private struct CircularTimerFace<Title: View>: View {
@@ -806,9 +810,9 @@ struct TBPopoverView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            VStack(spacing: 3) {
+            VStack(spacing: PopoverLayout.utilityFooterTopSpacing) {
                 primaryContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity)
 
                 utilityFooter
             }
@@ -880,8 +884,6 @@ struct TBPopoverView: View {
                 title()
             }
             controls()
-
-            Spacer(minLength: 0)
         }
         .padding(.top, 24)
         .animation(TBDesignTokens.Animation.smooth, value: timer.controlMode)
@@ -947,23 +949,32 @@ struct TBPopoverView: View {
     }
 
     private var utilityFooter: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: PopoverLayout.utilityFooterItemSpacing) {
             Button {
                 NSApp.activate(ignoringOtherApps: true)
                 NSApp.orderFrontStandardAboutPanel()
             } label: {
                 Text(NSLocalizedString("TBPopoverView.about.label",
                                        comment: "About label"))
+                    .padding(.horizontal, PopoverLayout.utilityFooterHitPaddingHorizontal)
+                    .padding(.vertical, PopoverLayout.utilityFooterHitPaddingVertical)
+                    .contentShape(Rectangle())
             }
-            .tbGlassCapsuleButton(horizontalPadding: 9, verticalPadding: 4)
+            .buttonStyle(.plain)
+
+            Text("·")
+                .accessibilityHidden(true)
 
             Button {
                 NSApplication.shared.terminate(self)
             } label: {
                 Text(NSLocalizedString("TBPopoverView.quit.label",
                                        comment: "Quit label"))
+                    .padding(.horizontal, PopoverLayout.utilityFooterHitPaddingHorizontal)
+                    .padding(.vertical, PopoverLayout.utilityFooterHitPaddingVertical)
+                    .contentShape(Rectangle())
             }
-            .tbGlassCapsuleButton(horizontalPadding: 9, verticalPadding: 4)
+            .buttonStyle(.plain)
             .disabled(timer.strictFullScreenMaskActive)
         }
         .font(.caption)
