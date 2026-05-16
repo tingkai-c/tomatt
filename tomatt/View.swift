@@ -44,13 +44,17 @@ private struct SegmentedDropdown<E: CaseIterable & Hashable & DropdownDescribabl
 }
 
 enum SettingsLayout {
-    static let windowWidth: CGFloat = 560
-    static let windowHeight: CGFloat = 490
-    static let panePadding: CGFloat = 24
-    static let rowLabelWidth: CGFloat = 220
-    static let rowControlWidth: CGFloat = 230
-    static let contentWidth: CGFloat = 460
-    static let soundSliderWidth: CGFloat = 140
+    static let windowWidth: CGFloat = 680
+    static let windowHeight: CGFloat = 560
+    static let panePadding: CGFloat = 28
+    static let paneSpacing: CGFloat = 22
+    static let contentWidth: CGFloat = 600
+    static let groupCornerRadius: CGFloat = 14
+    static let itemHorizontalPadding: CGFloat = 16
+    static let itemVerticalPadding: CGFloat = 13
+    static let itemMinHeight: CGFloat = 58
+    static let controlWidth: CGFloat = 250
+    static let soundSliderWidth: CGFloat = 210
 }
 
 private struct SettingsPane<Content: View>: View {
@@ -61,30 +65,120 @@ private struct SettingsPane<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            content
+        ScrollView {
+            VStack(alignment: .leading, spacing: SettingsLayout.paneSpacing) {
+                content
+            }
+            .padding(SettingsLayout.panePadding)
+            .frame(width: SettingsLayout.contentWidth, alignment: .topLeading)
         }
-        .padding(SettingsLayout.panePadding)
-        .frame(width: SettingsLayout.contentWidth, alignment: .topLeading)
+        .frame(minWidth: SettingsLayout.windowWidth,
+               minHeight: SettingsLayout.windowHeight,
+               alignment: .topLeading)
+        .background(Color(nsColor: .controlBackgroundColor))
     }
 }
 
-private struct SettingsRow<Content: View>: View {
+private struct SettingsSection<Content: View>: View {
     let title: String
     let content: Content
 
-    init(title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: String, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 16) {
-            Text(title)
-                .frame(width: SettingsLayout.rowLabelWidth, alignment: .trailing)
-            content
-                .frame(maxWidth: SettingsLayout.rowControlWidth, alignment: .leading)
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionTitle(title: title)
+            SettingsGroup {
+                content
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct SettingsGroup<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: SettingsLayout.groupCornerRadius, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: SettingsLayout.groupCornerRadius, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+        )
+    }
+}
+
+private struct SettingsItem<Content: View>: View {
+    let title: String
+    let subtitle: String?
+    let content: Content
+
+    init(title: String, subtitle: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            content
+                .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
+        }
+        .padding(.horizontal, SettingsLayout.itemHorizontalPadding)
+        .padding(.vertical, SettingsLayout.itemVerticalPadding)
+        .frame(maxWidth: .infinity,
+               minHeight: SettingsLayout.itemMinHeight,
+               alignment: .leading)
+    }
+}
+
+private struct SettingsDivider: View {
+    var body: some View {
+        Divider()
+            .padding(.leading, SettingsLayout.itemHorizontalPadding)
+    }
+}
+
+private struct SettingsInlineMessage: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, SettingsLayout.itemHorizontalPadding)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
     }
 }
 
@@ -93,9 +187,9 @@ private struct SettingsSectionTitle: View {
 
     var body: some View {
         Text(title)
-            .font(.headline)
-            .frame(maxWidth: SettingsLayout.contentWidth, alignment: .leading)
-            .padding(.top, 4)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -227,20 +321,14 @@ private struct PresetPickerView: View {
     @ObservedObject var timer: TBTimer
 
     var body: some View {
-        HStack {
-            Text(NSLocalizedString("IntervalsView.presets.label", comment: "Presets label"))
-                .frame(alignment: .leading)
-            Spacer()
-            Picker("", selection: presetIndexBinding) {
-                Text("1").tag(0)
-                Text("2").tag(1)
-                Text("3").tag(2)
-                Text("4").tag(3)
-            }
-            .labelsHidden()
-            .frame(maxWidth: 200)
-            .pickerStyle(.segmented)
+        Picker("", selection: presetIndexBinding) {
+            Text("1").tag(0)
+            Text("2").tag(1)
+            Text("3").tag(2)
+            Text("4").tag(3)
         }
+        .labelsHidden()
+        .pickerStyle(.segmented)
     }
 
     private var presetIndexBinding: Binding<Int> {
@@ -258,38 +346,40 @@ struct IntervalsView: View {
 
     var body: some View {
         SettingsPane {
-            VStack(alignment: .leading, spacing: 12) {
+            SettingsSection(NSLocalizedString("SettingsWindow.presets.tab", comment: "Presets settings tab")) {
+                SettingsItem(title: NSLocalizedString("IntervalsView.presets.label", comment: "Presets label")) {
+                    PresetPickerView(timer: timer)
+                }
+            }
+
+            SettingsSection(NSLocalizedString("SettingsWindow.timer.tab", comment: "Timer settings tab")) {
                 intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalLength.label",
                                                          comment: "Work interval label"),
                                 value: presetBinding(\.workIntervalLength, range: 1 ... 120),
                                 range: 1 ... 120,
                                 suffix: minStr)
+                SettingsDivider()
                 intervalStepper(title: NSLocalizedString("IntervalsView.shortRestIntervalLength.label",
                                                          comment: "Short rest interval label"),
                                 value: presetBinding(\.shortRestIntervalLength, range: 1 ... 120),
                                 range: 1 ... 120,
                                 suffix: minStr)
+                SettingsDivider()
                 intervalStepper(title: NSLocalizedString("IntervalsView.longRestIntervalLength.label",
                                                          comment: "Long rest interval label"),
+                                subtitle: NSLocalizedString("IntervalsView.longRestIntervalLength.help",
+                                                            comment: "Long rest interval hint"),
                                 value: presetBinding(\.longRestIntervalLength, range: 1 ... 120),
                                 range: 1 ... 120,
                                 suffix: minStr)
-                    .help(NSLocalizedString("IntervalsView.longRestIntervalLength.help",
-                                            comment: "Long rest interval hint"))
+                SettingsDivider()
                 intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalsInSet.label",
                                                          comment: "Work intervals in a set label"),
+                                subtitle: NSLocalizedString("IntervalsView.workIntervalsInSet.help",
+                                                            comment: "Work intervals in set hint"),
                                 value: presetBinding(\.workIntervalsInSet, range: 1 ... 10),
                                 range: 1 ... 10)
-                    .help(NSLocalizedString("IntervalsView.workIntervalsInSet.help",
-                                            comment: "Work intervals in set hint"))
             }
-            .frame(maxWidth: SettingsLayout.contentWidth)
-
-            Divider()
-                .frame(maxWidth: SettingsLayout.contentWidth)
-
-            PresetPickerView(timer: timer)
-                .frame(maxWidth: SettingsLayout.contentWidth)
         }
     }
 
@@ -305,20 +395,23 @@ struct IntervalsView: View {
     }
 
     private func intervalStepper(title: String,
+                                 subtitle: String? = nil,
                                  value: Binding<Int>,
                                  range: ClosedRange<Int>,
                                  suffix: String? = nil) -> some View {
-        Stepper(value: value, in: range) {
-            HStack {
-                Text(title)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                TextField("", value: value, formatter: clampedNumberFormatter(range: range))
-                    .frame(width: 42, alignment: .trailing)
-                    .multilineTextAlignment(.trailing)
-                if let suffix = suffix {
-                    Text(suffix)
+        SettingsItem(title: title, subtitle: subtitle) {
+            Stepper(value: value, in: range) {
+                HStack(spacing: 4) {
+                    TextField("", value: value, formatter: clampedNumberFormatter(range: range))
+                        .frame(width: 42, alignment: .trailing)
+                        .multilineTextAlignment(.trailing)
+                    if let suffix = suffix {
+                        Text(suffix)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
+            .frame(width: 120, alignment: .trailing)
         }
     }
 
@@ -337,74 +430,90 @@ struct TimerSettingsView: View {
 
     var body: some View {
         SettingsPane {
-            SettingsRow(title: NSLocalizedString("SettingsView.showTimerInMenuBar.label",
-                                                 comment: "Show timer in menu bar label")) {
-                Toggle("", isOn: $timer.showTimerInMenuBar)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .onChange(of: timer.showTimerInMenuBar) { _ in
-                        timer.updateTimeLeft()
-                    }
-            }
-            SettingsSectionTitle(title: NSLocalizedString("SettingsView.fullScreenMask.section",
-                                                            comment: "Full screen mask settings section"))
-            SettingsRow(title: NSLocalizedString("SettingsView.showFullScreenMask.label",
-                                                 comment: "show full screen mask on rest")) {
-                Toggle("", isOn: $timer.showFullScreenMask)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .help(NSLocalizedString("SettingsView.showFullScreenMask.help",
-                                            comment: "show full screen mask hint"))
-                    .onChange(of: timer.showFullScreenMask) { enabled in
-                        if !enabled {
-                            timer.setStrictFullScreenMask(false)
+            SettingsSection(NSLocalizedString("SettingsWindow.timer.tab", comment: "Timer settings tab")) {
+                SettingsItem(title: NSLocalizedString("SettingsView.showTimerInMenuBar.label",
+                                                      comment: "Show timer in menu bar label")) {
+                    Toggle("", isOn: $timer.showTimerInMenuBar)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .onChange(of: timer.showTimerInMenuBar) { _ in
+                            timer.updateTimeLeft()
                         }
-                    }
+                }
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SettingsView.pauseAfterRestFinish.label",
+                                                      comment: "Pause after rest finish label"),
+                             subtitle: NSLocalizedString("SettingsView.pauseAfterRestFinish.help",
+                                                         comment: "Pause after rest finish hint")) {
+                    Toggle("", isOn: $timer.pauseAfterRestFinish)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .help(NSLocalizedString("SettingsView.pauseAfterRestFinish.help",
+                                                comment: "Pause after rest finish hint"))
+                }
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SettingsView.extendWorkAfterFinish.label",
+                                                      comment: "Extend work after finish label"),
+                             subtitle: NSLocalizedString("SettingsView.extendWorkAfterFinish.help",
+                                                         comment: "Extend work after finish hint")) {
+                    Toggle("", isOn: $timer.extendWorkAfterFinish)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .help(NSLocalizedString("SettingsView.extendWorkAfterFinish.help",
+                                                comment: "Extend work after finish hint"))
+                }
             }
-            SettingsRow(title: NSLocalizedString("SettingsView.strictFullScreenMask.label",
-                                                 comment: "strict full screen mask on rest")) {
-                Toggle("", isOn: Binding(get: {
-                    timer.strictFullScreenMask
-                }, set: { enabled in
-                    timer.setStrictFullScreenMask(enabled)
-                }))
+
+            SettingsSection(NSLocalizedString("SettingsView.fullScreenMask.section",
+                                              comment: "Full screen mask settings section")) {
+                SettingsItem(title: NSLocalizedString("SettingsView.showFullScreenMask.label",
+                                                      comment: "show full screen mask on rest"),
+                             subtitle: NSLocalizedString("SettingsView.showFullScreenMask.help",
+                                                         comment: "show full screen mask hint")) {
+                    Toggle("", isOn: $timer.showFullScreenMask)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .help(NSLocalizedString("SettingsView.showFullScreenMask.help",
+                                                comment: "show full screen mask hint"))
+                        .onChange(of: timer.showFullScreenMask) { enabled in
+                            if !enabled {
+                                timer.setStrictFullScreenMask(false)
+                            }
+                        }
+                }
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SettingsView.strictFullScreenMask.label",
+                                                      comment: "strict full screen mask on rest"),
+                             subtitle: NSLocalizedString("SettingsView.strictFullScreenMask.help",
+                                                         comment: "strict full screen mask hint")) {
+                    Toggle("", isOn: Binding(get: {
+                        timer.strictFullScreenMask
+                    }, set: { enabled in
+                        timer.setStrictFullScreenMask(enabled)
+                    }))
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .disabled(!timer.showFullScreenMask)
                     .help(NSLocalizedString("SettingsView.strictFullScreenMask.help",
                                             comment: "strict full screen mask hint"))
-            }
-            if timer.strictFullScreenMaskShortcutBlockingUnavailable {
-                Text(NSLocalizedString("SettingsView.strictFullScreenMask.shortcutBlockingUnavailable",
-                                       comment: "strict full screen mask shortcut blocking unavailable"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            SettingsRow(title: NSLocalizedString("SettingsView.strictFullScreenMaskPresentationLock.label",
-                                                 comment: "strict full screen mask presentation lock label")) {
-                Toggle("", isOn: $timer.strictFullScreenMaskPresentationLock)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .disabled(!timer.showFullScreenMask || !timer.strictFullScreenMask)
-                    .help(NSLocalizedString("SettingsView.strictFullScreenMaskPresentationLock.help",
-                                            comment: "strict full screen mask presentation lock hint"))
-            }
-            SettingsRow(title: NSLocalizedString("SettingsView.pauseAfterRestFinish.label",
-                                                 comment: "Pause after rest finish label")) {
-                Toggle("", isOn: $timer.pauseAfterRestFinish)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .help(NSLocalizedString("SettingsView.pauseAfterRestFinish.help",
-                                            comment: "Pause after rest finish hint"))
-            }
-            SettingsRow(title: NSLocalizedString("SettingsView.extendWorkAfterFinish.label",
-                                                 comment: "Extend work after finish label")) {
-                Toggle("", isOn: $timer.extendWorkAfterFinish)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .help(NSLocalizedString("SettingsView.extendWorkAfterFinish.help",
-                                            comment: "Extend work after finish hint"))
+                }
+                if timer.strictFullScreenMaskShortcutBlockingUnavailable {
+                    SettingsDivider()
+                    SettingsInlineMessage(text: NSLocalizedString("SettingsView.strictFullScreenMask.shortcutBlockingUnavailable",
+                                                                  comment: "strict full screen mask shortcut blocking unavailable"))
+                }
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SettingsView.strictFullScreenMaskPresentationLock.label",
+                                                      comment: "strict full screen mask presentation lock label"),
+                             subtitle: NSLocalizedString("SettingsView.strictFullScreenMaskPresentationLock.help",
+                                                         comment: "strict full screen mask presentation lock hint")) {
+                    Toggle("", isOn: $timer.strictFullScreenMaskPresentationLock)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .disabled(!timer.showFullScreenMask || !timer.strictFullScreenMask)
+                        .help(NSLocalizedString("SettingsView.strictFullScreenMaskPresentationLock.help",
+                                                comment: "strict full screen mask presentation lock hint"))
+                }
             }
         }
     }
@@ -413,22 +522,26 @@ struct TimerSettingsView: View {
 struct ShortcutSettingsView: View {
     var body: some View {
         SettingsPane {
-            SettingsRow(title: NSLocalizedString("SettingsView.shortcut.label",
-                                                 comment: "Shortcut label")) {
-                KeyboardShortcuts.Recorder(for: .startStopTimer) {
-                    EmptyView()
+            SettingsSection(NSLocalizedString("SettingsWindow.shortcuts.tab", comment: "Shortcuts settings tab")) {
+                SettingsItem(title: NSLocalizedString("SettingsView.shortcut.label",
+                                                      comment: "Shortcut label")) {
+                    KeyboardShortcuts.Recorder(for: .startStopTimer) {
+                        EmptyView()
+                    }
                 }
-            }
-            SettingsRow(title: NSLocalizedString("SettingsView.pauseShortcut.label",
-                                                 comment: "Pause shortcut label")) {
-                KeyboardShortcuts.Recorder(for: .pauseResumeTimer) {
-                    EmptyView()
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SettingsView.pauseShortcut.label",
+                                                      comment: "Pause shortcut label")) {
+                    KeyboardShortcuts.Recorder(for: .pauseResumeTimer) {
+                        EmptyView()
+                    }
                 }
-            }
-            SettingsRow(title: NSLocalizedString("SettingsView.skipShortcut.label",
-                                                 comment: "Skip shortcut label")) {
-                KeyboardShortcuts.Recorder(for: .skipTimer) {
-                    EmptyView()
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SettingsView.skipShortcut.label",
+                                                      comment: "Skip shortcut label")) {
+                    KeyboardShortcuts.Recorder(for: .skipTimer) {
+                        EmptyView()
+                    }
                 }
             }
         }
@@ -441,15 +554,18 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         SettingsPane {
-            SettingsRow(title: NSLocalizedString("SettingsView.appearance.label",
-                                                 comment: "Appearance setting label")) {
-                AppearancePickerView(appearanceController: appearanceController)
-            }
-            SettingsRow(title: NSLocalizedString("SettingsView.launchAtLogin.label",
-                                                 comment: "Launch at login label")) {
-                Toggle("", isOn: $launchAtLogin.isEnabled)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
+            SettingsSection(NSLocalizedString("SettingsWindow.general.tab", comment: "General settings tab")) {
+                SettingsItem(title: NSLocalizedString("SettingsView.appearance.label",
+                                                      comment: "Appearance setting label")) {
+                    AppearancePickerView(appearanceController: appearanceController)
+                }
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SettingsView.launchAtLogin.label",
+                                                      comment: "Launch at login label")) {
+                    Toggle("", isOn: $launchAtLogin.isEnabled)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                }
             }
         }
     }
@@ -461,7 +577,9 @@ private struct VolumeSlider: View {
     var body: some View {
         Slider(value: $volume, in: 0...2) {
             Text(String(format: "%.1f", volume))
-        }.gesture(TapGesture(count: 2).onEnded({
+        }
+        .frame(width: SettingsLayout.soundSliderWidth)
+        .gesture(TapGesture(count: 2).onEnded({
             volume = 1.0
         }))
     }
@@ -474,25 +592,24 @@ struct SoundsView: View {
         self.player = player
     }
 
-    private var columns = [
-        GridItem(.flexible()),
-        GridItem(.fixed(SettingsLayout.soundSliderWidth))
-    ]
-
     var body: some View {
         SettingsPane {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                Text(NSLocalizedString("SoundsView.isWindupEnabled.label",
-                                       comment: "Windup label"))
-                VolumeSlider(volume: $player.windupVolume)
-                Text(NSLocalizedString("SoundsView.isDingEnabled.label",
-                                       comment: "Ding label"))
-                VolumeSlider(volume: $player.dingVolume)
-                Text(NSLocalizedString("SoundsView.isTickingEnabled.label",
-                                       comment: "Ticking label"))
-                VolumeSlider(volume: $player.tickingVolume)
+            SettingsSection(NSLocalizedString("SettingsWindow.sounds.tab", comment: "Sounds settings tab")) {
+                SettingsItem(title: NSLocalizedString("SoundsView.isWindupEnabled.label",
+                                                      comment: "Windup label")) {
+                    VolumeSlider(volume: $player.windupVolume)
+                }
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SoundsView.isDingEnabled.label",
+                                                      comment: "Ding label")) {
+                    VolumeSlider(volume: $player.dingVolume)
+                }
+                SettingsDivider()
+                SettingsItem(title: NSLocalizedString("SoundsView.isTickingEnabled.label",
+                                                      comment: "Ticking label")) {
+                    VolumeSlider(volume: $player.tickingVolume)
+                }
             }
-            .frame(maxWidth: SettingsLayout.contentWidth)
         }
     }
 }
