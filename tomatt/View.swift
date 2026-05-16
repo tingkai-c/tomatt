@@ -644,8 +644,7 @@ struct TBPopoverView: View {
                 Text(NSLocalizedString("TBPopoverView.about.label",
                                        comment: "About label"))
             }
-            .buttonStyle(.plain)
-            .tbGlassCapsule(horizontalPadding: 9, verticalPadding: 4)
+            .tbGlassCapsuleButton(horizontalPadding: 9, verticalPadding: 4)
 
             Button {
                 NSApplication.shared.terminate(self)
@@ -653,8 +652,7 @@ struct TBPopoverView: View {
                 Text(NSLocalizedString("TBPopoverView.quit.label",
                                        comment: "Quit label"))
             }
-            .buttonStyle(.plain)
-            .tbGlassCapsule(horizontalPadding: 9, verticalPadding: 4)
+            .tbGlassCapsuleButton(horizontalPadding: 9, verticalPadding: 4)
             .disabled(timer.strictFullScreenMaskActive)
         }
         .font(.caption)

@@ -149,39 +149,103 @@ private struct TBGlassCapsuleModifier: ViewModifier {
     }
 }
 
+private struct TBGlassCapsuleButtonStyle: ButtonStyle {
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    let isProminent: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        TBGlassCapsuleButtonLabel(configuration: configuration,
+                                  horizontalPadding: horizontalPadding,
+                                  verticalPadding: verticalPadding,
+                                  isProminent: isProminent)
+    }
+}
+
+private struct TBGlassCapsuleButtonLabel: View {
+    let configuration: ButtonStyle.Configuration
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    let isProminent: Bool
+    @State private var isHovered = false
+
+    var body: some View {
+        configuration.label
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .background(
+                Capsule()
+                    .fill(backgroundColor)
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(isHovered ? TBDesignTokens.ColorToken.hairlineHover : TBDesignTokens.ColorToken.hairline,
+                                  lineWidth: 0.75)
+                    .allowsHitTesting(false)
+            )
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .contentShape(Capsule())
+            .onHover { hovering in
+                isHovered = hovering
+            }
+            .animation(TBDesignTokens.Animation.quick, value: isHovered)
+            .animation(TBDesignTokens.Animation.quick, value: configuration.isPressed)
+    }
+
+    private var backgroundColor: Color {
+        if isProminent {
+            return TBDesignTokens.ColorToken.accent.opacity(isHovered ? 0.98 : 0.90)
+        }
+        return isHovered ? TBDesignTokens.ColorToken.glassFillHover : TBDesignTokens.ColorToken.glassFill
+    }
+}
+
 enum TBPopoverButtonRole {
     case primary
     case secondary
     case destructiveQuiet
 }
 
-private struct TBPopoverButtonModifier: ViewModifier {
+private struct TBPopoverButtonStyle: ButtonStyle {
+    let role: TBPopoverButtonRole
+    let minWidth: CGFloat
+
+    func makeBody(configuration: Configuration) -> some View {
+        TBPopoverButtonLabel(configuration: configuration,
+                             role: role,
+                             minWidth: minWidth)
+    }
+}
+
+private struct TBPopoverButtonLabel: View {
+    let configuration: ButtonStyle.Configuration
     let role: TBPopoverButtonRole
     let minWidth: CGFloat
     @State private var isHovered = false
 
-    func body(content: Content) -> some View {
-        content
-            .buttonStyle(PlainButtonStyle())
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: TBDesignTokens.Radius.button, style: .continuous)
+
+        configuration.label
             .font(.system(size: 14, weight: .semibold, design: .rounded))
             .foregroundColor(foregroundColor)
             .frame(minWidth: minWidth, minHeight: 32)
             .padding(.horizontal, 10)
             .background(
-                RoundedRectangle(cornerRadius: TBDesignTokens.Radius.button, style: .continuous)
-                    .fill(backgroundColor)
+                shape.fill(backgroundColor)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: TBDesignTokens.Radius.button, style: .continuous)
-                    .strokeBorder(isHovered ? TBDesignTokens.ColorToken.hairlineHover : TBDesignTokens.ColorToken.hairline,
-                                  lineWidth: 0.75)
+                shape.strokeBorder(isHovered ? TBDesignTokens.ColorToken.hairlineHover : TBDesignTokens.ColorToken.hairline,
+                                   lineWidth: 0.75)
                     .allowsHitTesting(false)
             )
-            .contentShape(RoundedRectangle(cornerRadius: TBDesignTokens.Radius.button, style: .continuous))
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .contentShape(shape)
             .onHover { hovering in
                 isHovered = hovering
             }
             .animation(TBDesignTokens.Animation.quick, value: isHovered)
+            .animation(TBDesignTokens.Animation.quick, value: configuration.isPressed)
     }
 
     private var backgroundColor: Color {
@@ -207,12 +271,18 @@ private struct TBPopoverButtonModifier: ViewModifier {
     }
 }
 
-private struct TBIconButtonModifier: ViewModifier {
+private struct TBIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        TBIconButtonLabel(configuration: configuration)
+    }
+}
+
+private struct TBIconButtonLabel: View {
+    let configuration: ButtonStyle.Configuration
     @State private var isHovered = false
 
-    func body(content: Content) -> some View {
-        content
-            .buttonStyle(PlainButtonStyle())
+    var body: some View {
+        configuration.label
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(isHovered ? .primary : TBDesignTokens.ColorToken.subduedText)
             .frame(width: 26, height: 26)
@@ -225,11 +295,13 @@ private struct TBIconButtonModifier: ViewModifier {
                     .strokeBorder(isHovered ? TBDesignTokens.ColorToken.hairline : Color.clear, lineWidth: 0.5)
                     .allowsHitTesting(false)
             )
+            .opacity(configuration.isPressed ? 0.78 : 1)
             .contentShape(Rectangle())
             .onHover { hovering in
                 isHovered = hovering
             }
             .animation(TBDesignTokens.Animation.quick, value: isHovered)
+            .animation(TBDesignTokens.Animation.quick, value: configuration.isPressed)
     }
 }
 
@@ -250,12 +322,20 @@ extension View {
                                         isProminent: isProminent))
     }
 
+    func tbGlassCapsuleButton(horizontalPadding: CGFloat = 10,
+                              verticalPadding: CGFloat = 5,
+                              isProminent: Bool = false) -> some View {
+        buttonStyle(TBGlassCapsuleButtonStyle(horizontalPadding: horizontalPadding,
+                                              verticalPadding: verticalPadding,
+                                              isProminent: isProminent))
+    }
+
     func tbPopoverButton(role: TBPopoverButtonRole = .secondary,
                          minWidth: CGFloat) -> some View {
-        modifier(TBPopoverButtonModifier(role: role, minWidth: minWidth))
+        buttonStyle(TBPopoverButtonStyle(role: role, minWidth: minWidth))
     }
 
     func tbIconButton() -> some View {
-        modifier(TBIconButtonModifier())
+        buttonStyle(TBIconButtonStyle())
     }
 }
