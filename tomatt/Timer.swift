@@ -405,6 +405,8 @@ class TBTimer: ObservableObject {
     }
 
     private func onWorkEnd(context ctx: TBStateMachine.Context) {
+        // Pause/resume keeps the current interval alive; onTimerPause/onTimerResume own ticking state.
+        guard ctx.event != .pauseResume else { return }
         closeStatsInterval(context: ctx)
         player.stopTicking()
     }
@@ -865,6 +867,8 @@ class TBTimer: ObservableObject {
     }
 
     private func closeStatsInterval(context ctx: TBStateMachine.Context) {
+        // Closing on pause would drop activeStatsInterval, which also drives circular progress.
+        guard ctx.event != .pauseResume else { return }
         guard var interval = activeStatsInterval else { return }
         activeStatsInterval = nil
 

@@ -152,17 +152,20 @@ private struct CircularTimerFace<Title: View>: View {
     let time: String
     let detail: String?
     let progress: Double
+    let isPaused: Bool
     let title: Title
 
     init(diameter: CGFloat,
          time: String,
          detail: String? = nil,
          progress: Double,
+         isPaused: Bool = false,
          @ViewBuilder title: () -> Title) {
         self.diameter = diameter
         self.time = time
         self.detail = detail
         self.progress = progress.clamped(to: 0 ... 1)
+        self.isPaused = isPaused
         self.title = title()
     }
 
@@ -176,13 +179,14 @@ private struct CircularTimerFace<Title: View>: View {
                 .frame(width: diameter - 14, height: diameter - 14)
             Circle()
                 .trim(from: progress >= 1 ? 0 : 1 - progress, to: 1)
-                .stroke(TBDesignTokens.ColorToken.accent,
+                .stroke(progressColor,
                         style: StrokeStyle(lineWidth: 5,
                                            lineCap: .round,
                                            lineJoin: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: diameter - 14, height: diameter - 14)
                 .animation(TBDesignTokens.Animation.smooth, value: progress)
+                .animation(TBDesignTokens.Animation.smooth, value: isPaused)
 
             VStack(spacing: 8) {
                 title
@@ -204,6 +208,10 @@ private struct CircularTimerFace<Title: View>: View {
         }
         .frame(width: diameter, height: diameter)
         .tbTimerFaceSurface()
+    }
+
+    private var progressColor: Color {
+        isPaused ? TBDesignTokens.ColorToken.subduedText.opacity(0.65) : TBDesignTokens.ColorToken.accent
     }
 }
 
@@ -580,7 +588,8 @@ struct TBPopoverView: View {
             CircularTimerFace(diameter: PopoverLayout.activeCircleDiameter,
                               time: timer.timeLeftString,
                               detail: activeIntervalDetail,
-                              progress: timer.remainingTimeProgress) {
+                              progress: timer.remainingTimeProgress,
+                              isPaused: timer.paused) {
                 Text(activeTimerTitle)
             }
 

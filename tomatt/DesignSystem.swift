@@ -185,6 +185,7 @@ private struct TBGlassCapsuleButtonLabel: View {
             )
             .opacity(configuration.isPressed ? 0.82 : 1)
             .contentShape(Capsule())
+            .scaleEffect(configuration.isPressed ? 0.97 : (isHovered ? 1.02 : 1.0))
             .onHover { hovering in
                 isHovered = hovering
             }
@@ -241,6 +242,7 @@ private struct TBPopoverButtonLabel: View {
             )
             .opacity(configuration.isPressed ? 0.82 : 1)
             .contentShape(shape)
+            .scaleEffect(configuration.isPressed ? 0.97 : (isHovered ? 1.02 : 1.0))
             .onHover { hovering in
                 isHovered = hovering
             }
@@ -297,6 +299,7 @@ private struct TBIconButtonLabel: View {
             )
             .opacity(configuration.isPressed ? 0.78 : 1)
             .contentShape(Rectangle())
+            .scaleEffect(configuration.isPressed ? 0.97 : (isHovered ? 1.02 : 1.0))
             .onHover { hovering in
                 isHovered = hovering
             }
