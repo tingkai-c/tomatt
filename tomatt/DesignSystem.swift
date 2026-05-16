@@ -159,7 +159,6 @@ private struct TBPopoverButtonModifier: ViewModifier {
     let role: TBPopoverButtonRole
     let minWidth: CGFloat
     @State private var isHovered = false
-    @State private var isPressed = false
 
     func body(content: Content) -> some View {
         content
@@ -178,28 +177,13 @@ private struct TBPopoverButtonModifier: ViewModifier {
                                   lineWidth: 0.75)
                     .allowsHitTesting(false)
             )
-            .scaleEffect(isPressed ? 0.97 : (isHovered ? 1.018 : 1.0))
+            .scaleEffect(isHovered ? 1.018 : 1.0)
             .contentShape(RoundedRectangle(cornerRadius: TBDesignTokens.Radius.button, style: .continuous))
             .onHover { hovering in
                 withAnimation(TBDesignTokens.Animation.quick) {
                     isHovered = hovering
                 }
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        if !isPressed {
-                            withAnimation(TBDesignTokens.Animation.quick) {
-                                isPressed = true
-                            }
-                        }
-                    }
-                    .onEnded { _ in
-                        withAnimation(TBDesignTokens.Animation.quick) {
-                            isPressed = false
-                        }
-                    }
-            )
             .animation(TBDesignTokens.Animation.quick)
     }
 
@@ -228,7 +212,6 @@ private struct TBPopoverButtonModifier: ViewModifier {
 
 private struct TBIconButtonModifier: ViewModifier {
     @State private var isHovered = false
-    @State private var isPressed = false
 
     func body(content: Content) -> some View {
         content
@@ -244,28 +227,13 @@ private struct TBIconButtonModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(isHovered ? TBDesignTokens.ColorToken.hairline : Color.clear, lineWidth: 0.5)
             )
-            .scaleEffect(isPressed ? 0.94 : (isHovered ? 1.04 : 1.0))
+            .scaleEffect(isHovered ? 1.04 : 1.0)
             .contentShape(Rectangle())
             .onHover { hovering in
                 withAnimation(TBDesignTokens.Animation.quick) {
                     isHovered = hovering
                 }
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        if !isPressed {
-                            withAnimation(TBDesignTokens.Animation.quick) {
-                                isPressed = true
-                            }
-                        }
-                    }
-                    .onEnded { _ in
-                        withAnimation(TBDesignTokens.Animation.quick) {
-                            isPressed = false
-                        }
-                    }
-            )
     }
 }
 
