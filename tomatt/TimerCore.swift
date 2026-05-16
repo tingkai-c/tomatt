@@ -9,6 +9,18 @@ struct TimerPreset: Codable, Equatable {
     var workIntervalsInSet = 4
 }
 
+struct NamedTimerPreset: Codable, Equatable, Identifiable {
+    var id: UUID
+    var name: String
+    var preset: TimerPreset
+
+    init(id: UUID = UUID(), name: String, preset: TimerPreset) {
+        self.id = id
+        self.name = name
+        self.preset = preset.clamped()
+    }
+}
+
 struct PersistedTimerSession: Codable, Equatable {
     var schemaVersion = 1
     var state: TBStateMachineStates
@@ -300,6 +312,11 @@ enum TimerCore {
 }
 
 extension TimerPreset {
+    static let firstStartupDefault = TimerPreset(workIntervalLength: 30,
+                                                shortRestIntervalLength: 5,
+                                                longRestIntervalLength: 15,
+                                                workIntervalsInSet: 4)
+
     func clamped() -> TimerPreset {
         TimerPreset(workIntervalLength: Self.clamp(workIntervalLength, to: 1 ... 120),
                     shortRestIntervalLength: Self.clamp(shortRestIntervalLength, to: 1 ... 120),

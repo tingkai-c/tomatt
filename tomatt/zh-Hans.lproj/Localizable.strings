@@ -20,7 +20,6 @@
 "TBPopoverView.leave.label" = "离开";
 "TBPopoverView.focus.label" = "专注";
 "TBPopoverView.break.label" = "休息";
-"TBPopoverView.preset.format" = "预设 %d";
 "TBPopoverView.presetMenu.help" = "选择专注预设";
 "TBPopoverView.startBreak.label" = "开始休息";
 "TBPopoverView.startWork.label" = "开始工作";
@@ -103,3 +102,18 @@
 "StatsView.abandoned.label" = "已放弃";
 "StatsView.durationWithOvertime.format" = "%@ · 超时 %@";
 "StatsView.durationWithPaused.format" = "%@ · 暂停 %@";
+"IntervalsView.defaultPreset.name" = "Default";
+"IntervalsView.newPreset.defaultName" = "New Preset";
+"IntervalsView.duplicatePreset.nameFormat" = "%@ Copy";
+"IntervalsView.untitledPreset.name" = "Untitled";
+"IntervalsView.addPreset.help" = "Add preset";
+"IntervalsView.duplicatePreset.help" = "Duplicate selected preset";
+"IntervalsView.deletePreset.help" = "Delete selected preset";
+"IntervalsView.movePresetUp.help" = "Move preset up";
+"IntervalsView.movePresetDown.help" = "Move preset down";
+"IntervalsView.activePreset.help" = "Active preset";
+"IntervalsView.presetName.placeholder" = "Preset name";
+"IntervalsView.activePreset.button" = "Active";
+"IntervalsView.setActivePreset.button" = "Set Active";
+"IntervalsView.futureSessions.help" = "Changes apply to future sessions. A running timer keeps the preset it started with.";
+"IntervalsView.presetSummary.format" = "%dm work · %dm break";

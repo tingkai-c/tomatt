@@ -9,15 +9,9 @@ class TBTimer: ObservableObject {
     @AppStorage("strictFullScreenMaskPresentationLock") var strictFullScreenMaskPresentationLock = true
     @AppStorage("pauseAfterRestFinish") var pauseAfterRestFinish = false
     @AppStorage("extendWorkAfterFinish") var extendWorkAfterFinish = false
-    @AppStorage("currentPreset") private var currentPreset = 0
-    @AppStorage("timerPresets") private var timerPresetsData = ""
+    @AppStorage("selectedNamedPresetID") private var selectedNamedPresetID = ""
+    @AppStorage("namedTimerPresets") private var namedTimerPresetsData = ""
     @AppStorage("activeTimerSession") private var activeTimerSessionData = ""
-
-    // Legacy preferences seed the first preset.
-    @AppStorage("workIntervalLength") private var legacyWorkIntervalLength = 25
-    @AppStorage("shortRestIntervalLength") private var legacyShortRestIntervalLength = 5
-    @AppStorage("longRestIntervalLength") private var legacyLongRestIntervalLength = 15
-    @AppStorage("workIntervalsInSet") private var legacyWorkIntervalsInSet = 4
     private var stateMachine = TBStateMachine(state: .idle)
     public let player = TBPlayer()
     public private(set) var currentWorkInterval: Int = 0
@@ -42,23 +36,35 @@ class TBTimer: ObservableObject {
     @Published private(set) var strictFullScreenMaskActive = false
     @Published private(set) var strictFullScreenMaskShortcutBlockingUnavailable = false
 
+    var presetConfigurations: [NamedTimerPreset] {
+        namedPresets
+    }
+
     var selectedPresetIndex: Int {
-        get { clampedPresetIndex(currentPreset) }
+        get {
+            let currentID = selectedPresetUUID
+            return namedPresets.firstIndex { $0.id == currentID } ?? 0
+        }
         set {
-            let index = clampedPresetIndex(newValue)
-            guard index != currentPreset else { return }
-            objectWillChange.send()
-            currentPreset = index
+            let presets = namedPresets
+            guard presets.indices.contains(newValue) else { return }
+            setActivePreset(id: presets[newValue].id)
         }
     }
 
     var currentPresetInstance: TimerPreset {
-        get { presets[selectedPresetIndex] }
+        get { currentPresetConfiguration.preset }
         set {
-            var updatedPresets = presets
-            updatedPresets[selectedPresetIndex] = newValue.clamped()
-            presets = updatedPresets
+            updatePreset(id: currentPresetConfiguration.id, preset: newValue)
         }
+    }
+
+    var currentPresetName: String {
+        currentPresetConfiguration.name
+    }
+
+    var currentPresetID: UUID {
+        currentPresetConfiguration.id
     }
 
     var sessionPresetInstance: TimerPreset {
@@ -69,16 +75,114 @@ class TBTimer: ObservableObject {
         activePreset ?? currentPresetInstance
     }
 
-    private var presets: [TimerPreset] {
-        get { normalizedPresets() }
+    private var currentPresetConfiguration: NamedTimerPreset {
+        let presets = namedPresets
+        let currentID = selectedPresetUUID
+        return presets.first { $0.id == currentID } ?? presets[0]
+    }
+
+    private var selectedPresetUUID: UUID {
+        let presets = namedPresets
+        if let id = UUID(uuidString: selectedNamedPresetID),
+           presets.contains(where: { $0.id == id }) {
+            return id
+        }
+        return presets[0].id
+    }
+
+    private var namedPresets: [NamedTimerPreset] {
+        get { normalizedNamedPresets() }
         set {
-            let normalized = normalizePresets(newValue)
+            let normalized = normalizeNamedPresets(newValue)
             if let data = try? JSONEncoder().encode(normalized),
                let rawValue = String(data: data, encoding: .utf8) {
                 objectWillChange.send()
-                timerPresetsData = rawValue
+                namedTimerPresetsData = rawValue
+                if !normalized.contains(where: { $0.id.uuidString == selectedNamedPresetID }) {
+                    selectedNamedPresetID = normalized[0].id.uuidString
+                }
             }
         }
+    }
+
+    func setActivePreset(id: UUID) {
+        guard namedPresets.contains(where: { $0.id == id }) else { return }
+        guard selectedNamedPresetID != id.uuidString else { return }
+        objectWillChange.send()
+        selectedNamedPresetID = id.uuidString
+    }
+
+    func isActivePreset(id: UUID) -> Bool {
+        selectedPresetUUID == id
+    }
+
+    func presetConfiguration(id: UUID) -> NamedTimerPreset? {
+        namedPresets.first { $0.id == id }
+    }
+
+    @discardableResult
+    func addPreset() -> UUID {
+        var presets = namedPresets
+        let preset = NamedTimerPreset(name: uniquePresetName(base: NSLocalizedString("IntervalsView.newPreset.defaultName",
+                                                                                     comment: "Default new preset name"),
+                                                            in: presets),
+                                      preset: TimerPreset.firstStartupDefault)
+        presets.append(preset)
+        namedPresets = presets
+        return preset.id
+    }
+
+    @discardableResult
+    func duplicatePreset(id: UUID) -> UUID? {
+        guard let source = presetConfiguration(id: id) else { return nil }
+        var presets = namedPresets
+        let copyNameFormat = NSLocalizedString("IntervalsView.duplicatePreset.nameFormat",
+                                               comment: "Duplicated preset name format")
+        let copyName = String(format: copyNameFormat, source.name)
+        let preset = NamedTimerPreset(name: uniquePresetName(base: copyName, in: presets),
+                                      preset: source.preset)
+        if let sourceIndex = presets.firstIndex(where: { $0.id == id }) {
+            presets.insert(preset, at: presets.index(after: sourceIndex))
+        } else {
+            presets.append(preset)
+        }
+        namedPresets = presets
+        return preset.id
+    }
+
+    func deletePreset(id: UUID) {
+        var presets = namedPresets
+        guard presets.count > 1,
+              let removedIndex = presets.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        let wasActive = isActivePreset(id: id)
+        presets.remove(at: removedIndex)
+        namedPresets = presets
+        if wasActive {
+            let replacementIndex = min(removedIndex, presets.count - 1)
+            setActivePreset(id: presets[replacementIndex].id)
+        }
+    }
+
+    func movePreset(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var presets = namedPresets
+        presets.move(fromOffsets: source, toOffset: destination)
+        namedPresets = presets
+    }
+
+    func updatePresetName(id: UUID, name: String) {
+        var presets = namedPresets
+        guard let index = presets.firstIndex(where: { $0.id == id }) else { return }
+        presets[index].name = uniquePresetName(base: sanitizedPresetName(name), in: presets, excluding: id)
+        namedPresets = presets
+    }
+
+    func updatePreset(id: UUID, preset: TimerPreset) {
+        var presets = namedPresets
+        guard let index = presets.firstIndex(where: { $0.id == id }) else { return }
+        presets[index].preset = preset.clamped()
+        namedPresets = presets
     }
 
     init() {
@@ -894,33 +998,69 @@ class TBTimer: ObservableObject {
     }
 
 
-    private func normalizedPresets() -> [TimerPreset] {
-        guard !timerPresetsData.isEmpty,
-              let data = timerPresetsData.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode([TimerPreset].self, from: data) else {
-            return defaultPresets()
+    private func normalizedNamedPresets() -> [NamedTimerPreset] {
+        guard !namedTimerPresetsData.isEmpty,
+              let data = namedTimerPresetsData.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([NamedTimerPreset].self, from: data) else {
+            return defaultNamedPresets()
         }
-        return normalizePresets(decoded)
+        return normalizeNamedPresets(decoded)
     }
 
-    private func defaultPresets() -> [TimerPreset] {
-        var defaults = Array(repeating: TimerPreset(), count: 4)
-        defaults[0] = TimerPreset(workIntervalLength: legacyWorkIntervalLength,
-                                  shortRestIntervalLength: legacyShortRestIntervalLength,
-                                  longRestIntervalLength: legacyLongRestIntervalLength,
-                                  workIntervalsInSet: legacyWorkIntervalsInSet).clamped()
-        return defaults
+    private func defaultNamedPresets() -> [NamedTimerPreset] {
+        [NamedTimerPreset(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+                          name: NSLocalizedString("IntervalsView.defaultPreset.name",
+                                                  comment: "Fresh install default preset name"),
+                          preset: TimerPreset.firstStartupDefault)]
     }
 
-    private func normalizePresets(_ source: [TimerPreset]) -> [TimerPreset] {
-        var normalized = source.prefix(4).map { $0.clamped() }
-        while normalized.count < 4 {
-            normalized.append(TimerPreset())
+    private func normalizeNamedPresets(_ source: [NamedTimerPreset]) -> [NamedTimerPreset] {
+        var usedIDs = Set<UUID>()
+        var normalized = source.map { preset in
+            var copy = preset
+            if usedIDs.contains(copy.id) {
+                copy.id = UUID()
+            }
+            usedIDs.insert(copy.id)
+            copy.name = sanitizedPresetName(copy.name)
+            copy.preset = copy.preset.clamped()
+            return copy
         }
+
+        if normalized.isEmpty {
+            normalized = defaultNamedPresets()
+        }
+
         return normalized
     }
 
-    private func clampedPresetIndex(_ index: Int) -> Int {
-        min(max(index, 0), 3)
+    private func sanitizedPresetName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return NSLocalizedString("IntervalsView.untitledPreset.name",
+                                     comment: "Fallback preset name")
+        }
+        return String(trimmed.prefix(60))
+    }
+
+    private func uniquePresetName(base: String,
+                                  in presets: [NamedTimerPreset],
+                                  excluding excludedID: UUID? = nil) -> String {
+        let sanitizedBase = sanitizedPresetName(base)
+        let existingNames = Set(presets.compactMap { preset -> String? in
+            if let excludedID, preset.id == excludedID {
+                return nil
+            }
+            return preset.name
+        })
+        guard existingNames.contains(sanitizedBase) else {
+            return sanitizedBase
+        }
+
+        var suffix = 2
+        while existingNames.contains("\(sanitizedBase) \(suffix)") {
+            suffix += 1
+        }
+        return "\(sanitizedBase) \(suffix)"
     }
 }

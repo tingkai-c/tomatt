@@ -317,79 +317,198 @@ private struct CircularTimerFace<Title: View>: View {
     }
 }
 
-private struct PresetPickerView: View {
-    @ObservedObject var timer: TBTimer
-
-    var body: some View {
-        Picker("", selection: presetIndexBinding) {
-            Text("1").tag(0)
-            Text("2").tag(1)
-            Text("3").tag(2)
-            Text("4").tag(3)
-        }
-        .labelsHidden()
-        .pickerStyle(.segmented)
-    }
-
-    private var presetIndexBinding: Binding<Int> {
-        Binding(
-            get: { timer.selectedPresetIndex },
-            set: { timer.selectedPresetIndex = $0 }
-        )
-    }
-}
-
 struct IntervalsView: View {
     @EnvironmentObject var timer: TBTimer
+    @State private var selectedPresetID: UUID?
     private var minStr = NSLocalizedString("IntervalsView.min",
                                             comment: "Minute unit suffix. The number is shown separately.")
 
     var body: some View {
         SettingsPane {
             SettingsSection(NSLocalizedString("SettingsWindow.presets.tab", comment: "Presets settings tab")) {
-                SettingsItem(title: NSLocalizedString("IntervalsView.presets.label", comment: "Presets label")) {
-                    PresetPickerView(timer: timer)
+                HStack(alignment: .top, spacing: 16) {
+                    presetList
+                        .frame(width: 230)
+
+                    Divider()
+
+                    presetDetail
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .onAppear {
+            selectedPresetID = selectedPresetID ?? timer.currentPresetID
+        }
+    }
+
+    private var resolvedSelectedPresetID: UUID {
+        if let selectedPresetID,
+           timer.presetConfiguration(id: selectedPresetID) != nil {
+            return selectedPresetID
+        }
+        return timer.currentPresetID
+    }
+
+    private var selectedPreset: NamedTimerPreset? {
+        timer.presetConfiguration(id: resolvedSelectedPresetID)
+    }
+
+    private var presetList: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(NSLocalizedString("IntervalsView.presets.label", comment: "Presets label"))
+                .font(.system(size: 13, weight: .semibold))
+            VStack(spacing: 4) {
+                ForEach(timer.presetConfigurations) { preset in
+                    presetRow(preset)
                 }
             }
 
-            SettingsSection(NSLocalizedString("SettingsWindow.timer.tab", comment: "Timer settings tab")) {
+            HStack(spacing: 8) {
+                Button {
+                    selectedPresetID = timer.addPreset()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .help(NSLocalizedString("IntervalsView.addPreset.help", comment: "Add preset help"))
+
+                Button {
+                    selectedPresetID = timer.duplicatePreset(id: resolvedSelectedPresetID) ?? resolvedSelectedPresetID
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .help(NSLocalizedString("IntervalsView.duplicatePreset.help", comment: "Duplicate preset help"))
+
+                Button {
+                    deleteSelectedPreset()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .disabled(timer.presetConfigurations.count <= 1)
+                .help(NSLocalizedString("IntervalsView.deletePreset.help", comment: "Delete preset help"))
+
+                Spacer()
+
+                Button {
+                    moveSelectedPreset(up: true)
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .disabled(selectedPresetIndex <= 0)
+                .help(NSLocalizedString("IntervalsView.movePresetUp.help", comment: "Move preset up help"))
+
+                Button {
+                    moveSelectedPreset(up: false)
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .disabled(selectedPresetIndex >= timer.presetConfigurations.count - 1)
+                .help(NSLocalizedString("IntervalsView.movePresetDown.help", comment: "Move preset down help"))
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private func presetRow(_ preset: NamedTimerPreset) -> some View {
+        Button {
+            selectedPresetID = preset.id
+        } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(preset.name)
+                        .lineLimit(1)
+                    Text(presetSummary(preset.preset))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                if timer.isActivePreset(id: preset.id) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(TBDesignTokens.ColorToken.accent)
+                        .help(NSLocalizedString("IntervalsView.activePreset.help", comment: "Active preset help"))
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(preset.id == resolvedSelectedPresetID ? TBDesignTokens.ColorToken.glassFillHover : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: TBDesignTokens.Radius.button, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var presetDetail: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if let preset = selectedPreset {
+                HStack {
+                    TextField(NSLocalizedString("IntervalsView.presetName.placeholder",
+                                               comment: "Preset name placeholder"),
+                              text: presetNameBinding(for: preset.id))
+                        .textFieldStyle(.roundedBorder)
+                    Button {
+                        timer.setActivePreset(id: preset.id)
+                    } label: {
+                        Text(timer.isActivePreset(id: preset.id)
+                             ? NSLocalizedString("IntervalsView.activePreset.button",
+                                                 comment: "Active preset button")
+                             : NSLocalizedString("IntervalsView.setActivePreset.button",
+                                                 comment: "Set active preset button"))
+                    }
+                    .disabled(timer.isActivePreset(id: preset.id))
+                }
+
                 intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalLength.label",
                                                          comment: "Work interval label"),
-                                value: presetBinding(\.workIntervalLength, range: 1 ... 120),
+                                value: presetBinding(for: preset.id, \.workIntervalLength, range: 1 ... 120),
                                 range: 1 ... 120,
                                 suffix: minStr)
-                SettingsDivider()
                 intervalStepper(title: NSLocalizedString("IntervalsView.shortRestIntervalLength.label",
                                                          comment: "Short rest interval label"),
-                                value: presetBinding(\.shortRestIntervalLength, range: 1 ... 120),
+                                value: presetBinding(for: preset.id, \.shortRestIntervalLength, range: 1 ... 120),
                                 range: 1 ... 120,
                                 suffix: minStr)
-                SettingsDivider()
                 intervalStepper(title: NSLocalizedString("IntervalsView.longRestIntervalLength.label",
                                                          comment: "Long rest interval label"),
                                 subtitle: NSLocalizedString("IntervalsView.longRestIntervalLength.help",
                                                             comment: "Long rest interval hint"),
-                                value: presetBinding(\.longRestIntervalLength, range: 1 ... 120),
+                                value: presetBinding(for: preset.id, \.longRestIntervalLength, range: 1 ... 120),
                                 range: 1 ... 120,
                                 suffix: minStr)
-                SettingsDivider()
                 intervalStepper(title: NSLocalizedString("IntervalsView.workIntervalsInSet.label",
                                                          comment: "Work intervals in a set label"),
                                 subtitle: NSLocalizedString("IntervalsView.workIntervalsInSet.help",
                                                             comment: "Work intervals in set hint"),
-                                value: presetBinding(\.workIntervalsInSet, range: 1 ... 10),
+                                value: presetBinding(for: preset.id, \.workIntervalsInSet, range: 1 ... 10),
                                 range: 1 ... 10)
+
+                Text(NSLocalizedString("IntervalsView.futureSessions.help",
+                                       comment: "Preset edits future sessions help"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }
 
-    private func presetBinding(_ keyPath: WritableKeyPath<TimerPreset, Int>, range: ClosedRange<Int>) -> Binding<Int> {
+    private func presetNameBinding(for id: UUID) -> Binding<String> {
         Binding(
-            get: { timer.currentPresetInstance[keyPath: keyPath] },
+            get: { timer.presetConfiguration(id: id)?.name ?? "" },
+            set: { timer.updatePresetName(id: id, name: $0) }
+        )
+    }
+
+    private func presetBinding(for id: UUID,
+                               _ keyPath: WritableKeyPath<TimerPreset, Int>,
+                               range: ClosedRange<Int>) -> Binding<Int> {
+        Binding(
+            get: { timer.presetConfiguration(id: id)?.preset[keyPath: keyPath] ?? TimerPreset.firstStartupDefault[keyPath: keyPath] },
             set: { newValue in
-                var preset = timer.currentPresetInstance
+                var preset = timer.presetConfiguration(id: id)?.preset ?? TimerPreset.firstStartupDefault
                 preset[keyPath: keyPath] = newValue.clamped(to: range)
-                timer.currentPresetInstance = preset
+                timer.updatePreset(id: id, preset: preset)
             }
         )
     }
@@ -422,6 +541,35 @@ struct IntervalsView: View {
         formatter.generatesDecimalNumbers = false
         formatter.maximumFractionDigits = 0
         return formatter
+    }
+
+    private var selectedPresetIndex: Int {
+        timer.presetConfigurations.firstIndex { $0.id == resolvedSelectedPresetID } ?? 0
+    }
+
+    private func deleteSelectedPreset() {
+        let presets = timer.presetConfigurations
+        guard presets.count > 1,
+              let index = presets.firstIndex(where: { $0.id == resolvedSelectedPresetID }) else {
+            return
+        }
+        timer.deletePreset(id: resolvedSelectedPresetID)
+        let remaining = timer.presetConfigurations
+        selectedPresetID = remaining[min(index, remaining.count - 1)].id
+    }
+
+    private func moveSelectedPreset(up: Bool) {
+        let index = selectedPresetIndex
+        let destination = up ? index - 1 : index + 2
+        guard destination >= 0, destination <= timer.presetConfigurations.count else { return }
+        timer.movePreset(fromOffsets: IndexSet(integer: index), toOffset: destination)
+    }
+
+    private func presetSummary(_ preset: TimerPreset) -> String {
+        String(format: NSLocalizedString("IntervalsView.presetSummary.format",
+                                         comment: "Preset row summary format"),
+               preset.workIntervalLength,
+               preset.shortRestIntervalLength)
     }
 }
 
@@ -632,7 +780,6 @@ struct TBPopoverView: View {
 
     private var focusLabel = NSLocalizedString("TBPopoverView.focus.label", comment: "Focus timer title")
     private var breakLabel = NSLocalizedString("TBPopoverView.break.label", comment: "Break timer title")
-    private var presetFormat = NSLocalizedString("TBPopoverView.preset.format", comment: "Preset menu item format")
     private var presetMenuHelp = NSLocalizedString("TBPopoverView.presetMenu.help", comment: "Preset menu help")
     private var startLabel = NSLocalizedString("TBPopoverView.start.label", comment: "Start label")
     private var stopLabel = NSLocalizedString("TBPopoverView.stop.label", comment: "Stop label")
@@ -744,14 +891,14 @@ struct TBPopoverView: View {
 
     private var inactivePresetMenu: some View {
         Menu {
-            ForEach(0..<4, id: \.self) { index in
+            ForEach(timer.presetConfigurations) { preset in
                 Button {
-                    timer.selectedPresetIndex = index
+                    timer.setActivePreset(id: preset.id)
                 } label: {
-                    if index == timer.selectedPresetIndex {
-                        Label(presetName(for: index), systemImage: "checkmark")
+                    if timer.isActivePreset(id: preset.id) {
+                        Label(preset.name, systemImage: "checkmark")
                     } else {
-                        Text(presetName(for: index))
+                        Text(preset.name)
                     }
                 }
             }
@@ -765,9 +912,10 @@ struct TBPopoverView: View {
     }
 
     private var inactiveTimerTitle: some View {
-        timerTitleText(focusLabel)
+        timerTitleText(timer.currentPresetName)
             .overlay(dropdownIndicator, alignment: .trailing)
             .animation(TBDesignTokens.Animation.smooth, value: timer.controlMode)
+            .animation(TBDesignTokens.Animation.smooth, value: timer.currentPresetName)
     }
 
     private var dropdownIndicator: some View {
@@ -855,10 +1003,6 @@ struct TBPopoverView: View {
         case .inactive, .workRunning, .workPaused, .workExtended, .workFinishedPendingBreak, .workStartPending:
             return focusLabel
         }
-    }
-
-    private func presetName(for index: Int) -> String {
-        String(format: presetFormat, index + 1)
     }
 
     @ViewBuilder

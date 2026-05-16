@@ -219,6 +219,29 @@ final class TimerCoreTests: XCTestCase {
         XCTAssertTrue(TimerCore.isCurrentRestLongRest(currentWorkInterval: 4, preset: preset))
     }
 
+    func testFirstStartupDefaultPresetUsesThirtyFiveIntervals() {
+        XCTAssertEqual(TimerPreset.firstStartupDefault,
+                       TimerPreset(workIntervalLength: 30,
+                                   shortRestIntervalLength: 5,
+                                   longRestIntervalLength: 15,
+                                   workIntervalsInSet: 4))
+    }
+
+    func testNamedPresetClampsStoredPresetValues() {
+        let named = NamedTimerPreset(name: "Deep Work",
+                                    preset: TimerPreset(workIntervalLength: 999,
+                                                        shortRestIntervalLength: 0,
+                                                        longRestIntervalLength: -1,
+                                                        workIntervalsInSet: 99))
+
+        XCTAssertEqual(named.name, "Deep Work")
+        XCTAssertEqual(named.preset,
+                       TimerPreset(workIntervalLength: 120,
+                                   shortRestIntervalLength: 1,
+                                   longRestIntervalLength: 1,
+                                   workIntervalsInSet: 10))
+    }
+
     func testControlModesDescribePopoverButtonStates() {
         XCTAssertEqual(TimerCore.controlMode(timerActive: false,
                                              state: .idle,
