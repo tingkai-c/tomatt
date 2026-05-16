@@ -141,8 +141,9 @@ private struct OpenStatsButton: View {
 private enum PopoverLayout {
     static let width: CGFloat = 284
     static let height: CGFloat = 338
-    static let inactiveCircleDiameter: CGFloat = 204
-    static let activeCircleDiameter: CGFloat = 168
+    static let timerCircleDiameter: CGFloat = 204
+    static let timerTitleOffset: CGFloat = -58
+    static let timerDetailOffset: CGFloat = 54
     static let navigationHorizontalPadding: CGFloat = 10
     static let navigationTopPadding: CGFloat = 6
 }
@@ -191,23 +192,30 @@ private struct CircularTimerFace<Title: View>: View {
             VStack(spacing: 8) {
                 title
                     .font(.system(size: 19, weight: .semibold, design: .rounded))
-                Text(time)
-                    .font(.system(size: diameter > 190 ? 43 : 34,
-                                  weight: .regular,
-                                  design: .rounded)
-                        .monospacedDigit())
-                    .minimumScaleFactor(0.75)
-                    .lineLimit(1)
-                if let detail, !detail.isEmpty {
-                    Text(detail)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.secondary)
-                }
             }
             .padding(.horizontal, 18)
+            .offset(y: PopoverLayout.timerTitleOffset)
+
+            Text(time)
+                .font(.system(size: 43,
+                              weight: .regular,
+                              design: .rounded)
+                    .monospacedDigit())
+                .minimumScaleFactor(0.75)
+                .lineLimit(1)
+                .padding(.horizontal, 18)
+
+            if let detail, !detail.isEmpty {
+                Text(detail)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .offset(y: PopoverLayout.timerDetailOffset)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            }
         }
         .frame(width: diameter, height: diameter)
         .tbTimerFaceSurface()
+        .animation(TBDesignTokens.Animation.smooth, value: detail ?? "")
     }
 
     private var progressColor: Color {
@@ -558,48 +566,49 @@ struct TBPopoverView: View {
 
     @ViewBuilder
     private var primaryContent: some View {
-        if timer.controlMode == .inactive {
-            inactiveContent
-        } else {
-            activeContent
+        timerContent(time: timerFaceTime,
+                     detail: timerFaceDetail,
+                     progress: timerFaceProgress,
+                     isPaused: timer.paused) {
+            timerFaceTitle
+        } controls: {
+            timerFaceControls
         }
     }
 
-    private var inactiveContent: some View {
-        VStack(spacing: 16) {
-            CircularTimerFace(diameter: PopoverLayout.inactiveCircleDiameter,
-                              time: inactiveDurationString,
-                              progress: 1) {
-                presetMenu
-            }
+    @ViewBuilder
+    private var timerFaceTitle: some View {
+        if timer.controlMode == .inactive {
+            inactivePresetMenu
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        } else {
+            timerTitlePill(title: activeTimerTitle, isInteractive: false)
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        }
+    }
 
-            startButton(minWidth: 108)
+    private func timerContent<Title: View, Controls: View>(time: String,
+                                                           detail: String?,
+                                                           progress: Double,
+                                                           isPaused: Bool,
+                                                           @ViewBuilder title: () -> Title,
+                                                           @ViewBuilder controls: () -> Controls) -> some View {
+        VStack(spacing: 16) {
+            CircularTimerFace(diameter: PopoverLayout.timerCircleDiameter,
+                              time: time,
+                              detail: detail,
+                              progress: progress,
+                              isPaused: isPaused) {
+                title()
+            }
+            controls()
 
             Spacer(minLength: 0)
         }
         .padding(.top, 24)
-        .transition(.opacity.combined(with: .scale(scale: 0.985)))
-    }
-
-    private var activeContent: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 28)
-
-            CircularTimerFace(diameter: PopoverLayout.activeCircleDiameter,
-                              time: timer.timeLeftString,
-                              detail: activeIntervalDetail,
-                              progress: timer.remainingTimeProgress,
-                              isPaused: timer.paused) {
-                Text(activeTimerTitle)
-            }
-
-            Spacer(minLength: 14)
-
-            activeActionBar
-                .padding(.bottom, 4)
-        }
-        .frame(width: PopoverLayout.width - 8, height: PopoverLayout.height - 58)
-        .transition(.opacity.combined(with: .scale(scale: 0.985)))
+        .animation(TBDesignTokens.Animation.smooth, value: timer.controlMode)
+        .animation(TBDesignTokens.Animation.smooth, value: timer.timeLeftString)
+        .animation(TBDesignTokens.Animation.smooth, value: timerFaceDetail ?? "")
     }
 
     private var popoverNavigationButtons: some View {
@@ -616,7 +625,7 @@ struct TBPopoverView: View {
         }
     }
 
-    private var presetMenu: some View {
+    private var inactivePresetMenu: some View {
         Menu {
             ForEach(0..<4, id: \.self) { index in
                 Button {
@@ -630,18 +639,23 @@ struct TBPopoverView: View {
                 }
             }
         } label: {
-            HStack(spacing: 5) {
-                Text(focusLabel)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .bold))
-            }
-            .foregroundColor(.primary)
-            .tbGlassCapsule(horizontalPadding: 12, verticalPadding: 5)
+            timerTitlePill(title: focusLabel, isInteractive: true)
         }
         .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
         .fixedSize()
         .help(presetMenuHelp)
         .accessibilityLabel(Text(presetMenuHelp))
+    }
+
+    private func timerTitlePill(title: String, isInteractive: Bool) -> some View {
+        HStack(spacing: 5) {
+            Text(title)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundColor(.primary)
+        .tbGlassCapsule(horizontalPadding: 12, verticalPadding: 5)
+        .accessibilityHint(Text(isInteractive ? presetMenuHelp : title))
     }
 
     private var utilityFooter: some View {
@@ -672,6 +686,29 @@ struct TBPopoverView: View {
         HStack(spacing: 12) {
             timerControlButtons
         }
+    }
+
+    @ViewBuilder
+    private var timerFaceControls: some View {
+        if timer.controlMode == .inactive {
+            startButton(minWidth: 108)
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        } else {
+            activeActionBar
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        }
+    }
+
+    private var timerFaceTime: String {
+        timer.controlMode == .inactive ? inactiveDurationString : timer.timeLeftString
+    }
+
+    private var timerFaceProgress: Double {
+        timer.controlMode == .inactive ? 1 : timer.remainingTimeProgress
+    }
+
+    private var timerFaceDetail: String? {
+        timer.controlMode == .inactive ? nil : activeIntervalDetail
     }
 
     private var activeIntervalDetail: String? {
