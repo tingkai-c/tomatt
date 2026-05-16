@@ -649,15 +649,17 @@ struct TBPopoverView: View {
 
     private var inactiveTimerTitle: some View {
         timerTitleText(focusLabel)
-            .overlay(alignment: .trailing) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.primary)
-                    .offset(x: 19)
-                    .transition(.opacity.combined(with: .scale(scale: 0.82)))
-                    .accessibilityHidden(true)
-            }
+            .overlay(dropdownIndicator, alignment: .trailing)
             .animation(TBDesignTokens.Animation.smooth, value: timer.controlMode)
+    }
+
+    private var dropdownIndicator: some View {
+        Image(systemName: "chevron.down")
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(.primary)
+            .offset(x: 19)
+            .transition(.opacity.combined(with: .scale(scale: 0.82)))
+            .accessibilityHidden(true)
     }
 
     private func timerTitleText(_ title: String) -> some View {
