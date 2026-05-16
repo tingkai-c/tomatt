@@ -121,7 +121,10 @@ private struct OpenSettingsButton: View {
         Button(action: action) {
             Image(systemName: "gearshape")
         }
-        .buttonStyle(PopoverIconButtonStyle())
+        .font(.system(size: 14, weight: .medium))
+        .frame(width: 22, height: 22)
+        .buttonStyle(BorderlessButtonStyle())
+        .controlSize(.small)
     }
 }
 
@@ -132,7 +135,10 @@ private struct OpenStatsButton: View {
         Button(action: action) {
             Image(systemName: "chart.bar")
         }
-        .buttonStyle(PopoverIconButtonStyle())
+        .font(.system(size: 14, weight: .medium))
+        .frame(width: 22, height: 22)
+        .buttonStyle(BorderlessButtonStyle())
+        .controlSize(.small)
     }
 }
 
@@ -141,44 +147,8 @@ private enum PopoverLayout {
     static let height: CGFloat = 338
     static let inactiveCircleDiameter: CGFloat = 204
     static let activeCircleDiameter: CGFloat = 168
-    static let actionCornerRadius: CGFloat = 10
-    static let strokeWidth: CGFloat = 1.6
-}
-
-private struct PopoverIconButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.primary)
-            .frame(width: 26, height: 24)
-            .contentShape(Rectangle())
-            .opacity(configuration.isPressed ? 0.55 : 1)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.primary.opacity(configuration.isPressed ? 0.08 : 0))
-            )
-    }
-}
-
-private struct PopoverActionButtonStyle: ButtonStyle {
-    var minWidth: CGFloat = 48
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundColor(.primary)
-            .padding(.horizontal, 10)
-            .frame(minWidth: minWidth, minHeight: 34)
-            .contentShape(RoundedRectangle(cornerRadius: PopoverLayout.actionCornerRadius))
-            .background(
-                RoundedRectangle(cornerRadius: PopoverLayout.actionCornerRadius)
-                    .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : 0))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: PopoverLayout.actionCornerRadius)
-                    .stroke(Color.primary.opacity(0.82), lineWidth: PopoverLayout.strokeWidth)
-            )
-    }
+    static let navigationHorizontalPadding: CGFloat = 10
+    static let navigationTopPadding: CGFloat = 6
 }
 
 private struct CircularTimerFace<Title: View>: View {
@@ -206,7 +176,7 @@ private struct CircularTimerFace<Title: View>: View {
                 .stroke(Color.primary.opacity(0.14), lineWidth: 3)
                 .frame(width: diameter, height: diameter)
             Circle()
-                .trim(from: 0, to: progress)
+                .trim(from: progress >= 1 ? 0 : 1 - progress, to: 1)
                 .stroke(Color.primary,
                         style: StrokeStyle(lineWidth: 5,
                                            lineCap: .round,
@@ -537,11 +507,17 @@ struct TBPopoverView: View {
     private var startWorkLabel = NSLocalizedString("TBPopoverView.startWork.label", comment: "Start work label")
 
     var body: some View {
-        VStack(spacing: 8) {
-            primaryContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ZStack(alignment: .top) {
+            VStack(spacing: 3) {
+                primaryContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            utilityFooter
+                utilityFooter
+            }
+
+            popoverNavigationButtons
+                .padding(.horizontal, PopoverLayout.navigationHorizontalPadding)
+                .padding(.top, PopoverLayout.navigationTopPadding)
         }
         #if DEBUG
             /*
@@ -573,9 +549,6 @@ struct TBPopoverView: View {
 
     private var inactiveContent: some View {
         VStack(spacing: 16) {
-            popoverNavigationButtons
-                .padding(.horizontal, 26)
-
             CircularTimerFace(diameter: PopoverLayout.inactiveCircleDiameter,
                               time: inactiveDurationString,
                               progress: 1) {
@@ -586,16 +559,12 @@ struct TBPopoverView: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.top, 2)
+        .padding(.top, 24)
     }
 
     private var activeContent: some View {
         VStack(spacing: 0) {
-            popoverNavigationButtons
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-
-            Spacer(minLength: 8)
+            Spacer(minLength: 28)
 
             CircularTimerFace(diameter: PopoverLayout.activeCircleDiameter,
                               time: timer.timeLeftString,
@@ -607,9 +576,9 @@ struct TBPopoverView: View {
             Spacer(minLength: 14)
 
             activeActionBar
-                .padding(.bottom, 18)
+                .padding(.bottom, 4)
         }
-        .frame(width: PopoverLayout.width - 8, height: PopoverLayout.height - 40)
+        .frame(width: PopoverLayout.width - 8, height: PopoverLayout.height - 58)
     }
 
     private var popoverNavigationButtons: some View {
@@ -735,7 +704,7 @@ struct TBPopoverView: View {
         } label: {
             Text(startLabel)
         }
-        .buttonStyle(PopoverActionButtonStyle(minWidth: minWidth))
+        .popoverActionStyle(minWidth: minWidth)
         .keyboardShortcut(.defaultAction)
     }
 
@@ -745,7 +714,7 @@ struct TBPopoverView: View {
         } label: {
             Text(leaveLabel)
         }
-        .buttonStyle(PopoverActionButtonStyle(minWidth: 62))
+        .popoverActionStyle(minWidth: 62)
         .help(stopLabel)
     }
 
@@ -755,7 +724,7 @@ struct TBPopoverView: View {
         } label: {
             Text(startBreakLabel)
         }
-        .buttonStyle(PopoverActionButtonStyle(minWidth: 118))
+        .popoverActionStyle(minWidth: 118)
         .keyboardShortcut(.defaultAction)
     }
 
@@ -765,7 +734,7 @@ struct TBPopoverView: View {
         } label: {
             Text(startWorkLabel)
         }
-        .buttonStyle(PopoverActionButtonStyle(minWidth: 112))
+        .popoverActionStyle(minWidth: 112)
         .keyboardShortcut(.defaultAction)
     }
 
@@ -776,7 +745,7 @@ struct TBPopoverView: View {
             Image(systemName: "forward.fill")
                 .frame(width: 20)
         }
-        .buttonStyle(PopoverActionButtonStyle(minWidth: 48))
+        .popoverActionStyle(minWidth: 48)
         .help(skipLabel)
         .accessibilityLabel(Text(skipLabel))
     }
@@ -788,9 +757,18 @@ struct TBPopoverView: View {
             Image(systemName: timer.paused ? "play.fill" : "pause.fill")
                 .frame(width: 20)
         }
-        .buttonStyle(PopoverActionButtonStyle(minWidth: 48))
+        .popoverActionStyle(minWidth: 48)
         .help(timer.paused ? resumeLabel : pauseLabel)
         .accessibilityLabel(Text(timer.paused ? resumeLabel : pauseLabel))
+    }
+}
+
+private extension View {
+    func popoverActionStyle(minWidth: CGFloat) -> some View {
+        font(.system(size: 14, weight: .semibold))
+            .frame(minWidth: minWidth, minHeight: 30)
+            .buttonStyle(BorderedButtonStyle())
+            .controlSize(.regular)
     }
 }
 
