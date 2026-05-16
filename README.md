@@ -12,7 +12,7 @@
   - `open tomatt://pauseResume`
   - `open tomatt://skip`
 - JSON state transition logs at:
-  `~/Library/Containers/com.github.ivoronin.tomatt/Data/Library/Caches/tomatt.log`
+  `~/Library/Containers/app.tomatt.tomatt/Data/Library/Caches/tomatt.log`
 
 ## Builds
 
