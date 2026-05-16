@@ -133,12 +133,12 @@ private struct TBGlassCapsuleModifier: ViewModifier {
                 Capsule()
                     .strokeBorder(isHovered ? TBDesignTokens.ColorToken.hairlineHover : TBDesignTokens.ColorToken.hairline,
                                   lineWidth: 0.75)
+                    .allowsHitTesting(false)
             )
             .onHover { hovering in
-                withAnimation(TBDesignTokens.Animation.quick) {
-                    isHovered = hovering
-                }
+                isHovered = hovering
             }
+            .animation(TBDesignTokens.Animation.quick, value: isHovered)
     }
 
     private var backgroundColor: Color {
@@ -177,14 +177,11 @@ private struct TBPopoverButtonModifier: ViewModifier {
                                   lineWidth: 0.75)
                     .allowsHitTesting(false)
             )
-            .scaleEffect(isHovered ? 1.018 : 1.0)
             .contentShape(RoundedRectangle(cornerRadius: TBDesignTokens.Radius.button, style: .continuous))
             .onHover { hovering in
-                withAnimation(TBDesignTokens.Animation.quick) {
-                    isHovered = hovering
-                }
+                isHovered = hovering
             }
-            .animation(TBDesignTokens.Animation.quick)
+            .animation(TBDesignTokens.Animation.quick, value: isHovered)
     }
 
     private var backgroundColor: Color {
@@ -226,14 +223,13 @@ private struct TBIconButtonModifier: ViewModifier {
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(isHovered ? TBDesignTokens.ColorToken.hairline : Color.clear, lineWidth: 0.5)
+                    .allowsHitTesting(false)
             )
-            .scaleEffect(isHovered ? 1.04 : 1.0)
             .contentShape(Rectangle())
             .onHover { hovering in
-                withAnimation(TBDesignTokens.Animation.quick) {
-                    isHovered = hovering
-                }
+                isHovered = hovering
             }
+            .animation(TBDesignTokens.Animation.quick, value: isHovered)
     }
 }
 

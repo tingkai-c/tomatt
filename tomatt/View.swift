@@ -182,7 +182,7 @@ private struct CircularTimerFace<Title: View>: View {
                                            lineJoin: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: diameter - 14, height: diameter - 14)
-                .animation(TBDesignTokens.Animation.smooth)
+                .animation(TBDesignTokens.Animation.smooth, value: progress)
 
             VStack(spacing: 8) {
                 title
@@ -541,7 +541,6 @@ struct TBPopoverView: View {
             .fixedSize()
             .padding(12)
             .tbGlassPopoverBackground()
-            .animation(TBDesignTokens.Animation.smooth)
             .background(
                 Button("") { closePopover() }
                     .keyboardShortcut(.cancelAction)
