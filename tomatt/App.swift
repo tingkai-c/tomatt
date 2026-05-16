@@ -240,7 +240,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
         }
 
         let view = TBStatsWindowView(store: TBStatsStore.shared)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 580),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: 680),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered,
                               defer: false)

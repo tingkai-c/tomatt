@@ -42,13 +42,17 @@ final class StatsStoreTests: XCTestCase {
         XCTAssertEqual(day.sessions, 1)
         XCTAssertEqual(day.breaks, 1)
         XCTAssertEqual(day.sessionTime, 1_600)
+        XCTAssertEqual(day.focusTime, 1_600)
+        XCTAssertEqual(day.completedFocusTime, 1_500)
+        XCTAssertEqual(day.partialFocusTime, 100)
+        XCTAssertEqual(day.overtimeFocusTime, 0)
         XCTAssertEqual(day.breakTime, 300)
 
         let week = reloaded.summary(forWeekContaining: base, calendar: calendar)
         XCTAssertEqual(week.records.count, 3)
     }
 
-    func testActiveStatsIntervalTracksPausedAndCapsActiveDuration() {
+    func testActiveStatsIntervalTracksPausedAndExcludesPausedDuration() {
         let startedAt = Date(timeIntervalSinceReferenceDate: 1_000)
         var interval = TBActiveStatsInterval(id: UUID(),
                                              kind: .work,
@@ -65,6 +69,54 @@ final class StatsStoreTests: XCTestCase {
         XCTAssertEqual(record.pausedDuration, 95)
         XCTAssertEqual(record.activeDuration, 25)
         XCTAssertEqual(record.completion, .completed)
+    }
+
+    func testActiveStatsIntervalIncludesExtendedWorkAsOvertime() {
+        let startedAt = Date(timeIntervalSinceReferenceDate: 2_000)
+        var interval = TBActiveStatsInterval(id: UUID(),
+                                             kind: .work,
+                                             startedAt: startedAt,
+                                             plannedDuration: 60,
+                                             preset: TimerPresetSnapshot(preset: TimerPreset()),
+                                             workIntervalIndex: 1)
+        interval.pause(at: startedAt.addingTimeInterval(30))
+        interval.resume(at: startedAt.addingTimeInterval(45))
+
+        let record = interval.record(completion: .completed,
+                                     at: startedAt.addingTimeInterval(100),
+                                     includeOvertime: true)
+        XCTAssertEqual(record.pausedDuration, 15)
+        XCTAssertEqual(record.activeDuration, 85)
+        XCTAssertEqual(record.overtimeFocusDuration, 25)
+        XCTAssertEqual(record.plannedFocusDuration, 60)
+    }
+
+    func testLateWorkCompletionWithoutExtensionStaysCapped() {
+        let startedAt = Date(timeIntervalSinceReferenceDate: 3_000)
+        var interval = TBActiveStatsInterval(id: UUID(),
+                                             kind: .work,
+                                             startedAt: startedAt,
+                                             plannedDuration: 60,
+                                             preset: TimerPresetSnapshot(preset: TimerPreset()),
+                                             workIntervalIndex: 1)
+
+        let record = interval.record(completion: .completed,
+                                     at: startedAt.addingTimeInterval(100))
+        XCTAssertEqual(record.activeDuration, 60)
+        XCTAssertEqual(record.overtimeFocusDuration, 0)
+    }
+
+    func testLegacyRecordsWithoutOvertimeStillDecode() throws {
+        let json = """
+        {"schemaVersion":1,"id":"00000000-0000-0000-0000-000000000001","kind":"work","startedAt":"2024-01-01T00:00:00Z","endedAt":"2024-01-01T00:25:00Z","plannedDuration":1500,"activeDuration":1500,"pausedDuration":0,"completion":"completed","preset":{"workIntervalLength":25,"shortRestIntervalLength":5,"longRestIntervalLength":15,"workIntervalsInSet":4},"workIntervalIndex":1,"timezoneIdentifier":"UTC","calendarIdentifier":"gregorian"}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let record = try decoder.decode(TBSessionRecord.self, from: Data(json.utf8))
+        XCTAssertNil(record.overtimeDuration)
+        XCTAssertEqual(record.overtimeFocusDuration, 0)
+        XCTAssertEqual(record.focusDuration, 1_500)
     }
 
     private func record(kind: TBStatsIntervalKind,

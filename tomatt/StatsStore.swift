@@ -47,6 +47,29 @@ struct TBSessionRecord: Codable, Identifiable, Equatable {
     let workIntervalIndex: Int
     let timezoneIdentifier: String
     let calendarIdentifier: String
+    var overtimeDuration: TimeInterval? = nil
+
+    var focusDuration: TimeInterval {
+        kind == .work ? activeDuration : 0
+    }
+
+    var plannedFocusDuration: TimeInterval {
+        guard kind == .work else { return 0 }
+        return min(activeDuration, plannedDuration)
+    }
+
+    var overtimeFocusDuration: TimeInterval {
+        guard kind == .work else { return 0 }
+        return max(0, overtimeDuration ?? (activeDuration - plannedDuration))
+    }
+
+    var isCompletedWork: Bool {
+        kind == .work && completion == .completed
+    }
+
+    var isPartialWork: Bool {
+        kind == .work && completion != .completed
+    }
 }
 
 struct TBStatsSummary {
@@ -61,7 +84,23 @@ struct TBStatsSummary {
     }
 
     var sessionTime: TimeInterval {
-        records.filter { $0.kind == .work }.reduce(0) { $0 + $1.activeDuration }
+        focusTime
+    }
+
+    var focusTime: TimeInterval {
+        records.filter { $0.kind == .work }.reduce(0) { $0 + $1.focusDuration }
+    }
+
+    var completedFocusTime: TimeInterval {
+        records.filter { $0.isCompletedWork }.reduce(0) { $0 + $1.focusDuration }
+    }
+
+    var partialFocusTime: TimeInterval {
+        records.filter { $0.isPartialWork }.reduce(0) { $0 + $1.focusDuration }
+    }
+
+    var overtimeFocusTime: TimeInterval {
+        records.filter { $0.kind == .work }.reduce(0) { $0 + $1.overtimeFocusDuration }
     }
 
     var breakTime: TimeInterval {
@@ -186,10 +225,14 @@ struct TBActiveStatsInterval {
         self.pauseStartedAt = nil
     }
 
-    mutating func record(completion: TBStatsCompletion, at endedAt: Date) -> TBSessionRecord {
+    mutating func record(completion: TBStatsCompletion,
+                         at endedAt: Date,
+                         includeOvertime: Bool = false) -> TBSessionRecord {
         resume(at: endedAt)
         let wallDuration = max(0, endedAt.timeIntervalSince(startedAt))
-        let activeDuration = min(plannedDuration, max(0, wallDuration - pausedDuration))
+        let uncappedActiveDuration = max(0, wallDuration - pausedDuration)
+        let overtimeDuration = kind == .work && includeOvertime ? max(0, uncappedActiveDuration - plannedDuration) : 0
+        let activeDuration = min(plannedDuration, uncappedActiveDuration) + overtimeDuration
         return TBSessionRecord(id: id,
                                kind: kind,
                                startedAt: startedAt,
@@ -201,6 +244,7 @@ struct TBActiveStatsInterval {
                                preset: preset,
                                workIntervalIndex: workIntervalIndex,
                                timezoneIdentifier: TimeZone.current.identifier,
-                               calendarIdentifier: Calendar.current.identifier.debugDescription)
+                               calendarIdentifier: Calendar.current.identifier.debugDescription,
+                               overtimeDuration: overtimeDuration)
     }
 }

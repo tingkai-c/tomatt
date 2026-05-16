@@ -874,7 +874,9 @@ class TBTimer: ObservableObject {
 
         let completion = pendingStatsCompletion ?? statsCompletion(for: ctx)
         pendingStatsCompletion = nil
-        let record = interval.record(completion: completion, at: Date())
+        let record = interval.record(completion: completion,
+                                     at: Date(),
+                                     includeOvertime: interval.kind == .work && workExtensionActive)
         statsStore.append(record)
     }
 
