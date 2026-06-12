@@ -10,7 +10,7 @@ final class StatsStoreTests: XCTestCase {
     func testStatsStoreAppendReloadAndSummaries() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        let fileURL = directory.appendingPathComponent("records.jsonl")
+        let fileURL = directory.appendingPathComponent("events.jsonl")
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let store = TBStatsStore(fileURL: fileURL)
@@ -36,6 +36,14 @@ final class StatsStoreTests: XCTestCase {
         store.append(skippedWork)
         try "not json\n".data(using: .utf8)!.append(to: fileURL)
 
+        let rawEvents = try String(contentsOf: fileURL, encoding: .utf8)
+        XCTAssertTrue(rawEvents.contains("statsRecordAppended"))
+        XCTAssertFalse(rawEvents.split(separator: "\n").contains { line in
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return (try? decoder.decode(TBSessionRecord.self, from: Data(String(line).utf8))) != nil
+        })
+
         let reloaded = TBStatsStore(fileURL: fileURL)
         let day = reloaded.summary(forDay: base, calendar: calendar)
         XCTAssertEqual(day.records.count, 3)
@@ -50,6 +58,28 @@ final class StatsStoreTests: XCTestCase {
 
         let week = reloaded.summary(forWeekContaining: base, calendar: calendar)
         XCTAssertEqual(week.records.count, 3)
+    }
+
+    func testStatsStoreIgnoresLegacySessionRecordsFile() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let eventURL = directory.appendingPathComponent("events.jsonl")
+        let legacyURL = directory.appendingPathComponent("session-records.jsonl")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let legacy = record(kind: .work,
+                            startedAt: Date(timeIntervalSince1970: 1_700_000_000),
+                            endedAt: Date(timeIntervalSince1970: 1_700_001_500),
+                            activeDuration: 1_500,
+                            completion: .completed)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try (encoder.encode(legacy) + Data([0x0A])).write(to: legacyURL)
+
+        let store = TBStatsStore(fileURL: eventURL)
+
+        XCTAssertEqual(store.records, [])
     }
 
     func testActiveStatsIntervalTracksPausedAndExcludesPausedDuration() {

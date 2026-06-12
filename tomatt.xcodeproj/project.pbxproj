@@ -7,9 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D51000022F10000100AA0002 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000012F10000100AA0001 /* DesignSystem.swift */; };
 		0B7DCF6E7688410D9EA5EC17 /* StatsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 388E3E479C6DCB4707993C61 /* StatsStoreTests.swift */; };
 		1F27E2E80EB0AA9B5F3B320A /* TimerCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7E2E1A36F23D870F4446B1 /* TimerCoreTests.swift */; };
+		1F9D7E2A5B6C4D3E8A9B0C1D /* EventCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9D7E285B6C4D3E8A9B0C1D /* EventCore.swift */; };
+		1F9D7E2B5B6C4D3E8A9B0C1D /* EventCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9D7E285B6C4D3E8A9B0C1D /* EventCore.swift */; };
+		1F9D7E2C5B6C4D3E8A9B0C1D /* EventCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9D7E295B6C4D3E8A9B0C1D /* EventCoreTests.swift */; };
 		2BD256D799B7889555B3E09F /* SwiftState in Frameworks */ = {isa = PBXBuildFile; productRef = 8A8CFE3F2821D8C300F9F303 /* SwiftState */; };
 		4C15FDB7CB99A3787BD262F1 /* tomattUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87073BDD98C2DE6CB206177B /* tomattUITests.swift */; };
 		56A8C70D6B03D1C004020CF9 /* State.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9F700827EE396E0012A1EC /* State.swift */; };
@@ -34,6 +36,7 @@
 		A1B2C3D45E6F001122334458 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D45E6F001122334457 /* StatsView.swift */; };
 		AB2035D433978B43DE6C7022 /* TimerCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223680CF684E6505B786436F /* TimerCore.swift */; };
 		D045C8A63CA6AE9FD86A14AF /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA8B426215F805A3DC702485 /* Cocoa.framework */; };
+		D51000022F10000100AA0002 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000012F10000100AA0001 /* DesignSystem.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,8 +50,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		D51000012F10000100AA0001 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		223680CF684E6505B786436F /* TimerCore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimerCore.swift; sourceTree = "<group>"; };
+		1F9D7E285B6C4D3E8A9B0C1D /* EventCore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EventCore.swift; sourceTree = "<group>"; };
+		1F9D7E295B6C4D3E8A9B0C1D /* EventCoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EventCoreTests.swift; sourceTree = "<group>"; };
 		388E3E479C6DCB4707993C61 /* StatsStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatsStoreTests.swift; sourceTree = "<group>"; };
 		4CC11A472B6A28500012E8EC /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 		4F7E2E1A36F23D870F4446B1 /* TimerCoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimerCoreTests.swift; sourceTree = "<group>"; };
@@ -71,6 +75,7 @@
 		A1B2C3D45E6F001122334457 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		AA8B426215F805A3DC702485 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		C4C8DE0E2930DBB4003B1110 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		D51000012F10000100AA0001 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -140,6 +145,7 @@
 			children = (
 				8A21B78B27EE31A20009E5DB /* App.swift */,
 				D51000012F10000100AA0001 /* DesignSystem.swift */,
+				1F9D7E285B6C4D3E8A9B0C1D /* EventCore.swift */,
 				8AEE49AE2AA75A5E00243D2F /* Log.swift */,
 				A1B2C3D45E6F001122334455 /* StatsStore.swift */,
 				A1B2C3D45E6F001122334457 /* StatsView.swift */,
@@ -176,6 +182,7 @@
 		FF80B78CB02E1493D588E507 /* tomattTests */ = {
 			isa = PBXGroup;
 			children = (
+				1F9D7E295B6C4D3E8A9B0C1D /* EventCoreTests.swift */,
 				388E3E479C6DCB4707993C61 /* StatsStoreTests.swift */,
 				4F7E2E1A36F23D870F4446B1 /* TimerCoreTests.swift */,
 			);
@@ -344,9 +351,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1F9D7E2B5B6C4D3E8A9B0C1D /* EventCore.swift in Sources */,
 				AB2035D433978B43DE6C7022 /* TimerCore.swift in Sources */,
 				56A8C70D6B03D1C004020CF9 /* State.swift in Sources */,
 				58A073A7F324A70E63FA70C6 /* StatsStore.swift in Sources */,
+				1F9D7E2C5B6C4D3E8A9B0C1D /* EventCoreTests.swift in Sources */,
 				0B7DCF6E7688410D9EA5EC17 /* StatsStoreTests.swift in Sources */,
 				1F27E2E80EB0AA9B5F3B320A /* TimerCoreTests.swift in Sources */,
 			);
@@ -366,6 +375,7 @@
 			files = (
 				8A9F701F27EE536D0012A1EC /* Player.swift in Sources */,
 				D51000022F10000100AA0002 /* DesignSystem.swift in Sources */,
+				1F9D7E2A5B6C4D3E8A9B0C1D /* EventCore.swift in Sources */,
 				8AEE49AF2AA75A5E00243D2F /* Log.swift in Sources */,
 				A1B2C3D45E6F001122334456 /* StatsStore.swift in Sources */,
 				A1B2C3D45E6F001122334458 /* StatsView.swift in Sources */,

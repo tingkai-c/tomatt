@@ -1,0 +1,37 @@
+[
+  {
+    "id": "G001",
+    "objective": "Add local event model, append-only event store, and pure projections with unit coverage.",
+    "status": "completed",
+    "dependencies": [],
+    "verification": ["static checks", "projection/event-store tests in CI"]
+  },
+  {
+    "id": "G002",
+    "objective": "Wire shared timer settings and presets to the event log while leaving device-local settings local.",
+    "status": "completed",
+    "dependencies": ["G001"],
+    "verification": ["preset/settings behavior covered by tests or code review", "static checks"]
+  },
+  {
+    "id": "G003",
+    "objective": "Cut over active timer persistence/restore to event-log reconstruction and ignore legacy activeTimerSession.",
+    "status": "completed",
+    "dependencies": ["G001", "G002"],
+    "verification": ["timer edge behavior tests", "static checks"]
+  },
+  {
+    "id": "G004",
+    "objective": "Cut over new stats/history records to event-log-derived projections without migrating old stats files.",
+    "status": "completed",
+    "dependencies": ["G003"],
+    "verification": ["stats projection parity tests", "static checks"]
+  },
+  {
+    "id": "G005",
+    "objective": "Run final static verification, independent review, commit/push, CI watch, artifact download/install/launch delivery loop.",
+    "status": "pending",
+    "dependencies": ["G001", "G002", "G003", "G004"],
+    "verification": ["git diff --check", "CI success", "tomatt.app artifact installed and launched"]
+  }
+]

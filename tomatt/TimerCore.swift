@@ -21,6 +21,37 @@ struct NamedTimerPreset: Codable, Equatable, Identifiable {
     }
 }
 
+enum TBStatsIntervalKind: String, Codable {
+    case work
+    case shortRest
+    case longRest
+
+    var isBreak: Bool {
+        self == .shortRest || self == .longRest
+    }
+}
+
+enum TBStatsCompletion: String, Codable {
+    case completed
+    case skipped
+    case stopped
+    case abandoned
+}
+
+struct TimerPresetSnapshot: Codable, Equatable {
+    let workIntervalLength: Int
+    let shortRestIntervalLength: Int
+    let longRestIntervalLength: Int
+    let workIntervalsInSet: Int
+
+    init(preset: TimerPreset) {
+        workIntervalLength = preset.workIntervalLength
+        shortRestIntervalLength = preset.shortRestIntervalLength
+        longRestIntervalLength = preset.longRestIntervalLength
+        workIntervalsInSet = preset.workIntervalsInSet
+    }
+}
+
 struct PersistedTimerSession: Codable, Equatable {
     var schemaVersion = 1
     var state: TBStateMachineStates
@@ -38,6 +69,8 @@ struct PersistedTimerSession: Codable, Equatable {
     var restPresentationPending: Bool
     var workStartPending: Bool? = nil
     var workFinishedPendingBreak: Bool? = nil
+    var sessionID: UUID? = nil
+    var setID: UUID? = nil
 }
 
 struct TimerCoreSettings: Equatable {

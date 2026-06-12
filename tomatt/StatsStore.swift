@@ -2,37 +2,6 @@ import Foundation
 import Combine
 
 // Durable stats records are product data, separate from diagnostic TBLogger cache logs.
-enum TBStatsIntervalKind: String, Codable {
-    case work
-    case shortRest
-    case longRest
-
-    var isBreak: Bool {
-        self == .shortRest || self == .longRest
-    }
-}
-
-enum TBStatsCompletion: String, Codable {
-    case completed
-    case skipped
-    case stopped
-    case abandoned
-}
-
-struct TimerPresetSnapshot: Codable, Equatable {
-    let workIntervalLength: Int
-    let shortRestIntervalLength: Int
-    let longRestIntervalLength: Int
-    let workIntervalsInSet: Int
-
-    init(preset: TimerPreset) {
-        workIntervalLength = preset.workIntervalLength
-        shortRestIntervalLength = preset.shortRestIntervalLength
-        longRestIntervalLength = preset.longRestIntervalLength
-        workIntervalsInSet = preset.workIntervalsInSet
-    }
-}
-
 struct TBSessionRecord: Codable, Identifiable, Equatable {
     var schemaVersion = 1
     let id: UUID
@@ -113,35 +82,25 @@ final class TBStatsStore: ObservableObject {
 
     @Published private(set) var records: [TBSessionRecord]
 
-    private let fileURL: URL
-    private let decoder = JSONDecoder()
-    private let encoder = JSONEncoder()
+    private let eventStore: TBJSONLEventStore
 
     init(fileURL: URL? = nil) {
-        self.fileURL = fileURL ?? TBStatsStore.defaultFileURL()
-        decoder.dateDecodingStrategy = .iso8601
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.sortedKeys]
+        eventStore = TBJSONLEventStore(fileURL: fileURL ?? TBStatsStore.defaultFileURL())
         records = []
         records = loadRecords()
     }
 
     func append(_ record: TBSessionRecord) {
         do {
-            try ensureDirectoryExists()
-            let data = try encoder.encode(record)
-            if !FileManager.default.fileExists(atPath: fileURL.path) {
-                guard FileManager.default.createFile(atPath: fileURL.path, contents: nil) else {
-                    throw CocoaError(.fileWriteUnknown)
-                }
-            }
-            let handle = try FileHandle(forWritingTo: fileURL)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data + Data([0x0A]))
-            try handle.synchronize()
+            let existingEnvelopes = (try? eventStore.load()) ?? []
+            let sequence = (existingEnvelopes.map(\.sequence).max() ?? 0) + 1
+            let envelope = TBEventEnvelope(streamID: "local",
+                                           sequence: sequence,
+                                           event: .statsRecordAppended(TBStatsRecordAppended(record: record)))
+            try eventStore.append(envelope)
             DispatchQueue.main.async { [weak self] in
-                self?.records.append(record)
+                guard let self = self else { return }
+                self.records = self.loadRecords()
             }
         } catch {
             print("cannot write stats record: \(error)")
@@ -178,29 +137,12 @@ final class TBStatsStore: ObservableObject {
     }
 
     private func loadRecords() -> [TBSessionRecord] {
-        guard FileManager.default.fileExists(atPath: fileURL.path),
-              let data = try? Data(contentsOf: fileURL),
-              let text = String(data: data, encoding: .utf8) else {
-            return []
-        }
-
-        return text.split(separator: "\n").compactMap { line in
-            guard let data = line.data(using: .utf8) else { return nil }
-            return try? decoder.decode(TBSessionRecord.self, from: data)
-        }.sorted { $0.startedAt < $1.startedAt }
-    }
-
-    private func ensureDirectoryExists() throws {
-        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
+        guard let envelopes = try? eventStore.load() else { return [] }
+        return TBEventProjector.project(envelopes).stats.sorted { $0.startedAt < $1.startedAt }
     }
 
     private static func defaultFileURL() -> URL {
-        let baseURL = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first!
-            .appendingPathComponent("tomatt", isDirectory: true)
-        return baseURL.appendingPathComponent("session-records.jsonl")
+        TBJSONLEventStore.defaultFileURL()
     }
 }
 

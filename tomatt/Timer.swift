@@ -7,11 +7,7 @@ class TBTimer: ObservableObject {
     @AppStorage("showFullScreenMask") var showFullScreenMask = false
     @AppStorage("strictFullScreenMask") var strictFullScreenMask = false
     @AppStorage("strictFullScreenMaskPresentationLock") var strictFullScreenMaskPresentationLock = true
-    @AppStorage("pauseAfterRestFinish") var pauseAfterRestFinish = false
-    @AppStorage("extendWorkAfterFinish") var extendWorkAfterFinish = false
-    @AppStorage("selectedNamedPresetID") private var selectedNamedPresetID = ""
-    @AppStorage("namedTimerPresets") private var namedTimerPresetsData = ""
-    @AppStorage("activeTimerSession") private var activeTimerSessionData = ""
+    private let eventLog = TBLocalEventLog()
     private var stateMachine = TBStateMachine(state: .idle)
     public let player = TBPlayer()
     public private(set) var currentWorkInterval: Int = 0
@@ -22,6 +18,7 @@ class TBTimer: ObservableObject {
     private var activeIconName = NSImage.Name.idle
     private let statsStore = TBStatsStore.shared
     private var activeStatsInterval: TBActiveStatsInterval?
+    private var currentSetID = UUID()
     private var pendingStatsCompletion: TBStatsCompletion?
     private var workExtensionActive = false
     private var workStartPending = false
@@ -35,6 +32,16 @@ class TBTimer: ObservableObject {
     @Published private(set) var controlMode: TimerControlMode = .inactive
     @Published private(set) var strictFullScreenMaskActive = false
     @Published private(set) var strictFullScreenMaskShortcutBlockingUnavailable = false
+
+    var pauseAfterRestFinish: Bool {
+        get { eventLog.projection.settings.pauseAfterRestFinish }
+        set { changeSharedSetting(.pauseAfterRestFinish, value: .bool(newValue)) }
+    }
+
+    var extendWorkAfterFinish: Bool {
+        get { eventLog.projection.settings.extendWorkAfterFinish }
+        set { changeSharedSetting(.extendWorkAfterFinish, value: .bool(newValue)) }
+    }
 
     var presetConfigurations: [NamedTimerPreset] {
         namedPresets
@@ -83,7 +90,7 @@ class TBTimer: ObservableObject {
 
     private var selectedPresetUUID: UUID {
         let presets = namedPresets
-        if let id = UUID(uuidString: selectedNamedPresetID),
+        if let id = eventLog.projection.selectedPresetID,
            presets.contains(where: { $0.id == id }) {
             return id
         }
@@ -91,25 +98,14 @@ class TBTimer: ObservableObject {
     }
 
     private var namedPresets: [NamedTimerPreset] {
-        get { normalizedNamedPresets() }
-        set {
-            let normalized = normalizeNamedPresets(newValue)
-            if let data = try? JSONEncoder().encode(normalized),
-               let rawValue = String(data: data, encoding: .utf8) {
-                objectWillChange.send()
-                namedTimerPresetsData = rawValue
-                if !normalized.contains(where: { $0.id.uuidString == selectedNamedPresetID }) {
-                    selectedNamedPresetID = normalized[0].id.uuidString
-                }
-            }
-        }
+        normalizedNamedPresets()
     }
 
     func setActivePreset(id: UUID) {
         guard namedPresets.contains(where: { $0.id == id }) else { return }
-        guard selectedNamedPresetID != id.uuidString else { return }
+        guard selectedPresetUUID != id else { return }
         objectWillChange.send()
-        selectedNamedPresetID = id.uuidString
+        eventLog.append(.presetSelected(TBPresetSelected(presetID: id)))
     }
 
     func isActivePreset(id: UUID) -> Bool {
@@ -122,13 +118,13 @@ class TBTimer: ObservableObject {
 
     @discardableResult
     func addPreset() -> UUID {
-        var presets = namedPresets
+        let presets = namedPresets
         let preset = NamedTimerPreset(name: uniquePresetName(base: NSLocalizedString("IntervalsView.newPreset.defaultName",
-                                                                                     comment: "Default new preset name"),
-                                                            in: presets),
-                                      preset: TimerPreset.firstStartupDefault)
-        presets.append(preset)
-        namedPresets = presets
+                                                                                      comment: "Default new preset name"),
+                                                             in: presets),
+                                       preset: TimerPreset.firstStartupDefault)
+        objectWillChange.send()
+        eventLog.append(.presetUpserted(TBPresetUpserted(preset: preset)))
         return preset.id
     }
 
@@ -141,12 +137,12 @@ class TBTimer: ObservableObject {
         let copyName = String(format: copyNameFormat, source.name)
         let preset = NamedTimerPreset(name: uniquePresetName(base: copyName, in: presets),
                                       preset: source.preset)
+        objectWillChange.send()
+        eventLog.append(.presetUpserted(TBPresetUpserted(preset: preset)))
         if let sourceIndex = presets.firstIndex(where: { $0.id == id }) {
             presets.insert(preset, at: presets.index(after: sourceIndex))
-        } else {
-            presets.append(preset)
+            eventLog.append(.presetOrderChanged(TBPresetOrderChanged(presetIDs: presets.map(\.id))))
         }
-        namedPresets = presets
         return preset.id
     }
 
@@ -158,7 +154,8 @@ class TBTimer: ObservableObject {
         }
         let wasActive = isActivePreset(id: id)
         presets.remove(at: removedIndex)
-        namedPresets = presets
+        objectWillChange.send()
+        eventLog.append(.presetDeleted(TBPresetDeleted(presetID: id)))
         if wasActive {
             let replacementIndex = min(removedIndex, presets.count - 1)
             setActivePreset(id: presets[replacementIndex].id)
@@ -168,24 +165,28 @@ class TBTimer: ObservableObject {
     func movePreset(fromOffsets source: IndexSet, toOffset destination: Int) {
         var presets = namedPresets
         presets.move(fromOffsets: source, toOffset: destination)
-        namedPresets = presets
+        objectWillChange.send()
+        eventLog.append(.presetOrderChanged(TBPresetOrderChanged(presetIDs: presets.map(\.id))))
     }
 
     func updatePresetName(id: UUID, name: String) {
         var presets = namedPresets
         guard let index = presets.firstIndex(where: { $0.id == id }) else { return }
         presets[index].name = uniquePresetName(base: sanitizedPresetName(name), in: presets, excluding: id)
-        namedPresets = presets
+        objectWillChange.send()
+        eventLog.append(.presetUpserted(TBPresetUpserted(preset: presets[index])))
     }
 
     func updatePreset(id: UUID, preset: TimerPreset) {
         var presets = namedPresets
         guard let index = presets.firstIndex(where: { $0.id == id }) else { return }
         presets[index].preset = preset.clamped()
-        namedPresets = presets
+        objectWillChange.send()
+        eventLog.append(.presetUpserted(TBPresetUpserted(preset: presets[index])))
     }
 
     init() {
+        eventLog.seedDefaultPresetsIfEmpty(defaultNamedPresets())
         /*
          * State diagram
          *
@@ -484,8 +485,12 @@ class TBTimer: ObservableObject {
             activePreset = currentPresetInstance
         }
         if currentWorkInterval >= timerPreset.workIntervalsInSet {
+            currentSetID = UUID()
             currentWorkInterval = 1
         } else {
+            if currentWorkInterval == 0 {
+                currentSetID = UUID()
+            }
             currentWorkInterval += 1
         }
         setActiveIcon(name: .work)
@@ -520,8 +525,12 @@ class TBTimer: ObservableObject {
             activePreset = currentPresetInstance
         }
         if currentWorkInterval >= timerPreset.workIntervalsInSet {
+            currentSetID = UUID()
             currentWorkInterval = 1
         } else {
+            if currentWorkInterval == 0 {
+                currentSetID = UUID()
+            }
             currentWorkInterval += 1
         }
         setActiveIcon(name: .work)
@@ -540,7 +549,12 @@ class TBTimer: ObservableObject {
         workStartPending = false
         pausedTimeRemaining = max(0, finishTime.timeIntervalSince(Date()))
         finishTime = Date.distantFuture
-        activeStatsInterval?.pause(at: Date())
+        let pausedAt = Date()
+        activeStatsInterval?.pause(at: pausedAt)
+        if let interval = activeStatsInterval {
+            eventLog.append(.timerPaused(TBTimerPaused(sessionID: interval.id,
+                                                       pausedAt: pausedAt)))
+        }
         if ctx.fromState == .work {
             player.stopTicking()
         }
@@ -551,7 +565,12 @@ class TBTimer: ObservableObject {
 
     private func onTimerResume(context ctx: TBStateMachine.Context) {
         paused = false
-        activeStatsInterval?.resume(at: Date())
+        let resumedAt = Date()
+        activeStatsInterval?.resume(at: resumedAt)
+        if let interval = activeStatsInterval {
+            eventLog.append(.timerResumed(TBTimerResumed(sessionID: interval.id,
+                                                         resumedAt: resumedAt)))
+        }
         finishTime = Date().addingTimeInterval(pausedTimeRemaining)
         if ctx.toState == .work {
             workStartPending = false
@@ -720,11 +739,11 @@ class TBTimer: ObservableObject {
     }
 
     private var effectivePauseAfterRestFinish: Bool {
-        pauseAfterRestFinish
+        eventLog.projection.settings.pauseAfterRestFinish
     }
 
     private var effectiveExtendWorkAfterFinish: Bool {
-        extendWorkAfterFinish
+        eventLog.projection.settings.extendWorkAfterFinish
     }
 
     private func extendWorkSessionAtLimit() {
@@ -751,18 +770,17 @@ class TBTimer: ObservableObject {
     func restoreTimerIfNeeded() {
         guard timer == nil,
               stateMachine.state == .idle,
-              !activeTimerSessionData.isEmpty else {
+              let session = eventLog.projection.activeTimerSession else {
             return
         }
-        guard let data = activeTimerSessionData.data(using: .utf8),
-              let session = try? JSONDecoder().decode(PersistedTimerSession.self, from: data),
-              session.schemaVersion == 1,
+        guard session.schemaVersion == 1,
               isValidPersistedSession(session) else {
             discardPersistedTimerSession()
             return
         }
 
         activePreset = session.preset.clamped()
+        currentSetID = session.setID ?? UUID()
         currentWorkInterval = session.currentWorkInterval
         activeStatsInterval = restoredStatsInterval(from: session)
         workExtensionActive = session.workExtensionActive
@@ -895,7 +913,7 @@ class TBTimer: ObservableObject {
 
     private func restoredStatsInterval(from session: PersistedTimerSession) -> TBActiveStatsInterval {
         let pausedDuration = restoredPausedDuration(for: session)
-        return TBActiveStatsInterval(id: UUID(),
+        return TBActiveStatsInterval(id: session.sessionID ?? UUID(),
                                      kind: session.kind,
                                      startedAt: session.startedAt,
                                      plannedDuration: session.plannedDuration,
@@ -933,18 +951,16 @@ class TBTimer: ObservableObject {
             workLimitNotificationSent: workLimitNotificationSent,
             restPresentationPending: restPresentationPending,
             workStartPending: workStartPending,
-            workFinishedPendingBreak: workFinishedPendingBreak
+            workFinishedPendingBreak: workFinishedPendingBreak,
+            sessionID: activeStatsInterval.id,
+            setID: currentSetID
         )
 
-        guard let data = try? JSONEncoder().encode(session),
-              let rawValue = String(data: data, encoding: .utf8) else {
-            return
-        }
-        activeTimerSessionData = rawValue
+        eventLog.append(.activeTimerSessionPersisted(TBActiveTimerSessionPersisted(session: session)))
     }
 
     private func clearPersistedTimerSession() {
-        activeTimerSessionData = ""
+        eventLog.append(.activeTimerSessionCleared(TBActiveTimerSessionCleared(clearedAt: Date())))
     }
 
     private func discardPersistedTimerSession() {
@@ -962,12 +978,32 @@ class TBTimer: ObservableObject {
     }
 
     private func startStatsInterval(kind: TBStatsIntervalKind, plannedDuration: TimeInterval) {
-        activeStatsInterval = TBActiveStatsInterval(id: UUID(),
+        let id = UUID()
+        let startedAt = Date()
+        activeStatsInterval = TBActiveStatsInterval(id: id,
                                                     kind: kind,
-                                                    startedAt: Date(),
+                                                    startedAt: startedAt,
                                                     plannedDuration: plannedDuration,
                                                     preset: TimerPresetSnapshot(preset: timerPreset),
                                                     workIntervalIndex: currentWorkInterval)
+        eventLog.append(.timerStarted(TBTimerStarted(sessionID: id,
+                                                     setID: currentSetID,
+                                                     kind: timerSessionKind(for: kind),
+                                                     startedAt: startedAt,
+                                                     plannedDuration: plannedDuration,
+                                                     preset: TimerPresetSnapshot(preset: timerPreset),
+                                                     workIntervalIndex: currentWorkInterval)))
+    }
+
+    private func timerSessionKind(for kind: TBStatsIntervalKind) -> TBTimerSessionKind {
+        switch kind {
+        case .work:
+            return .work
+        case .shortRest:
+            return .shortRest
+        case .longRest:
+            return .longRest
+        }
     }
 
     private func closeStatsInterval(context ctx: TBStateMachine.Context) {
@@ -978,10 +1014,28 @@ class TBTimer: ObservableObject {
 
         let completion = pendingStatsCompletion ?? statsCompletion(for: ctx)
         pendingStatsCompletion = nil
+        let endedAt = Date()
+        appendTimerFinishEvent(sessionID: interval.id, completion: completion, endedAt: endedAt)
         let record = interval.record(completion: completion,
-                                     at: Date(),
+                                     at: endedAt,
                                      includeOvertime: interval.kind == .work && workExtensionActive)
         statsStore.append(record)
+    }
+
+    private func appendTimerFinishEvent(sessionID: UUID,
+                                        completion: TBStatsCompletion,
+                                        endedAt: Date) {
+        switch completion {
+        case .completed:
+            eventLog.append(.timerCompleted(TBTimerCompleted(sessionID: sessionID,
+                                                             completedAt: endedAt)))
+        case .skipped:
+            eventLog.append(.timerSkipped(TBTimerSkipped(sessionID: sessionID,
+                                                         skippedAt: endedAt)))
+        case .stopped, .abandoned:
+            eventLog.append(.timerStopped(TBTimerStopped(sessionID: sessionID,
+                                                         stoppedAt: endedAt)))
+        }
     }
 
     private func statsCompletion(for ctx: TBStateMachine.Context) -> TBStatsCompletion {
@@ -999,12 +1053,29 @@ class TBTimer: ObservableObject {
 
 
     private func normalizedNamedPresets() -> [NamedTimerPreset] {
-        guard !namedTimerPresetsData.isEmpty,
-              let data = namedTimerPresetsData.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode([NamedTimerPreset].self, from: data) else {
+        let projected = eventLog.projection.presets
+        guard !projected.isEmpty else {
             return defaultNamedPresets()
         }
-        return normalizeNamedPresets(decoded)
+        return normalizeNamedPresets(projected)
+    }
+
+    private func changeSharedSetting(_ key: TBSettingKey, value: TBSettingValue) {
+        guard sharedSettingValue(for: key) != value else { return }
+        objectWillChange.send()
+        eventLog.append(.settingChanged(TBSettingChanged(key: key, value: value)))
+    }
+
+    private func sharedSettingValue(for key: TBSettingKey) -> TBSettingValue? {
+        let settings = eventLog.projection.settings
+        switch key {
+        case .pauseAfterRestFinish:
+            return .bool(settings.pauseAfterRestFinish)
+        case .extendWorkAfterFinish:
+            return .bool(settings.extendWorkAfterFinish)
+        case .workDurationMinutes, .shortRestDurationMinutes, .longRestDurationMinutes, .workIntervalsPerSet:
+            return nil
+        }
     }
 
     private func defaultNamedPresets() -> [NamedTimerPreset] {
