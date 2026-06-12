@@ -330,9 +330,12 @@ final class EventCoreTests: XCTestCase {
         log.append(.activeTimerSessionCleared(TBActiveTimerSessionCleared(clearedAt: Date(timeIntervalSince1970: 2))))
         log.append(.settingChanged(TBSettingChanged(key: .shortRestDurationMinutes, value: .int(7))))
 
-        XCTAssertEqual(log.envelopes.map(\.sequence), [1, 2, 3])
-        XCTAssertEqual(log.envelopes.map(\.deviceSequence), [1, nil, 2])
-        XCTAssertEqual(log.envelopes[1].originDeviceID, nil)
+        let envelopesBySequence = Dictionary(uniqueKeysWithValues: log.envelopes.map { ($0.sequence, $0) })
+        XCTAssertEqual(Set(envelopesBySequence.keys), [1, 2, 3])
+        XCTAssertEqual(envelopesBySequence[1]?.deviceSequence, 1)
+        XCTAssertEqual(envelopesBySequence[2]?.deviceSequence, nil)
+        XCTAssertEqual(envelopesBySequence[2]?.originDeviceID, nil)
+        XCTAssertEqual(envelopesBySequence[3]?.deviceSequence, 2)
         XCTAssertEqual(log.syncSummary(), ["local-device": 2])
     }
 

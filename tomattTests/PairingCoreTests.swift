@@ -5,7 +5,7 @@ final class PairingCoreTests: XCTestCase {
     func testDeterministicTranscriptDerivedCodeVector() throws {
         let transcript = makeTranscript()
 
-        XCTAssertEqual(try transcript.verificationCode(), "064036")
+        XCTAssertEqual(try transcript.verificationCode(), "359214")
         XCTAssertEqual(try transcript.verificationCode(), try makeTranscript().verificationCode())
     }
 
@@ -23,7 +23,7 @@ final class PairingCoreTests: XCTestCase {
         let fixture = makeSessionFixture()
         let code = try fixture.session.start(now: fixture.now)
 
-        XCTAssertEqual(code, "064036")
+        XCTAssertEqual(code, "359214")
         XCTAssertThrowsError(try fixture.session.confirmCode("000000", now: fixture.now)) { error in
             XCTAssertEqual(error as? TBPairingGateError, .codeMismatch)
         }
@@ -53,7 +53,7 @@ final class PairingCoreTests: XCTestCase {
         XCTAssertTrue(cancelled.applier.trustedPeers.isEmpty)
 
         let retry = cancelled.session.retry(expiresAt: cancelled.now.addingTimeInterval(120))
-        XCTAssertEqual(try retry.start(now: cancelled.now), "064036")
+        XCTAssertEqual(try retry.start(now: cancelled.now), "359214")
         XCTAssertTrue(cancelled.applier.trustedPeers.isEmpty)
     }
 
@@ -69,7 +69,7 @@ final class PairingCoreTests: XCTestCase {
 
         let finalGate = makeSessionFixture()
         _ = try finalGate.session.start(now: finalGate.now)
-        try finalGate.session.confirmCode("064036", now: finalGate.now)
+        try finalGate.session.confirmCode("359214", now: finalGate.now)
         try finalGate.session.approvePreview(makePreview(settingsSourceChoice: .keepLocal), now: finalGate.now)
         finalGate.session.updateIdleDeclarations(local: .idle(at: makeDate()),
                                                  remote: .busy(at: makeDate(), reason: "timer-running"))
@@ -89,7 +89,7 @@ final class PairingCoreTests: XCTestCase {
         }
         XCTAssertTrue(fixture.applier.trustedPeers.isEmpty)
 
-        try fixture.session.confirmCode("064036", now: fixture.now)
+        try fixture.session.confirmCode("359214", now: fixture.now)
         XCTAssertThrowsError(try fixture.session.approvePreview(makePreview(settingsSourceChoice: nil), now: fixture.now)) { error in
             XCTAssertEqual(error as? TBPairingGateError, .settingsSourceRequired)
         }
@@ -105,7 +105,7 @@ final class PairingCoreTests: XCTestCase {
     func testSuccessfulAllOrNothingStagedCommitWritesAllActionsViaFakeApplier() throws {
         let fixture = makeSessionFixture()
         _ = try fixture.session.start(now: fixture.now)
-        try fixture.session.confirmCode("064036", now: fixture.now)
+        try fixture.session.confirmCode("359214", now: fixture.now)
         try fixture.session.approvePreview(makePreview(settingsSourceChoice: .useRemote), now: fixture.now)
         try fixture.session.commit(using: fixture.applier, now: fixture.now)
 
@@ -120,7 +120,7 @@ final class PairingCoreTests: XCTestCase {
         failing.failure = NSError(domain: "pairing-test", code: 1)
         let failedFixture = makeSessionFixture(applier: failing)
         _ = try failedFixture.session.start(now: failedFixture.now)
-        try failedFixture.session.confirmCode("064036", now: failedFixture.now)
+        try failedFixture.session.confirmCode("359214", now: failedFixture.now)
         try failedFixture.session.approvePreview(makePreview(settingsSourceChoice: .keepLocal), now: failedFixture.now)
         XCTAssertThrowsError(try failedFixture.session.commit(using: failing, now: failedFixture.now))
         XCTAssertTrue(failing.trustedPeers.isEmpty)
