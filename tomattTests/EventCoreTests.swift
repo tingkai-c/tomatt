@@ -363,6 +363,112 @@ final class EventCoreTests: XCTestCase {
         XCTAssertTrue(TBEvent.statsRecordAppended(TBStatsRecordAppended(record: record(id: UUID(), startedAt: now, activeDuration: 60, completion: .completed))).isSyncable)
     }
 
+    func testDistributedOverlappingBranchesEarliestStartWins() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let earlyID = UUID(uuidString: "00000000-0000-0000-0000-000000000201")!
+        let lateID = UUID(uuidString: "00000000-0000-0000-0000-000000000202")!
+        let events = [
+            timerStartEnvelope(origin: "late", sequence: 1, sessionID: lateID, startedAt: now.addingTimeInterval(10)),
+            timerStartEnvelope(origin: "early", sequence: 1, sessionID: earlyID, startedAt: now)
+        ]
+
+        let state = TBEventProjector.project(events)
+
+        XCTAssertEqual(state.timer?.sessionID, earlyID)
+        XCTAssertEqual(state.distributedTimer.visibleSessionIDs, [earlyID])
+        XCTAssertEqual(state.distributedTimer.losingSessionIDs, [lateID])
+        XCTAssertEqual(state.distributedTimer.branches.count, 2)
+    }
+
+    func testDistributedSameStartTieBreaksBySessionOriginSequenceEventID() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let highSessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000302")!
+        let lowSessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000301")!
+        let bySession = TBEventProjector.project([
+            timerStartEnvelope(origin: "a", sequence: 1, sessionID: highSessionID, startedAt: now),
+            timerStartEnvelope(origin: "z", sequence: 1, sessionID: lowSessionID, startedAt: now)
+        ])
+        XCTAssertEqual(bySession.timer?.sessionID, lowSessionID)
+
+        let sessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000303")!
+        let originA = timerStartEnvelope(eventID: UUID(uuidString: "00000000-0000-0000-0000-000000000401")!,
+                                         origin: "a", sequence: 2, sessionID: sessionID, startedAt: now)
+        let originB = timerStartEnvelope(eventID: UUID(uuidString: "00000000-0000-0000-0000-000000000402")!,
+                                         origin: "b", sequence: 1, sessionID: sessionID, startedAt: now)
+        XCTAssertEqual(TBEventProjector.project([originB, originA]).distributedTimer.branches.first?.startEnvelope.originDeviceID, "a")
+
+        let lowerSequence = timerStartEnvelope(eventID: UUID(uuidString: "00000000-0000-0000-0000-000000000403")!,
+                                               origin: "a", sequence: 1, sessionID: sessionID, startedAt: now)
+        XCTAssertEqual(TBEventProjector.project([originA, lowerSequence]).distributedTimer.branches.first?.startEnvelope.deviceSequence, 1)
+    }
+
+    func testDistributedLosingBranchEventsRemainInLogButAreExcludedFromTimerAndStats() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let winningID = UUID(uuidString: "00000000-0000-0000-0000-000000000501")!
+        let losingID = UUID(uuidString: "00000000-0000-0000-0000-000000000502")!
+        let losingRecord = record(id: losingID, startedAt: now.addingTimeInterval(10), activeDuration: 60, completion: .completed)
+        let winningRecord = record(id: winningID, startedAt: now, activeDuration: 60, completion: .completed)
+        let events = [
+            timerStartEnvelope(origin: "a", sequence: 1, sessionID: winningID, startedAt: now),
+            timerStartEnvelope(origin: "b", sequence: 1, sessionID: losingID, startedAt: now.addingTimeInterval(10)),
+            syncEnvelope(origin: "b", deviceSequence: 2, event: .statsRecordAppended(TBStatsRecordAppended(record: losingRecord))),
+            syncEnvelope(origin: "a", deviceSequence: 2, event: .statsRecordAppended(TBStatsRecordAppended(record: winningRecord)))
+        ]
+
+        let state = TBEventProjector.project(events)
+
+        XCTAssertEqual(events.count, 4)
+        XCTAssertEqual(state.timer?.sessionID, winningID)
+        XCTAssertEqual(state.stats, [winningRecord])
+        XCTAssertEqual(state.distributedTimer.branches.map(\.sessionID), [winningID, losingID])
+        XCTAssertEqual(state.distributedTimer.losingSessionIDs, [losingID])
+    }
+
+    func testDistributedPauseResumeExtendsOpenBranchAndTerminalEndsVisibility() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let sessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000601")!
+        let start = timerStartEnvelope(origin: "a", sequence: 1, sessionID: sessionID, startedAt: now)
+        let paused = syncEnvelope(origin: "a", deviceSequence: 2,
+                                  event: .timerPaused(TBTimerPaused(sessionID: sessionID, pausedAt: now.addingTimeInterval(60))))
+        let resumed = syncEnvelope(origin: "a", deviceSequence: 3,
+                                   event: .timerResumed(TBTimerResumed(sessionID: sessionID, resumedAt: now.addingTimeInterval(180))))
+
+        let active = TBEventProjector.project([start, paused, resumed])
+        XCTAssertEqual(active.timer?.status, .running)
+        XCTAssertEqual(active.timer?.pausedDuration, 120)
+        XCTAssertNil(active.distributedTimer.branches.first?.intervalEnd)
+
+        let completed = syncEnvelope(origin: "a", deviceSequence: 4,
+                                     event: .timerCompleted(TBTimerCompleted(sessionID: sessionID,
+                                                                             completedAt: now.addingTimeInterval(1_620))))
+        let ended = TBEventProjector.project([start, paused, resumed, completed])
+        XCTAssertNil(ended.timer)
+        XCTAssertEqual(ended.distributedTimer.branches.first?.terminalAt, now.addingTimeInterval(1_620))
+        XCTAssertEqual(ended.distributedTimer.visibleSessionIDs, [sessionID])
+    }
+
+    func testCorrectionNoticeOnlyWhenVisibleTimerStateChanges() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let sessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000701")!
+        let before = TBEventProjector.project([])
+        let after = TBEventProjector.project([
+            timerStartEnvelope(origin: "peer", sequence: 1, sessionID: sessionID, startedAt: now)
+        ])
+
+        XCTAssertEqual(TBTimerSyncCorrectionNoticeFactory.notice(before: before,
+                                                                 after: after,
+                                                                 trustedDeviceName: "Desk Mac")?.message,
+                       "Timer updated after syncing with Desk Mac.")
+
+        let settingsOnly = TBEventProjector.project([
+            syncEnvelope(origin: "peer", deviceSequence: 2,
+                         event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(45))))
+        ])
+        XCTAssertNil(TBTimerSyncCorrectionNoticeFactory.notice(before: before,
+                                                               after: settingsOnly,
+                                                               trustedDeviceName: "Desk Mac"))
+    }
+
     func testStrictImportDuplicateAndCollisionRules() throws {
         let log = try makeLog(identity: TBDeviceIdentity(deviceID: "local",
                                                          displayName: "Local",
@@ -514,6 +620,25 @@ final class EventCoreTests: XCTestCase {
                                deviceSequence: deviceSequence,
                                recordedAt: recordedAt ?? Date(timeIntervalSince1970: TimeInterval(deviceSequence)),
                                event: event)
+    }
+
+    private func timerStartEnvelope(eventID: UUID? = nil,
+                                    origin: String,
+                                    sequence: Int64,
+                                    sessionID: UUID,
+                                    startedAt: Date,
+                                    plannedDuration: TimeInterval = 1_500) -> TBEventEnvelope {
+        syncEnvelope(eventID: eventID,
+                     origin: origin,
+                     deviceSequence: sequence,
+                     recordedAt: startedAt,
+                     event: .timerStarted(TBTimerStarted(sessionID: sessionID,
+                                                         setID: UUID(uuidString: "00000000-0000-0000-0000-000000000777")!,
+                                                         kind: .work,
+                                                         startedAt: startedAt,
+                                                         plannedDuration: plannedDuration,
+                                                         preset: TimerPresetSnapshot(preset: TimerPreset()),
+                                                         workIntervalIndex: 1)))
     }
 
     private func makeLog(identity: TBDeviceIdentity) throws -> TBLocalEventLog {

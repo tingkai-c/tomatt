@@ -91,6 +91,7 @@ private extension AppSettings.PaneIdentifier {
     static let presets = Self("presets")
     static let sounds = Self("sounds")
     static let shortcuts = Self("shortcuts")
+    static let sync = Self("sync")
     static let general = Self("general")
 }
 
@@ -213,6 +214,13 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
                     toolbarIcon: toolbarIcon(systemName: "keyboard")
                 ) {
                     ShortcutSettingsView()
+                },
+                AppSettings.Pane(
+                    identifier: .sync,
+                    title: NSLocalizedString("SettingsWindow.sync.tab", comment: "Sync settings tab"),
+                    toolbarIcon: toolbarIcon(systemName: "arrow.triangle.2.circlepath")
+                ) {
+                    SyncSettingsView()
                 },
                 AppSettings.Pane(
                     identifier: .general,

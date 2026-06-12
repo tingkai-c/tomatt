@@ -173,11 +173,86 @@ recordedAt, originDeviceID ?? streamID, deviceSequence ?? sequence, eventID.uuid
 - Multiple sync groups.
 - Cryptographic revocation/key rotation.
 
-## Recommended Next Pass: LAN Protocol Schema and Transport Skeleton
+## Implementation Pass 3: Cross-Platform LAN Sync Skeleton and Gated Sync Surface
 
-The next implementation pass should still avoid full user-facing sync until pairing verification and authenticated sessions are ready. It should establish the cross-platform LAN protocol skeleton and message schema that future macOS, iOS/iPadOS, Android, and Linux clients can share.
+Status: **implemented locally; pending review, CI, and delivery**
 
-### Planned transport decisions
+This pass implements the cross-platform LAN sync protocol, security model, pairing model, encrypted in-memory anti-entropy engine, deterministic distributed timer conflict projection, and a gated Settings → Sync surface. It still does **not** ship a real live LAN WebSocket server/client connection path; the Settings UI explicitly disables LAN setup actions until that transport is productized.
+
+### What changed
+
+- Added the canonical Protobuf schema at `proto/tomatt/sync/v1/tomatt_sync.proto` with package `tomatt.sync.v1`.
+- Added generated SwiftProtobuf wire bindings under `tomatt/SyncProtocol/Generated/` and pinned SwiftProtobuf `1.38.0`.
+- Added a protobuf-free `SyncCore` façade over existing event-log anti-entropy primitives.
+- Added SyncProtocol mapping helpers and protocol convention tests.
+- Added SyncSecurity models for:
+  - display identity vs cryptographic sync identity separation
+  - trusted peer records
+  - sync-group key lifecycle abstractions
+  - CryptoKit Ed25519 signing/verification
+  - interim canonical signed event bytes
+  - signed-event trusted import before raw event-log import
+- Added ADR 0006 for sync event signing and trusted import.
+- Added an internal-only LAN transport skeleton for:
+  - `_tomatt-sync._tcp`
+  - `/tomatt-sync`
+  - `tomatt.sync.v1.protobuf`
+  - minimal mDNS TXT metadata without stable `deviceId`
+  - binary Protobuf envelope frame encode/decode
+  - `Hello`, `Ping`, `Pong`
+  - heartbeat/backoff and duplicate-connection placeholders
+- Added PairingCore for verified LAN pairing:
+  - Add Device / Join Sync Group roles
+  - idle gates
+  - deterministic transcript-derived six-digit code
+  - pre-merge preview
+  - settings-source choice
+  - staged all-or-nothing commit
+- Added authenticated encrypted session/message support using CryptoKit AES-GCM over serialized Protobuf envelopes.
+- Added an encrypted anti-entropy engine under `SyncProtocol` for in-memory paired peers:
+  - event summaries
+  - missing-event requests
+  - signed event batches
+  - event-batch acknowledgements
+  - new-events-available notifications
+- Added deterministic distributed timer conflict projection:
+  - branch identity is `sessionId`
+  - overlapping branches resolve by earliest start
+  - tie-breakers use session ID, origin, sequence, and event ID
+  - losing branches remain in the log but are excluded from normal timer/stats projection
+  - correction notice model is pure and UI-independent
+- Added a gated Settings → Sync pane:
+  - Off / LAN only / LAN + Cloud Relay modes
+  - Cloud Relay marked future/unavailable
+  - LAN setup disabled until real LAN server/client transport is productized
+  - device/status/paired-device/unpair copy
+  - local-network permission and encryption copy
+- Added macOS local-network usage description, Bonjour service declaration, and sandbox network client/server entitlements for future LAN transport.
+
+### Important current limitations
+
+- Real LAN WebSocket listener/client networking is still not productized.
+- Settings → Sync is a gated setup/status surface; it does not claim active LAN sync in this build.
+- The anti-entropy engine is currently an in-memory encrypted peer harness, not connected to live mDNS/WebSocket networking.
+- Multi-hop relay of third-party-origin signed events is deferred until original signed-event metadata is retained for re-export; the current engine only advertises and exports events originated by its local signer device.
+- Keychain storage has production-facing protocols and a bounded Apple adapter boundary, but tests use in-memory stores.
+- Canonical event signing uses interim sorted-key JSON over existing event envelopes until the long-term Protobuf event payload model is finalized.
+- Cloud Relay, APNs, Android/Linux clients, Screen Time, manual IP pairing, and cryptographic revocation/key rotation remain out of scope.
+
+### Verification before delivery
+
+Local static/non-build checks run during this pass:
+
+- `git diff --check`
+- `plutil -lint tomatt.xcodeproj/project.pbxproj`
+- `plutil -lint tomatt/tomatt.entitlements`
+- `python3 -m json.tool tomatt.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
+- targeted Swift parse/typecheck checks that do not invoke local Xcode builds
+- boundary searches for SyncCore/wire separation and raw-import avoidance
+
+No local Xcode build, signing, notarization, packaging, or artifact build was run.
+
+### Transport decisions implemented in schema/skeleton
 
 - LAN discovery uses mDNS/DNS-SD service type `_tomatt-sync._tcp`.
 - LAN sessions use WebSocket connections with Protobuf binary frames.
@@ -186,10 +261,10 @@ The next implementation pass should still avoid full user-facing sync until pair
   - subprotocol: `tomatt.sync.v1.protobuf`
 - Protobuf schemas live in this repository initially, likely under `proto/tomatt/sync/v1/tomatt_sync.proto`.
 - The Protobuf package is `tomatt.sync.v1`.
-- Swift implementation should use SwiftProtobuf for generated messages and SwiftNIO/NIOWebSocket for the Apple WebSocket listener/client unless dependency research finds a better maintained lightweight option.
+- Swift implementation now uses SwiftProtobuf for generated messages. A real Apple WebSocket listener/client is still deferred; the current LAN transport is a skeleton/model, not a live server/client.
 - Generated Swift Protobuf files should be committed initially to avoid CI/tooling fragility.
 
-### Planned protocol shape
+### Protocol shape implemented in schema/model
 
 - One WebSocket binary frame carries one top-level Protobuf envelope.
 - The envelope includes message ID, optional response/correlation ID, sent timestamp, version metadata where appropriate, and a `oneof` payload.
@@ -202,7 +277,7 @@ The next implementation pass should still avoid full user-facing sync until pair
 - Duration fields use integer seconds.
 - Protobuf compatibility discipline applies from the start: never reuse field numbers, reserve removed fields, and use new packages such as `tomatt.sync.v2` for breaking changes.
 
-### Planned discovery and privacy behavior
+### Discovery and privacy behavior implemented in skeleton/model
 
 - mDNS TXT records should expose only minimal routing/compatibility metadata:
   - `proto=tomatt-sync`
@@ -215,7 +290,7 @@ The next implementation pass should still avoid full user-facing sync until pair
 - Outside pairing/setup mode, advertisements should use a generic instance name and ephemeral discovery ID.
 - No manual IP/host fallback is planned for v1.
 
-### Planned connection behavior
+### Connection behavior still planned for live LAN transport
 
 - Use hybrid discovery:
   - broad browse/advertise while pairing/setup is active
@@ -226,7 +301,7 @@ The next implementation pass should still avoid full user-facing sync until pair
 - Use application-level `Ping`/`Pong` heartbeat, with native WebSocket ping/pong optional when convenient.
 - Use reconnect/backoff starting around one second and backing off to about one minute with jitter.
 
-### Planned pairing constraints
+### Pairing constraints implemented in core model
 
 - Discovery and `Hello` may occur before pairing, but sync event exchange is only allowed after pairing/trust.
 - Stable device IDs are exchanged inside the pairing handshake, not advertised in mDNS.
@@ -239,7 +314,7 @@ The next implementation pass should still avoid full user-facing sync until pair
 ### Out of scope for the next pass unless explicitly reopened
 
 - User-facing plaintext sync.
-- Full authenticated session encryption implementation, unless the pass is explicitly expanded to pairing/security.
+- Real live LAN WebSocket listener/client hookup.
 - Cloudflare relay transport.
 - APNs.
 - Android/Linux client implementations.

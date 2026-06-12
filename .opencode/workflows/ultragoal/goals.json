@@ -1,37 +1,136 @@
 [
   {
     "id": "G001",
-    "objective": "Add local event model, append-only event store, and pure projections with unit coverage.",
+    "objective": "Add the cross-platform Protobuf schema, generated Swift wire bindings, and protocol compatibility tests while keeping generated types out of SyncCore.",
     "status": "completed",
     "dependencies": [],
-    "verification": ["static checks", "projection/event-store tests in CI"]
+    "verification": [
+      "SwiftProtobuf dependency and generated files are pinned/committed without workflow edits",
+      "Schema uses package tomatt.sync.v1 and supports documented envelope/session/sync messages",
+      "Protocol tests cover round-trip, version/capability behavior, canonical UUIDs, durations, and timestamps",
+      "git diff --check"
+    ]
   },
   {
     "id": "G002",
-    "objective": "Wire shared timer settings and presets to the event log while leaving device-local settings local.",
+    "objective": "Introduce a platform-neutral SyncCore façade and Protobuf/domain mappers over the existing event-log anti-entropy primitives.",
     "status": "completed",
     "dependencies": ["G001"],
-    "verification": ["preset/settings behavior covered by tests or code review", "static checks"]
+    "verification": [
+      "SyncCore does not import SwiftProtobuf, SwiftNIO, mDNS, WebSocket, or UI frameworks",
+      "Mappers are the only layer that knows both generated Protobuf and TBEventEnvelope/domain types",
+      "Unit tests cover mapper validation, malformed/future schema rejection, summary/missing/batch façade behavior",
+      "git diff --check"
+    ]
   },
   {
     "id": "G003",
-    "objective": "Cut over active timer persistence/restore to event-log reconstruction and ignore legacy activeTimerSession.",
+    "objective": "Define and implement the security, identity, sync-group key, canonical signing, and trusted import model before any live LAN import path exists.",
     "status": "completed",
-    "dependencies": ["G001", "G002"],
-    "verification": ["timer edge behavior tests", "static checks"]
+    "dependencies": ["G002"],
+    "verification": [
+      "Local display device ID is separated from cryptographic identity and trusted peer key fingerprints",
+      "Long-lived device private keys and sync-group keys use Keychain-backed storage abstractions with test fakes",
+      "Ephemeral session material remains in memory only and is destroyed on cancel, timeout, or close",
+      "Canonical signed bytes and test vectors are documented/covered",
+      "Trusted import verifies session context, membership/removal policy, deterministic event ID, structural validity, and signature before raw importEvents",
+      "Tests cover valid/invalid/tampered/wrong-key signatures, untrusted peer rejection, and removed peer rejection",
+      "git diff --check"
+    ]
   },
   {
     "id": "G004",
-    "objective": "Cut over new stats/history records to event-log-derived projections without migrating old stats files.",
+    "objective": "Build an internal-only LAN mDNS/WebSocket transport skeleton for Hello/Ping/Pong and binary Protobuf frames.",
     "status": "completed",
-    "dependencies": ["G003"],
-    "verification": ["stats projection parity tests", "static checks"]
+    "dependencies": ["G001", "G002"],
+    "verification": [
+      "mDNS uses _tomatt-sync._tcp with minimal TXT and no stable deviceId",
+      "WebSocket path /tomatt-sync and subprotocol tomatt.sync.v1.protobuf are enforced",
+      "Text/non-Protobuf frames and wrong path/subprotocol are rejected",
+      "Heartbeat/backoff behavior is covered by tests or injectable clocks/fakes",
+      "Plaintext transport remains internal-only and not productized",
+      "git diff --check"
+    ]
   },
   {
     "id": "G005",
-    "objective": "Run final static verification, independent review, commit/push, CI watch, artifact download/install/launch delivery loop.",
+    "objective": "Implement verified LAN pairing with transcript-derived code, idle gates, pre-merge preview, settings-source choice, and staged all-or-nothing commit.",
     "status": "completed",
-    "dependencies": ["G001", "G002", "G003", "G004"],
-    "verification": ["git diff --check", "CI success", "tomatt.app artifact installed and launched"]
+    "dependencies": ["G003", "G004"],
+    "verification": [
+      "Deterministic pairing transcript/code test vectors pass",
+      "Timeout, cancel, mismatch, retry, and non-idle gates leave no permanent membership/trusted-peer/import state",
+      "Membership, trusted peer, sync-group key, and event import commits occur only after code confirmation and preview approval",
+      "Pre-merge preview includes device/platform, idle status, settings difference, preset counts, history counts, date ranges, and settings-source choice",
+      "git diff --check"
+    ]
+  },
+  {
+    "id": "G006",
+    "objective": "Enable authenticated encrypted LAN sessions/messages and enforce signed-event trusted import for paired devices.",
+    "status": "completed",
+    "dependencies": ["G003", "G005"],
+    "verification": [
+      "Authenticated encryption is required before sync event exchange",
+      "Replay/counter, tamper, wrong-peer, unpaired, and removed-peer cases are rejected with typed errors/status",
+      "LAN transport cannot bypass trusted import into raw importEvents",
+      "Plaintext remains unavailable for user-facing sync",
+      "git diff --check"
+    ]
+  },
+  {
+    "id": "G007",
+    "objective": "Implement deterministic distributed timer projection and conflict handling before live timer-event sync is enabled.",
+    "status": "completed",
+    "dependencies": ["G002"],
+    "verification": [
+      "Overlapping branches resolve by earliest timerStarted.startedAt with documented tie-breakers",
+      "Active interval semantics account for pause/resume, finishAt, pending break, extension/overtime, rest-start-pending, and terminal events",
+      "Losing branches remain in the log and continue syncing but are excluded from normal current timer and stats/history projection",
+      "Correction notice is triggered only when trusted import changes visible timer state",
+      "Existing timer edge behavior tests remain covered",
+      "git diff --check"
+    ]
+  },
+  {
+    "id": "G008",
+    "objective": "Implement live anti-entropy sync over authenticated paired sessions with summaries, missing requests, batches, acknowledgements, and new-events notifications.",
+    "status": "completed",
+    "dependencies": ["G006", "G007"],
+    "verification": [
+      "Two in-memory trusted peers converge from divergent event logs",
+      "Local-only events are never exported",
+      "Gaps do not advance watermarks incorrectly",
+      "Import failures surface typed protocol/status errors",
+      "New local syncable events trigger new-events-available flow",
+      "git diff --check"
+    ]
+  },
+  {
+    "id": "G009",
+    "objective": "Productize Settings → Sync with local-network permission timing, sync status, device list, Add/Join, remove/unpair, and incomplete-feature gating.",
+    "status": "completed",
+    "dependencies": ["G005", "G006", "G008"],
+    "verification": [
+      "Cloud Relay is hidden, disabled, or clearly future/unavailable",
+      "User-facing sync is enabled only after authenticated encryption, signed-event trusted import, pairing gates, and timer conflict tests pass",
+      "Settings shows understandable sync mode, device identity, paired devices, last seen/status, add/join, remove/unpair, and last sync/retry status",
+      "Local network permission copy/timing and Bonjour declarations/entitlements are present where required",
+      "git diff --check"
+    ]
+  },
+  {
+    "id": "G010",
+    "objective": "Run final cleanup, independent review, documentation/status updates, commit/push, CI watch, artifact download/install/launch delivery loop.",
+    "status": "pending",
+    "dependencies": ["G001", "G002", "G003", "G004", "G005", "G006", "G007", "G008", "G009"],
+    "verification": [
+      "docs/sync-implementation-status.md and relevant ADR/status docs updated",
+      ".github/workflows/main.yml unchanged unless CI evidence proves a defect",
+      "git diff --check and targeted feasible tests pass",
+      "Independent code-review APPROVE and architecture-sensitive review CLEAR",
+      "GitHub Actions succeeds for exact commit SHA",
+      "Downloaded CI artifact contains tomatt.app, is installed to /Applications/tomatt.app, and launches"
+    ]
   }
 ]

@@ -37,6 +37,38 @@
 		AB2035D433978B43DE6C7022 /* TimerCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223680CF684E6505B786436F /* TimerCore.swift */; };
 		D045C8A63CA6AE9FD86A14AF /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA8B426215F805A3DC702485 /* Cocoa.framework */; };
 		D51000022F10000100AA0002 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000012F10000100AA0001 /* DesignSystem.swift */; };
+		F00100000000000000000001 /* tomatt_sync.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* tomatt_sync.pb.swift */; };
+		F00100000000000000000002 /* tomatt_sync.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* tomatt_sync.pb.swift */; };
+		F00100000000000000000003 /* TomattSyncProtocolConventions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* TomattSyncProtocolConventions.swift */; };
+		F00100000000000000000004 /* TomattSyncProtocolConventions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* TomattSyncProtocolConventions.swift */; };
+		F00100000000000000000005 /* SyncProtocolCompatibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* SyncProtocolCompatibilityTests.swift */; };
+		F0010000000000000000000E /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F0010000000000000000000D /* SwiftProtobuf */; };
+		F0010000000000000000000F /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F0010000000000000000000D /* SwiftProtobuf */; };
+		F00200000000000000000001 /* SyncCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000007 /* SyncCore.swift */; };
+		F00200000000000000000002 /* SyncCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000007 /* SyncCore.swift */; };
+		F00200000000000000000003 /* TomattSyncProtoMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000008 /* TomattSyncProtoMapper.swift */; };
+		F00200000000000000000004 /* TomattSyncProtoMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000008 /* TomattSyncProtoMapper.swift */; };
+		F00200000000000000000005 /* SyncCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000009 /* SyncCoreTests.swift */; };
+		F00200000000000000000006 /* SyncProtoMapperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0020000000000000000000A /* SyncProtoMapperTests.swift */; };
+		F00300000000000000000001 /* SyncSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00300000000000000000004 /* SyncSecurity.swift */; };
+		F00300000000000000000002 /* SyncSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00300000000000000000004 /* SyncSecurity.swift */; };
+		F00300000000000000000003 /* SyncSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00300000000000000000005 /* SyncSecurityTests.swift */; };
+		F00400000000000000000001 /* LANTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00400000000000000000004 /* LANTransport.swift */; };
+		F00400000000000000000002 /* LANTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00400000000000000000004 /* LANTransport.swift */; };
+		F00400000000000000000003 /* LANTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00400000000000000000005 /* LANTransportTests.swift */; };
+		F00500000000000000000001 /* PairingCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00500000000000000000004 /* PairingCore.swift */; };
+		F00500000000000000000002 /* PairingCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00500000000000000000004 /* PairingCore.swift */; };
+		F00500000000000000000003 /* PairingCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00500000000000000000005 /* PairingCoreTests.swift */; };
+		F00600000000000000000001 /* SyncSessionSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00600000000000000000004 /* SyncSessionSecurity.swift */; };
+		F00600000000000000000002 /* SyncSessionSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00600000000000000000004 /* SyncSessionSecurity.swift */; };
+		F00600000000000000000003 /* SyncSessionSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00600000000000000000005 /* SyncSessionSecurityTests.swift */; };
+		F00800000000000000000001 /* AntiEntropySyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00800000000000000000003 /* AntiEntropySyncEngine.swift */; };
+		F00800000000000000000002 /* AntiEntropySyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00800000000000000000003 /* AntiEntropySyncEngine.swift */; };
+		F00800000000000000000004 /* AntiEntropySyncEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00800000000000000000005 /* AntiEntropySyncEngineTests.swift */; };
+		F00900000000000000000001 /* SyncSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00900000000000000000004 /* SyncSettingsModel.swift */; };
+		F00900000000000000000002 /* SyncSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00900000000000000000004 /* SyncSettingsModel.swift */; };
+		F00900000000000000000003 /* SyncSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00900000000000000000005 /* SyncSettingsView.swift */; };
+		F00900000000000000000007 /* SyncSettingsModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00900000000000000000006 /* SyncSettingsModelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +108,26 @@
 		AA8B426215F805A3DC702485 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		C4C8DE0E2930DBB4003B1110 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		D51000012F10000100AA0001 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		F00100000000000000000006 /* tomatt_sync.pb.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = tomatt/sync/v1/tomatt_sync.pb.swift; sourceTree = "<group>"; };
+		F00100000000000000000007 /* TomattSyncProtocolConventions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TomattSyncProtocolConventions.swift; sourceTree = "<group>"; };
+		F00100000000000000000008 /* SyncProtocolCompatibilityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncProtocolCompatibilityTests.swift; sourceTree = "<group>"; };
+		F00200000000000000000007 /* SyncCore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncCore.swift; sourceTree = "<group>"; };
+		F00200000000000000000008 /* TomattSyncProtoMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TomattSyncProtoMapper.swift; sourceTree = "<group>"; };
+		F00200000000000000000009 /* SyncCoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncCoreTests.swift; sourceTree = "<group>"; };
+		F0020000000000000000000A /* SyncProtoMapperTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncProtoMapperTests.swift; sourceTree = "<group>"; };
+		F00300000000000000000004 /* SyncSecurity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSecurity.swift; sourceTree = "<group>"; };
+		F00300000000000000000005 /* SyncSecurityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSecurityTests.swift; sourceTree = "<group>"; };
+		F00400000000000000000004 /* LANTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LANTransport.swift; sourceTree = "<group>"; };
+		F00400000000000000000005 /* LANTransportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LANTransportTests.swift; sourceTree = "<group>"; };
+		F00500000000000000000004 /* PairingCore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairingCore.swift; sourceTree = "<group>"; };
+		F00500000000000000000005 /* PairingCoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairingCoreTests.swift; sourceTree = "<group>"; };
+		F00600000000000000000004 /* SyncSessionSecurity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSessionSecurity.swift; sourceTree = "<group>"; };
+		F00600000000000000000005 /* SyncSessionSecurityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSessionSecurityTests.swift; sourceTree = "<group>"; };
+		F00800000000000000000003 /* AntiEntropySyncEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AntiEntropySyncEngine.swift; sourceTree = "<group>"; };
+		F00800000000000000000005 /* AntiEntropySyncEngineTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AntiEntropySyncEngineTests.swift; sourceTree = "<group>"; };
+		F00900000000000000000004 /* SyncSettingsModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSettingsModel.swift; sourceTree = "<group>"; };
+		F00900000000000000000005 /* SyncSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSettingsView.swift; sourceTree = "<group>"; };
+		F00900000000000000000006 /* SyncSettingsModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSettingsModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +137,7 @@
 			files = (
 				57E5B41458275BC362B10EA5 /* Cocoa.framework in Frameworks */,
 				2BD256D799B7889555B3E09F /* SwiftState in Frameworks */,
+				F0010000000000000000000F /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,6 +149,7 @@
 				8AA5B3EB281295DB00BE1A6C /* KeyboardShortcuts in Frameworks */,
 				8A8CFE402821D8C300F9F303 /* SwiftState in Frameworks */,
 				5E71A0012F00000100AA0001 /* Settings in Frameworks */,
+				F0010000000000000000000E /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -149,6 +203,12 @@
 				8AEE49AE2AA75A5E00243D2F /* Log.swift */,
 				A1B2C3D45E6F001122334455 /* StatsStore.swift */,
 				A1B2C3D45E6F001122334457 /* StatsView.swift */,
+				F00400000000000000000006 /* LANTransport */,
+				F00500000000000000000006 /* PairingCore */,
+				F0020000000000000000000B /* SyncCore */,
+				F00100000000000000000009 /* SyncProtocol */,
+				F00300000000000000000006 /* SyncSecurity */,
+				F00900000000000000000008 /* SyncUI */,
 				8A21B78D27EE31A20009E5DB /* View.swift */,
 				9EB9405B2B07605900198AD2 /* MaskView.swift */,
 				8A9F700827EE396E0012A1EC /* State.swift */,
@@ -179,10 +239,80 @@
 			name = "OS X";
 			sourceTree = "<group>";
 		};
+		F00100000000000000000009 /* SyncProtocol */ = {
+			isa = PBXGroup;
+			children = (
+				F00800000000000000000003 /* AntiEntropySyncEngine.swift */,
+				F00200000000000000000008 /* TomattSyncProtoMapper.swift */,
+				F00100000000000000000007 /* TomattSyncProtocolConventions.swift */,
+				F0010000000000000000000A /* Generated */,
+			);
+			path = SyncProtocol;
+			sourceTree = "<group>";
+		};
+		F0020000000000000000000B /* SyncCore */ = {
+			isa = PBXGroup;
+			children = (
+				F00200000000000000000007 /* SyncCore.swift */,
+			);
+			path = SyncCore;
+			sourceTree = "<group>";
+		};
+		F00300000000000000000006 /* SyncSecurity */ = {
+			isa = PBXGroup;
+			children = (
+				F00300000000000000000004 /* SyncSecurity.swift */,
+				F00600000000000000000004 /* SyncSessionSecurity.swift */,
+			);
+			path = SyncSecurity;
+			sourceTree = "<group>";
+		};
+		F00400000000000000000006 /* LANTransport */ = {
+			isa = PBXGroup;
+			children = (
+				F00400000000000000000004 /* LANTransport.swift */,
+			);
+			path = LANTransport;
+			sourceTree = "<group>";
+		};
+		F00500000000000000000006 /* PairingCore */ = {
+			isa = PBXGroup;
+			children = (
+				F00500000000000000000004 /* PairingCore.swift */,
+			);
+			path = PairingCore;
+			sourceTree = "<group>";
+		};
+		F0010000000000000000000A /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				F00100000000000000000006 /* tomatt_sync.pb.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		F00900000000000000000008 /* SyncUI */ = {
+			isa = PBXGroup;
+			children = (
+				F00900000000000000000004 /* SyncSettingsModel.swift */,
+				F00900000000000000000005 /* SyncSettingsView.swift */,
+			);
+			path = SyncUI;
+			sourceTree = "<group>";
+		};
 		FF80B78CB02E1493D588E507 /* tomattTests */ = {
 			isa = PBXGroup;
 			children = (
 				1F9D7E295B6C4D3E8A9B0C1D /* EventCoreTests.swift */,
+				F00200000000000000000009 /* SyncCoreTests.swift */,
+				F00800000000000000000005 /* AntiEntropySyncEngineTests.swift */,
+				F0020000000000000000000A /* SyncProtoMapperTests.swift */,
+				F00300000000000000000005 /* SyncSecurityTests.swift */,
+				F00600000000000000000005 /* SyncSessionSecurityTests.swift */,
+				F00400000000000000000005 /* LANTransportTests.swift */,
+				F00500000000000000000005 /* PairingCoreTests.swift */,
+				F00100000000000000000008 /* SyncProtocolCompatibilityTests.swift */,
+				F00900000000000000000006 /* SyncSettingsModelTests.swift */,
 				388E3E479C6DCB4707993C61 /* StatsStoreTests.swift */,
 				4F7E2E1A36F23D870F4446B1 /* TimerCoreTests.swift */,
 			);
@@ -208,6 +338,7 @@
 			name = tomattTests;
 			packageProductDependencies = (
 				8A8CFE3F2821D8C300F9F303 /* SwiftState */,
+				F0010000000000000000000D /* SwiftProtobuf */,
 			);
 			productName = tomattTests;
 			productReference = 9E155026319C29FA989179EC /* tomattTests.xctest */;
@@ -250,6 +381,7 @@
 				8AA5B3EA281295DB00BE1A6C /* KeyboardShortcuts */,
 				8A8CFE3F2821D8C300F9F303 /* SwiftState */,
 				5E71A0032F00000100AA0003 /* Settings */,
+				F0010000000000000000000D /* SwiftProtobuf */,
 			);
 			productName = tomatt;
 			productReference = 8A21B78827EE31A20009E5DB /* tomatt.app */;
@@ -286,6 +418,7 @@
 				8AA5B3E9281295DB00BE1A6C /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				8A8CFE3E2821D8C300F9F303 /* XCRemoteSwiftPackageReference "SwiftState" */,
 				5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */,
+				F0010000000000000000000B /* XCRemoteSwiftPackageReference "swift-protobuf" */,
 			);
 			productRefGroup = 8A21B78927EE31A20009E5DB /* Products */;
 			projectDirPath = "";
@@ -351,11 +484,30 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F00900000000000000000002 /* SyncSettingsModel.swift in Sources */,
+				F00100000000000000000002 /* tomatt_sync.pb.swift in Sources */,
+				F00100000000000000000004 /* TomattSyncProtocolConventions.swift in Sources */,
+				F00200000000000000000002 /* SyncCore.swift in Sources */,
+				F00800000000000000000002 /* AntiEntropySyncEngine.swift in Sources */,
+				F00200000000000000000004 /* TomattSyncProtoMapper.swift in Sources */,
+				F00300000000000000000002 /* SyncSecurity.swift in Sources */,
+				F00600000000000000000002 /* SyncSessionSecurity.swift in Sources */,
+				F00400000000000000000002 /* LANTransport.swift in Sources */,
+				F00500000000000000000002 /* PairingCore.swift in Sources */,
 				1F9D7E2B5B6C4D3E8A9B0C1D /* EventCore.swift in Sources */,
 				AB2035D433978B43DE6C7022 /* TimerCore.swift in Sources */,
 				56A8C70D6B03D1C004020CF9 /* State.swift in Sources */,
 				58A073A7F324A70E63FA70C6 /* StatsStore.swift in Sources */,
 				1F9D7E2C5B6C4D3E8A9B0C1D /* EventCoreTests.swift in Sources */,
+				F00200000000000000000005 /* SyncCoreTests.swift in Sources */,
+				F00800000000000000000004 /* AntiEntropySyncEngineTests.swift in Sources */,
+				F00200000000000000000006 /* SyncProtoMapperTests.swift in Sources */,
+				F00300000000000000000003 /* SyncSecurityTests.swift in Sources */,
+				F00600000000000000000003 /* SyncSessionSecurityTests.swift in Sources */,
+				F00400000000000000000003 /* LANTransportTests.swift in Sources */,
+				F00500000000000000000003 /* PairingCoreTests.swift in Sources */,
+				F00100000000000000000005 /* SyncProtocolCompatibilityTests.swift in Sources */,
+				F00900000000000000000007 /* SyncSettingsModelTests.swift in Sources */,
 				0B7DCF6E7688410D9EA5EC17 /* StatsStoreTests.swift in Sources */,
 				1F27E2E80EB0AA9B5F3B320A /* TimerCoreTests.swift in Sources */,
 			);
@@ -373,9 +525,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F00900000000000000000001 /* SyncSettingsModel.swift in Sources */,
+				F00900000000000000000003 /* SyncSettingsView.swift in Sources */,
 				8A9F701F27EE536D0012A1EC /* Player.swift in Sources */,
 				D51000022F10000100AA0002 /* DesignSystem.swift in Sources */,
 				1F9D7E2A5B6C4D3E8A9B0C1D /* EventCore.swift in Sources */,
+				F00100000000000000000001 /* tomatt_sync.pb.swift in Sources */,
+				F00100000000000000000003 /* TomattSyncProtocolConventions.swift in Sources */,
+				F00200000000000000000001 /* SyncCore.swift in Sources */,
+				F00800000000000000000001 /* AntiEntropySyncEngine.swift in Sources */,
+				F00200000000000000000003 /* TomattSyncProtoMapper.swift in Sources */,
+				F00300000000000000000001 /* SyncSecurity.swift in Sources */,
+				F00600000000000000000001 /* SyncSessionSecurity.swift in Sources */,
+				F00400000000000000000001 /* LANTransport.swift in Sources */,
+				F00500000000000000000001 /* PairingCore.swift in Sources */,
 				8AEE49AF2AA75A5E00243D2F /* Log.swift in Sources */,
 				A1B2C3D45E6F001122334456 /* StatsStore.swift in Sources */,
 				A1B2C3D45E6F001122334458 /* StatsView.swift in Sources */,
@@ -565,7 +728,11 @@
 				INFOPLIST_KEY_CFBundleName = tomatt;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSBonjourServices = (
+					"_tomatt-sync._tcp",
+				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 tomatt. All rights reserved.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "tomatt uses the local network only when you choose to set up encrypted sync with nearby paired devices.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -602,7 +769,11 @@
 				INFOPLIST_KEY_CFBundleName = tomatt;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSBonjourServices = (
+					"_tomatt-sync._tcp",
+				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 tomatt. All rights reserved.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "tomatt uses the local network only when you choose to set up encrypted sync with nearby paired devices.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -741,6 +912,14 @@
 				version = 2.4.0;
 			};
 		};
+		F0010000000000000000000B /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-protobuf";
+			requirement = {
+				kind = exactVersion;
+				version = 1.38.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -763,6 +942,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 8AA5B3E9281295DB00BE1A6C /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		F0010000000000000000000D /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0010000000000000000000B /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

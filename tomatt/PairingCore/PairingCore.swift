@@ -1,0 +1,339 @@
+import CryptoKit
+import Foundation
+
+/// Core model for verified LAN pairing. This file is UI- and transport-server
+/// independent: discovery/connection code supplies transcript facts, UI later
+/// displays the derived code and preview, and persistence occurs only through
+/// `TBPairingCommitApplying` after both user gates have passed.
+
+enum TBPairingRole: String, Codable, Equatable {
+    case addDevice = "add-device"
+    case joinSyncGroup = "join-sync-group"
+}
+
+struct TBPairingIdleDeclaration: Codable, Equatable {
+    var isIdle: Bool
+    var declaredAt: Date
+    var reason: String?
+
+    static func idle(at date: Date) -> TBPairingIdleDeclaration {
+        TBPairingIdleDeclaration(isIdle: true, declaredAt: date, reason: nil)
+    }
+
+    static func busy(at date: Date, reason: String) -> TBPairingIdleDeclaration {
+        TBPairingIdleDeclaration(isIdle: false, declaredAt: date, reason: reason)
+    }
+}
+
+enum TBPairingGateError: Error, Equatable {
+    case localNotIdle
+    case remoteNotIdle
+    case expired
+    case cancelled
+    case codeMismatch
+    case codeNotConfirmed
+    case previewNotApproved
+    case settingsSourceRequired
+    case invalidState
+}
+
+enum TBPairingSessionState: Equatable {
+    case initialized
+    case awaitingCodeConfirmation(code: String)
+    case codeConfirmed
+    case previewApproved
+    case committed
+    case cancelled
+    case expired
+}
+
+struct TBPairingEndpointMetadata: Codable, Equatable {
+    var host: String
+    var port: Int
+    var transport: String
+    var path: String
+    var metadata: [String: String]
+}
+
+struct TBPairingTranscriptParticipant: Codable, Equatable {
+    var deviceID: String
+    var displayName: String
+    var platform: String
+    var ephemeralPairingPublicKey: Data
+    var signingPublicKey: Data
+    var ephemeralDiscoveryID: String
+    var endpoint: TBPairingEndpointMetadata
+    var idle: TBPairingIdleDeclaration
+    var capabilities: [String]
+}
+
+struct TBPairingTranscript: Codable, Equatable {
+    static let canonicalVersion = 1
+
+    var protocolVersion: Int
+    var role: TBPairingRole
+    var local: TBPairingTranscriptParticipant
+    var remote: TBPairingTranscriptParticipant
+    var timestamp: Date
+    var sessionNonce: Data
+    var capabilities: [String]
+
+    /// v1 deterministic transcript encoding: sorted-key JSON, ISO-8601 dates,
+    /// base64 Data values, and sorted capability/metadata collections. This is a
+    /// stable G005 model contract, not the final encrypted-session transcript.
+    func canonicalBytes() throws -> Data {
+        let canonical = CanonicalTranscript(
+            canonicalVersion: Self.canonicalVersion,
+            protocolVersion: protocolVersion,
+            addDeviceParticipant: CanonicalParticipant(addDeviceParticipant),
+            joinSyncGroupParticipant: CanonicalParticipant(joinSyncGroupParticipant),
+            timestamp: Self.iso8601(timestamp),
+            sessionNonceBase64: sessionNonce.base64EncodedString(),
+            capabilities: capabilities.sorted()
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(canonical)
+    }
+
+    func verificationCode() throws -> String {
+        try TBPairingVerificationCode.derive(fromCanonicalTranscriptBytes: canonicalBytes())
+    }
+
+    private static func iso8601(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
+    }
+
+    private var addDeviceParticipant: TBPairingTranscriptParticipant {
+        role == .addDevice ? local : remote
+    }
+
+    private var joinSyncGroupParticipant: TBPairingTranscriptParticipant {
+        role == .addDevice ? remote : local
+    }
+
+    private struct CanonicalTranscript: Encodable {
+        let canonicalVersion: Int
+        let protocolVersion: Int
+        let addDeviceParticipant: CanonicalParticipant
+        let joinSyncGroupParticipant: CanonicalParticipant
+        let timestamp: String
+        let sessionNonceBase64: String
+        let capabilities: [String]
+    }
+
+    private struct CanonicalParticipant: Encodable {
+        let deviceID: String
+        let displayName: String
+        let platform: String
+        let ephemeralPairingPublicKeyBase64: String
+        let signingPublicKeyBase64: String
+        let ephemeralDiscoveryID: String
+        let endpoint: CanonicalEndpoint
+        let idle: CanonicalIdle
+        let capabilities: [String]
+
+        init(_ participant: TBPairingTranscriptParticipant) {
+            deviceID = participant.deviceID
+            displayName = participant.displayName
+            platform = participant.platform
+            ephemeralPairingPublicKeyBase64 = participant.ephemeralPairingPublicKey.base64EncodedString()
+            signingPublicKeyBase64 = participant.signingPublicKey.base64EncodedString()
+            ephemeralDiscoveryID = participant.ephemeralDiscoveryID
+            endpoint = CanonicalEndpoint(participant.endpoint)
+            idle = CanonicalIdle(participant.idle)
+            capabilities = participant.capabilities.sorted()
+        }
+    }
+
+    private struct CanonicalEndpoint: Encodable {
+        let host: String
+        let port: Int
+        let transport: String
+        let path: String
+        let metadata: [String: String]
+
+        init(_ endpoint: TBPairingEndpointMetadata) {
+            host = endpoint.host
+            port = endpoint.port
+            transport = endpoint.transport
+            path = endpoint.path
+            metadata = endpoint.metadata
+        }
+    }
+
+    private struct CanonicalIdle: Encodable {
+        let isIdle: Bool
+        let declaredAt: String
+        let reason: String?
+
+        init(_ idle: TBPairingIdleDeclaration) {
+            isIdle = idle.isIdle
+            declaredAt = TBPairingTranscript.iso8601(idle.declaredAt)
+            reason = idle.reason
+        }
+    }
+}
+
+enum TBPairingVerificationCode {
+    static func derive(fromCanonicalTranscriptBytes bytes: Data) -> String {
+        let digest = Array(SHA256.hash(data: bytes))
+        let first31Bits = (UInt32(digest[0]) << 24 | UInt32(digest[1]) << 16 | UInt32(digest[2]) << 8 | UInt32(digest[3])) & 0x7fff_ffff
+        return String(format: "%06u", first31Bits % 1_000_000)
+    }
+}
+
+enum TBPairingSettingsSourceChoice: String, Codable, Equatable {
+    case keepLocal = "keep-local"
+    case useRemote = "use-remote"
+}
+
+struct TBPairingHistorySummary: Codable, Equatable {
+    var eventCount: Int
+    var dateRangeStart: Date?
+    var dateRangeEnd: Date?
+}
+
+struct TBPairingPreMergePreview: Codable, Equatable {
+    var localDevice: TBDeviceIdentity
+    var remoteDevice: TBDeviceIdentity
+    var bothIdle: Bool
+    var settingsDiffer: Bool
+    var localPresetCount: Int
+    var remotePresetCount: Int
+    var localHistory: TBPairingHistorySummary
+    var remoteHistory: TBPairingHistorySummary
+    var settingsSourceChoice: TBPairingSettingsSourceChoice?
+}
+
+enum TBPairingMembershipAction: Codable, Equatable {
+    case devicePaired(deviceID: String, displayName: String)
+    case deviceJoinedGroup(deviceID: String, groupID: String)
+}
+
+struct TBPairingStagedCommit: Equatable {
+    var trustedPeer: TBTrustedPeerRecord
+    var syncGroupKey: TBSyncGroupKeyRecord
+    var membershipActions: [TBPairingMembershipAction]
+    var importedEvents: [TBEventEnvelope]
+    var settingsSourceChoice: TBPairingSettingsSourceChoice
+}
+
+protocol TBPairingCommitApplying {
+    /// Applies the already staged pairing result as one durable transaction.
+    /// Implementations must write nothing if any action cannot be persisted.
+    func applyPairingCommit(_ commit: TBPairingStagedCommit) throws
+}
+
+final class TBInMemoryPairingCommitApplier: TBPairingCommitApplying {
+    private(set) var appliedCommits: [TBPairingStagedCommit] = []
+    private(set) var trustedPeers: [TBTrustedPeerRecord] = []
+    private(set) var syncGroupKeys: [TBSyncGroupKeyRecord] = []
+    private(set) var membershipActions: [TBPairingMembershipAction] = []
+    private(set) var importedEvents: [TBEventEnvelope] = []
+    var failure: Error?
+
+    func applyPairingCommit(_ commit: TBPairingStagedCommit) throws {
+        if let failure = failure { throw failure }
+        var nextTrustedPeers = trustedPeers
+        var nextSyncGroupKeys = syncGroupKeys
+        var nextMembershipActions = membershipActions
+        var nextImportedEvents = importedEvents
+        var nextAppliedCommits = appliedCommits
+        nextTrustedPeers.append(commit.trustedPeer)
+        nextSyncGroupKeys.append(commit.syncGroupKey)
+        nextMembershipActions.append(contentsOf: commit.membershipActions)
+        nextImportedEvents.append(contentsOf: commit.importedEvents)
+        nextAppliedCommits.append(commit)
+        trustedPeers = nextTrustedPeers
+        syncGroupKeys = nextSyncGroupKeys
+        membershipActions = nextMembershipActions
+        importedEvents = nextImportedEvents
+        appliedCommits = nextAppliedCommits
+    }
+}
+
+final class TBPairingSession {
+    private(set) var state: TBPairingSessionState = .initialized
+    private(set) var transcript: TBPairingTranscript
+    let expiresAt: Date
+    private var stagedCommit: TBPairingStagedCommit
+    private var approvedPreview: TBPairingPreMergePreview?
+
+    init(transcript: TBPairingTranscript,
+         stagedCommit: TBPairingStagedCommit,
+         expiresAt: Date) {
+        self.transcript = transcript
+        self.stagedCommit = stagedCommit
+        self.expiresAt = expiresAt
+    }
+
+    func updateIdleDeclarations(local: TBPairingIdleDeclaration, remote: TBPairingIdleDeclaration) {
+        transcript.local.idle = local
+        transcript.remote.idle = remote
+    }
+
+    func start(now: Date) throws -> String {
+        try ensureActive(now: now)
+        try ensureIdle(transcript.local.idle, transcript.remote.idle)
+        let code = try transcript.verificationCode()
+        state = .awaitingCodeConfirmation(code: code)
+        return code
+    }
+
+    func confirmCode(_ code: String, now: Date) throws {
+        try ensureActive(now: now)
+        guard case .awaitingCodeConfirmation(let expected) = state else {
+            throw TBPairingGateError.invalidState
+        }
+        guard code == expected else { throw TBPairingGateError.codeMismatch }
+        state = .codeConfirmed
+    }
+
+    func approvePreview(_ preview: TBPairingPreMergePreview, now: Date) throws {
+        try ensureActive(now: now)
+        guard state == .codeConfirmed else { throw TBPairingGateError.codeNotConfirmed }
+        guard preview.bothIdle else { throw TBPairingGateError.remoteNotIdle }
+        guard let settingsSourceChoice = preview.settingsSourceChoice else {
+            throw TBPairingGateError.settingsSourceRequired
+        }
+        stagedCommit.settingsSourceChoice = settingsSourceChoice
+        approvedPreview = preview
+        state = .previewApproved
+    }
+
+    func commit(using applier: TBPairingCommitApplying, now: Date) throws {
+        try ensureActive(now: now)
+        guard state == .previewApproved else { throw TBPairingGateError.previewNotApproved }
+        guard let approvedPreview = approvedPreview else { throw TBPairingGateError.previewNotApproved }
+        try ensureIdle(transcript.local.idle, transcript.remote.idle)
+        guard approvedPreview.bothIdle else { throw TBPairingGateError.remoteNotIdle }
+        try applier.applyPairingCommit(stagedCommit)
+        state = .committed
+    }
+
+    func cancel() {
+        state = .cancelled
+        approvedPreview = nil
+    }
+
+    func retry(expiresAt: Date) -> TBPairingSession {
+        TBPairingSession(transcript: transcript, stagedCommit: stagedCommit, expiresAt: expiresAt)
+    }
+
+    private func ensureActive(now: Date) throws {
+        if state == .cancelled { throw TBPairingGateError.cancelled }
+        if state == .expired || now >= expiresAt {
+            state = .expired
+            throw TBPairingGateError.expired
+        }
+        if state == .committed { throw TBPairingGateError.invalidState }
+    }
+
+    private func ensureIdle(_ local: TBPairingIdleDeclaration, _ remote: TBPairingIdleDeclaration) throws {
+        guard local.isIdle else { throw TBPairingGateError.localNotIdle }
+        guard remote.isIdle else { throw TBPairingGateError.remoteNotIdle }
+    }
+}

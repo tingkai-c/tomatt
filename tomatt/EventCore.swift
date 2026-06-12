@@ -785,13 +785,69 @@ struct TBEventProjectionState: Equatable {
     var timer: TBProjectedTimerSession?
     var activeTimerSession: PersistedTimerSession?
     var pairedDevices: [TBProjectedDevice] = []
+    var distributedTimer = TBDistributedTimerProjection()
+}
+
+struct TBDistributedTimerProjection: Equatable {
+    var branches: [TBTimerBranchProjection] = []
+    var visibleSessionIDs: Set<UUID> = []
+    var losingSessionIDs: Set<UUID> = []
+    var currentTimer: TBProjectedTimerSession?
+}
+
+struct TBTimerBranchProjection: Identifiable, Equatable {
+    var id: UUID { sessionID }
+    let sessionID: UUID
+    let startEnvelope: TBEventEnvelope
+    let started: TBTimerStarted
+    let intervalStart: Date
+    let intervalEnd: Date?
+    let terminalAt: Date?
+    let isVisible: Bool
+    let timer: TBProjectedTimerSession?
+}
+
+struct TBVisibleTimerState: Equatable {
+    let sessionID: UUID?
+    let status: TBProjectedTimerStatus?
+    let kind: TBTimerSessionKind?
+    let startedAt: Date?
+    let plannedDuration: TimeInterval?
+    let pausedAt: Date?
+    let pausedDuration: TimeInterval?
+
+    init(_ state: TBEventProjectionState) {
+        sessionID = state.timer?.sessionID
+        status = state.timer?.status
+        kind = state.timer?.kind
+        startedAt = state.timer?.startedAt
+        plannedDuration = state.timer?.plannedDuration
+        pausedAt = state.timer?.pausedAt
+        pausedDuration = state.timer?.pausedDuration
+    }
+}
+
+struct TBTimerSyncCorrectionNotice: Equatable {
+    let message: String
+}
+
+enum TBTimerSyncCorrectionNoticeFactory {
+    static func notice(before: TBEventProjectionState,
+                       after: TBEventProjectionState,
+                       trustedDeviceName: String) -> TBTimerSyncCorrectionNotice? {
+        guard TBVisibleTimerState(before) != TBVisibleTimerState(after) else { return nil }
+        return TBTimerSyncCorrectionNotice(message: "Timer updated after syncing with \(trustedDeviceName).")
+    }
 }
 
 enum TBEventProjector {
     static func project(_ envelopes: [TBEventEnvelope]) -> TBEventProjectionState {
-        canonicalize(envelopes).reduce(into: TBEventProjectionState()) { state, envelope in
+        let events = canonicalize(envelopes)
+        var state = events.reduce(into: TBEventProjectionState()) { state, envelope in
             apply(envelope.event, recordedAt: envelope.recordedAt, to: &state)
         }
+        applyDistributedTimerProjection(from: events, to: &state)
+        return state
     }
 
     static func canonicalize(_ envelopes: [TBEventEnvelope]) -> [TBEventEnvelope] {
@@ -935,13 +991,163 @@ enum TBEventProjector {
     }
 
     private static func finishTimer(sessionID: UUID,
-                                    endedAt _: Date,
-                                    completion _: TBStatsCompletion,
-                                    state: inout TBEventProjectionState) {
+                                     endedAt _: Date,
+                                     completion _: TBStatsCompletion,
+                                     state: inout TBEventProjectionState) {
         guard state.timer?.sessionID == sessionID else { return }
         state.timer = nil
         if state.activeTimerSession?.sessionID == sessionID {
             state.activeTimerSession = nil
         }
+    }
+
+    private static func applyDistributedTimerProjection(from envelopes: [TBEventEnvelope],
+                                                        to state: inout TBEventProjectionState) {
+        let projection = distributedTimerProjection(from: envelopes)
+        state.distributedTimer = projection
+        state.timer = projection.currentTimer
+        state.stats.removeAll { projection.losingSessionIDs.contains($0.id) }
+        if let sessionID = state.activeTimerSession?.sessionID,
+           projection.losingSessionIDs.contains(sessionID) {
+            state.activeTimerSession = nil
+        }
+    }
+
+    private static func distributedTimerProjection(from envelopes: [TBEventEnvelope]) -> TBDistributedTimerProjection {
+        var starts: [UUID: TBEventEnvelope] = [:]
+        for envelope in envelopes {
+            if case .timerStarted(let start) = envelope.event,
+               starts[start.sessionID] == nil {
+                starts[start.sessionID] = envelope
+            }
+        }
+
+        var branches = starts.values.compactMap { startEnvelope in
+            timerBranch(startEnvelope: startEnvelope, envelopes: envelopes)
+        }
+        var losingSessionIDs = Set<UUID>()
+        for candidate in branches {
+            if branches.contains(where: { other in
+                other.sessionID != candidate.sessionID &&
+                    branchesOverlap(candidate, other) &&
+                    branchSortPrecedes(other, candidate)
+            }) {
+                losingSessionIDs.insert(candidate.sessionID)
+            }
+        }
+        branches = branches.map { branch in
+            TBTimerBranchProjection(sessionID: branch.sessionID,
+                                    startEnvelope: branch.startEnvelope,
+                                    started: branch.started,
+                                    intervalStart: branch.intervalStart,
+                                    intervalEnd: branch.intervalEnd,
+                                    terminalAt: branch.terminalAt,
+                                    isVisible: !losingSessionIDs.contains(branch.sessionID),
+                                    timer: losingSessionIDs.contains(branch.sessionID) ? nil : branch.timer)
+        }.sorted { branchSortPrecedes($0, $1) }
+        let visibleSessionIDs = Set(branches.filter(\.isVisible).map(\.sessionID))
+        let currentTimer = branches
+            .filter { $0.isVisible }
+            .compactMap(\.timer)
+            .sorted { lhs, rhs in
+                if lhs.startedAt != rhs.startedAt { return lhs.startedAt > rhs.startedAt }
+                return lhs.sessionID.uuidString < rhs.sessionID.uuidString
+            }
+            .first
+        return TBDistributedTimerProjection(branches: branches,
+                                            visibleSessionIDs: visibleSessionIDs,
+                                            losingSessionIDs: losingSessionIDs,
+                                            currentTimer: currentTimer)
+    }
+
+    private static func timerBranch(startEnvelope: TBEventEnvelope,
+                                    envelopes: [TBEventEnvelope]) -> TBTimerBranchProjection? {
+        guard case .timerStarted(let start) = startEnvelope.event else { return nil }
+        // Distributed conflict handling uses only synced lifecycle events. Local-only active-session
+        // snapshots carry richer UI/runtime states such as rest-presentation-pending and work
+        // extension/overtime flags, so those snapshots are intentionally not used to decide branch
+        // winners until equivalent syncable lifecycle events exist. Without a terminal synced event,
+        // the branch remains visible/open, preserving current timer, paused, pending-break, and
+        // overtime visibility semantics across devices.
+        var timer = TBProjectedTimerSession(sessionID: start.sessionID,
+                                            setID: start.setID,
+                                            kind: start.kind,
+                                            startedAt: start.startedAt,
+                                            plannedDuration: start.plannedDuration,
+                                            preset: start.preset,
+                                            workIntervalIndex: start.workIntervalIndex,
+                                            status: .running,
+                                            pausedAt: nil,
+                                            pausedDuration: 0)
+        var terminalAt: Date?
+        for envelope in envelopes where timerLifecycleSessionID(envelope.event) == start.sessionID {
+            switch envelope.event {
+            case .timerStarted:
+                continue
+            case .timerPaused(let pause):
+                guard terminalAt == nil, timer.status == .running else { continue }
+                timer.status = .paused
+                timer.pausedAt = pause.pausedAt
+            case .timerResumed(let resume):
+                guard terminalAt == nil, timer.status == .paused else { continue }
+                if let pausedAt = timer.pausedAt {
+                    timer.pausedDuration += max(0, resume.resumedAt.timeIntervalSince(pausedAt))
+                }
+                timer.status = .running
+                timer.pausedAt = nil
+            case .timerStopped(let stop):
+                terminalAt = minTerminal(terminalAt, stop.stoppedAt)
+            case .timerSkipped(let skip):
+                terminalAt = minTerminal(terminalAt, skip.skippedAt)
+            case .timerCompleted(let complete):
+                terminalAt = minTerminal(terminalAt, complete.completedAt)
+            default:
+                continue
+            }
+        }
+        let visibleTimer = terminalAt == nil ? timer : nil
+        return TBTimerBranchProjection(sessionID: start.sessionID,
+                                       startEnvelope: startEnvelope,
+                                       started: start,
+                                       intervalStart: start.startedAt,
+                                       intervalEnd: terminalAt,
+                                       terminalAt: terminalAt,
+                                       isVisible: true,
+                                       timer: visibleTimer)
+    }
+
+    private static func timerLifecycleSessionID(_ event: TBEvent) -> UUID? {
+        switch event {
+        case .timerStarted(let start): return start.sessionID
+        case .timerPaused(let pause): return pause.sessionID
+        case .timerResumed(let resume): return resume.sessionID
+        case .timerStopped(let stop): return stop.sessionID
+        case .timerSkipped(let skip): return skip.sessionID
+        case .timerCompleted(let complete): return complete.sessionID
+        default: return nil
+        }
+    }
+
+    private static func minTerminal(_ lhs: Date?, _ rhs: Date) -> Date {
+        guard let lhs else { return rhs }
+        return min(lhs, rhs)
+    }
+
+    private static func branchesOverlap(_ lhs: TBTimerBranchProjection, _ rhs: TBTimerBranchProjection) -> Bool {
+        let lhsEnd = lhs.intervalEnd ?? Date.distantFuture
+        let rhsEnd = rhs.intervalEnd ?? Date.distantFuture
+        return lhs.intervalStart < rhsEnd && rhs.intervalStart < lhsEnd
+    }
+
+    private static func branchSortPrecedes(_ lhs: TBTimerBranchProjection, _ rhs: TBTimerBranchProjection) -> Bool {
+        if lhs.started.startedAt != rhs.started.startedAt { return lhs.started.startedAt < rhs.started.startedAt }
+        if lhs.sessionID.uuidString != rhs.sessionID.uuidString { return lhs.sessionID.uuidString < rhs.sessionID.uuidString }
+        let lhsOrigin = lhs.startEnvelope.originDeviceID ?? lhs.startEnvelope.streamID
+        let rhsOrigin = rhs.startEnvelope.originDeviceID ?? rhs.startEnvelope.streamID
+        if lhsOrigin != rhsOrigin { return lhsOrigin < rhsOrigin }
+        let lhsSequence = lhs.startEnvelope.deviceSequence ?? lhs.startEnvelope.sequence
+        let rhsSequence = rhs.startEnvelope.deviceSequence ?? rhs.startEnvelope.sequence
+        if lhsSequence != rhsSequence { return lhsSequence < rhsSequence }
+        return lhs.startEnvelope.eventID.uuidString < rhs.startEnvelope.eventID.uuidString
     }
 }

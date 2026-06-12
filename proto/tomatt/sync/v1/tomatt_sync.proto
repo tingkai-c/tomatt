@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package tomatt.sync.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// tomatt Sync Protocol v1.
+//
+// Compatibility discipline:
+// - Never reuse field numbers or enum numeric values.
+// - When removing a field or enum value, add it to a reserved block in the
+//   same message/enum before reusing the name elsewhere.
+// - IDs are canonical lowercase UUID strings in v1.
+// - Duration fields are integer seconds.
+// - Wall-clock instants use google.protobuf.Timestamp.
+message Envelope {
+  string message_id = 1;
+  string correlation_id = 2;
+  string response_to_message_id = 3;
+  google.protobuf.Timestamp sent_at = 4;
+  uint32 protocol_major = 5;
+  uint32 protocol_minor = 6;
+
+  oneof payload {
+    Hello hello = 10;
+    Ping ping = 11;
+    Pong pong = 12;
+    ProtocolError protocol_error = 13;
+    PairingStart pairing_start = 20;
+    PairingChallenge pairing_challenge = 21;
+    PairingResponse pairing_response = 22;
+    PairingComplete pairing_complete = 23;
+    EventSummary event_summary = 30;
+    MissingEventRequest missing_event_request = 31;
+    EventBatch event_batch = 32;
+    EventBatchAck event_batch_ack = 33;
+    NewEventsAvailable new_events_available = 34;
+  }
+}
+
+message Hello {
+  string device_id = 1;
+  string display_name = 2;
+  string platform = 3;
+  uint32 protocol_major = 4;
+  uint32 protocol_minor = 5;
+  repeated string capabilities = 6;
+}
+
+message Ping {
+  string nonce = 1;
+}
+
+message Pong {
+  string nonce = 1;
+}
+
+message ProtocolError {
+  enum Code {
+    CODE_UNSPECIFIED = 0;
+    CODE_UNSUPPORTED_VERSION = 1;
+    CODE_BAD_MESSAGE = 2;
+    CODE_UNAUTHORIZED = 3;
+    CODE_NOT_FOUND = 4;
+    CODE_INTERNAL = 5;
+  }
+
+  Code code = 1;
+  string message = 2;
+  string detail = 3;
+}
+
+// Pairing placeholders only. Pairing behavior is intentionally out of G001.
+message PairingStart {
+  string device_id = 1;
+  string display_name = 2;
+}
+
+message PairingChallenge {
+  string challenge_id = 1;
+  bytes challenge = 2;
+}
+
+message PairingResponse {
+  string challenge_id = 1;
+  bytes response = 2;
+}
+
+message PairingComplete {
+  string pairing_id = 1;
+}
+
+message EventSummary {
+  string device_id = 1;
+  uint64 event_count = 2;
+  string latest_event_id = 3;
+  google.protobuf.Timestamp latest_event_at = 4;
+}
+
+message MissingEventRequest {
+  string device_id = 1;
+  repeated string missing_event_ids = 2;
+  uint64 after_sequence = 3;
+  uint32 limit = 4;
+}
+
+message EventBatch {
+  string device_id = 1;
+  repeated SyncEvent events = 2;
+}
+
+message SyncEvent {
+  string event_id = 1;
+  string origin_device_id = 2;
+  uint64 sequence = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+  bytes canonical_json = 5;
+  uint32 active_duration_seconds = 6;
+}
+
+message EventBatchAck {
+  string batch_message_id = 1;
+  repeated string accepted_event_ids = 2;
+  repeated string rejected_event_ids = 3;
+}
+
+message NewEventsAvailable {
+  string device_id = 1;
+  uint64 event_count = 2;
+  string latest_event_id = 3;
+}
