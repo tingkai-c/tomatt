@@ -108,104 +108,57 @@ Deferred by design:
 - Old local data may still exist on disk/AppStorage, but normal code paths no longer use it for the event-sourced domains.
 - There is not yet a user-visible sync status surface.
 
-## Recommended Next Pass: LAN Pairing and Local Peer Sync Plan
+## Implementation Pass 2: SyncCore Primitives
 
-The next pass should not jump directly to Cloudflare or APNs. The recommended next pass is to plan and implement **LAN-only peer pairing and anti-entropy sync** on top of the local event log.
+Status: **implemented locally; awaiting CI delivery when committed/pushed**
 
-### Goals
+This pass intentionally stayed inside SyncCore primitives. It did **not** add live Bonjour/Network.framework sockets, Cloudflare, APNs, crypto/signing, local-network `Info.plist` keys, network entitlements, workflow edits, or Sync UI.
 
-1. Add persistent device identity.
-2. Add LAN-only pairing.
-3. Add paired-device membership events.
-4. Add local peer transport abstraction.
-5. Add anti-entropy event exchange between paired devices.
-6. Keep Cloudflare/APNs/crypto out until LAN sync semantics are proven.
+### What changed
 
-### Proposed scope
+- Added a stable local device identity model and injectable store (`TBDeviceIdentity`, `TBDeviceIdentityStoring`, `TBFileDeviceIdentityStore`). This is a local identifier/display-name only; it is not a trust, account, signing, or key model.
+- Evolved `TBEventEnvelope` additively to schema v2 while preserving v1 decode compatibility:
+  - existing fields remain `eventID: UUID`, `streamID: String`, and `sequence: Int64`
+  - new replicated fields are `originDeviceID: String?` and `deviceSequence: Int64?`
+  - v1 log lines continue to decode/project locally but are not exported as sync events and are not rewritten.
+- Added deterministic event-ID derivation for syncable v2 events from a stable namespace plus `originDeviceID:deviceSequence`.
+- Added syncability classification for all current event cases:
+  - syncable: settings, presets, timer lifecycle, stats, and membership
+  - local-only: `activeTimerSessionPersisted` and `activeTimerSessionCleared`
+- Added membership events and projection for `devicePaired`, `deviceRenamed`, and `deviceRemoved`. Membership is only projected log state; there is no real pairing or trust establishment yet.
+- Added anti-entropy primitives:
+  - `syncSummary() -> [String: Int64]`
+  - `missingEvents(relativeTo:)`
+  - strict `importEvents(_:) -> TBImportResult`
 
-#### Device identity
+### v2 sequencing and local-only behavior
 
-- Create a stable local `deviceId`.
-- Store it in Keychain or another secure local identity store.
-- Add a display device name.
-- Do not add cloud identity/accounts.
+`deviceSequence` is allocated only to syncable events. Local-only active timer restore snapshots keep nil replicated fields and use legacy/local ordering only. They do not consume device sequence numbers and therefore do not create anti-entropy gaps.
 
-#### Pairing v1
-
-- LAN-only pairing.
-- Both devices must be idle before pairing.
-- Existing device chooses **Add Device**.
-- New device chooses **Join Sync Group**.
-- Devices discover each other on the local network.
-- Both show the same six-digit verification code.
-- User confirms the code on both devices.
-
-#### Membership events
-
-Add event types for:
-
-- device paired
-- device renamed
-- device removed
-
-Membership should be projected from the event log.
-
-#### Anti-entropy sync
-
-Implement peer catch-up by exchanging compact event summaries:
+The next local device sequence is computed as:
 
 ```text
-deviceId -> latest sequence seen
+max(deviceSequence where originDeviceID == localDeviceID and event is syncable v2) + 1
 ```
 
-Then peers request/send missing events.
+Projection order is deterministic and independent of append order:
 
-Rules:
+```text
+recordedAt, originDeviceID ?? streamID, deviceSequence ?? sequence, eventID.uuidString
+```
 
-- Event imports are idempotent.
-- Duplicate `eventID`s are ignored.
-- Imported events are appended to the local event log.
-- Projections rebuild from the merged event set.
+### Watermark invariant
 
-#### UI
+`syncSummary()` reports the highest **contiguous** syncable v2 `deviceSequence` watermark per origin device. Valid out-of-order imports are buffered in the log, but a watermark does not advance across a gap. Export/import is limited to syncable v2 events; remote local-only events, missing replicated fields, future schema versions, duplicate/colliding event IDs, and origin/sequence collisions are handled without crashing.
 
-Add only the minimal UI needed for LAN pairing/status:
-
-- Settings → Sync pane can be introduced in this pass.
-- It should show:
-  - sync mode: Off / LAN only
-  - this device name
-  - paired devices
-  - Add Device
-  - Join Sync Group
-  - last seen / last sync status
-
-Cloud Relay controls should remain hidden or explicitly unavailable until a later pass.
-
-### Required planning before implementation
-
-Before coding the next pass, create a focused plan for:
-
-- local network permissions and Info.plist requirements
-- sandbox/network entitlements, if any
-- Bonjour/Network.framework service naming
-- pairing message format
-- membership event schema
-- anti-entropy summary format
-- conflict/correction notice behavior when imported events change visible timer state
-
-### Verification expectations
-
-- Unit tests for membership projection.
-- Unit tests for event summary/missing-event calculation.
-- Unit tests for idempotent event import.
-- UI/state tests where practical for pairing disabled during active timer.
-- CI-only build/test/sign/notarization validation.
-
-### Out of scope for next pass
+### Still deferred
 
 - Cloudflare KV mailbox.
 - APNs.
+- Bonjour/Network.framework LAN transport.
+- Local-network permission strings and network entitlements.
+- Real pairing, trust, signing, or revocation.
+- Sync UI, including Add Device / Join Sync Group.
 - iOS/iPadOS app.
 - Screen Time blocking.
 - Multi-user/team sync.

@@ -13,7 +13,7 @@ final class StatsStoreTests: XCTestCase {
         let fileURL = directory.appendingPathComponent("events.jsonl")
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let store = TBStatsStore(fileURL: fileURL)
+        let store = TBStatsStore(fileURL: fileURL, identity: testIdentity())
         let base = Date(timeIntervalSince1970: 1_700_000_000)
         let work = record(kind: .work,
                           startedAt: base,
@@ -44,7 +44,7 @@ final class StatsStoreTests: XCTestCase {
             return (try? decoder.decode(TBSessionRecord.self, from: Data(String(line).utf8))) != nil
         })
 
-        let reloaded = TBStatsStore(fileURL: fileURL)
+        let reloaded = TBStatsStore(fileURL: fileURL, identity: testIdentity())
         let day = reloaded.summary(forDay: base, calendar: calendar)
         XCTAssertEqual(day.records.count, 3)
         XCTAssertEqual(day.sessions, 1)
@@ -77,7 +77,7 @@ final class StatsStoreTests: XCTestCase {
         encoder.dateEncodingStrategy = .iso8601
         try (encoder.encode(legacy) + Data([0x0A])).write(to: legacyURL)
 
-        let store = TBStatsStore(fileURL: eventURL)
+        let store = TBStatsStore(fileURL: eventURL, identity: testIdentity())
 
         XCTAssertEqual(store.records, [])
     }
@@ -166,6 +166,10 @@ final class StatsStoreTests: XCTestCase {
                         workIntervalIndex: 1,
                         timezoneIdentifier: "UTC",
                         calendarIdentifier: "gregorian")
+    }
+
+    private func testIdentity() -> TBDeviceIdentity {
+        TBDeviceIdentity(deviceID: "stats-test-device", displayName: "Stats Test", platform: "macOS")
     }
 }
 

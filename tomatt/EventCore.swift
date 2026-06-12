@@ -1,12 +1,129 @@
 import Foundation
 
-let TBEventSchemaVersion = 1
+let TBEventSchemaVersion = 2
+
+struct TBDeviceIdentity: Codable, Equatable {
+    let deviceID: String
+    var displayName: String
+    var platform: String?
+}
+
+protocol TBDeviceIdentityStoring {
+    func loadIdentity() throws -> TBDeviceIdentity?
+    func saveIdentity(_ identity: TBDeviceIdentity) throws
+}
+
+final class TBFileDeviceIdentityStore: TBDeviceIdentityStoring {
+    private let fileURL: URL
+    private let decoder = JSONDecoder()
+    private let encoder = JSONEncoder()
+
+    init(fileURL: URL = TBFileDeviceIdentityStore.defaultFileURL()) {
+        self.fileURL = fileURL
+        encoder.outputFormatting = [.sortedKeys]
+    }
+
+    func loadIdentity() throws -> TBDeviceIdentity? {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+        return try decoder.decode(TBDeviceIdentity.self, from: Data(contentsOf: fileURL))
+    }
+
+    func saveIdentity(_ identity: TBDeviceIdentity) throws {
+        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try encoder.encode(identity).write(to: fileURL, options: [.atomic])
+    }
+
+    static func defaultFileURL() -> URL {
+        let baseURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first!
+            .appendingPathComponent("tomatt", isDirectory: true)
+        return baseURL.appendingPathComponent("device-identity.json")
+    }
+}
+
+enum TBDeviceIdentityProvider {
+    static func loadOrCreate(store: TBDeviceIdentityStoring,
+                             defaultName: String = Host.current().localizedName ?? "This Mac") throws -> TBDeviceIdentity {
+        if let identity = try store.loadIdentity() {
+            return identity
+        }
+        let identity = TBDeviceIdentity(deviceID: UUID().uuidString.lowercased(),
+                                        displayName: defaultName,
+                                        platform: "macOS")
+        try store.saveIdentity(identity)
+        return identity
+    }
+}
+
+enum TBSyncEventID {
+    static let namespace = "tomatt.sync.v2.event"
+
+    static func derive(originDeviceID: String, deviceSequence: Int64) -> UUID {
+        let input = "\(namespace):\(originDeviceID):\(deviceSequence)"
+        var first = fnv1a64(seed: 0xcbf29ce484222325, bytes: Array(input.utf8))
+        var second = fnv1a64(seed: 0x84222325cbf29ce4, bytes: Array(input.utf8.reversed()))
+        first = (first & 0xffffffffffff0fff) | 0x0000000000005000
+        second = (second & 0x3fffffffffffffff) | 0x8000000000000000
+        let uuidString = String(format: "%08llx-%04llx-%04llx-%04llx-%012llx",
+                                first >> 32,
+                                (first >> 16) & 0xffff,
+                                first & 0xffff,
+                                second >> 48,
+                                second & 0x0000ffffffffffff)
+        return UUID(uuidString: uuidString)!
+    }
+
+    private static func fnv1a64(seed: UInt64, bytes: [UInt8]) -> UInt64 {
+        bytes.reduce(seed) { hash, byte in
+            (hash ^ UInt64(byte)).multipliedReportingOverflow(by: 0x100000001b3).partialValue
+        }
+    }
+}
+
+enum TBEventEnvelopeFactory {
+    static func makeLocal(event: TBEvent,
+                           existingEnvelopes: [TBEventEnvelope],
+                           identity: TBDeviceIdentity?,
+                           streamID: String = "local",
+                           recordedAt: Date = Date()) -> TBEventEnvelope? {
+        if event.isSyncable, identity == nil {
+            return nil
+        }
+        let sequence = (existingEnvelopes.map(\.sequence).max() ?? 0) + 1
+        let deviceSequence: Int64? = event.isSyncable && identity != nil
+            ? nextLocalDeviceSequence(in: existingEnvelopes, deviceID: identity!.deviceID)
+            : nil
+        let eventID = deviceSequence.map {
+            TBSyncEventID.derive(originDeviceID: identity!.deviceID, deviceSequence: $0)
+        } ?? UUID()
+        return TBEventEnvelope(eventID: eventID,
+                               streamID: streamID,
+                               sequence: sequence,
+                               originDeviceID: event.isSyncable ? identity?.deviceID : nil,
+                               deviceSequence: deviceSequence,
+                               recordedAt: recordedAt,
+                               event: event)
+    }
+
+    private static func nextLocalDeviceSequence(in envelopes: [TBEventEnvelope], deviceID: String) -> Int64 {
+        (envelopes.compactMap { envelope -> Int64? in
+            guard envelope.schemaVersion == TBEventSchemaVersion,
+                  envelope.event.isSyncable,
+                  envelope.originDeviceID == deviceID else { return nil }
+            return envelope.deviceSequence
+        }.max() ?? 0) + 1
+    }
+}
 
 struct TBEventEnvelope: Codable, Equatable, Identifiable {
     var schemaVersion: Int
     var eventID: UUID
     var streamID: String
     var sequence: Int64
+    var originDeviceID: String?
+    var deviceSequence: Int64?
     var recordedAt: Date
     var event: TBEvent
 
@@ -17,12 +134,16 @@ struct TBEventEnvelope: Codable, Equatable, Identifiable {
          eventID: UUID = UUID(),
          streamID: String,
          sequence: Int64,
+         originDeviceID: String? = nil,
+         deviceSequence: Int64? = nil,
          recordedAt: Date = Date(),
          event: TBEvent) {
         self.schemaVersion = schemaVersion
         self.eventID = eventID
         self.streamID = streamID
         self.sequence = sequence
+        self.originDeviceID = originDeviceID
+        self.deviceSequence = deviceSequence
         self.recordedAt = recordedAt
         self.event = event
     }
@@ -43,6 +164,33 @@ enum TBEvent: Codable, Equatable {
     case activeTimerSessionPersisted(TBActiveTimerSessionPersisted)
     case activeTimerSessionCleared(TBActiveTimerSessionCleared)
     case statsRecordAppended(TBStatsRecordAppended)
+    case devicePaired(TBDevicePaired)
+    case deviceRenamed(TBDeviceRenamed)
+    case deviceRemoved(TBDeviceRemoved)
+
+    var isSyncable: Bool {
+        switch self {
+        case .settingChanged,
+             .presetUpserted,
+             .presetDeleted,
+             .presetSelected,
+             .presetOrderChanged,
+             .timerStarted,
+             .timerPaused,
+             .timerResumed,
+             .timerStopped,
+             .timerSkipped,
+             .timerCompleted,
+             .statsRecordAppended,
+             .devicePaired,
+             .deviceRenamed,
+             .deviceRemoved:
+            return true
+        case .activeTimerSessionPersisted,
+             .activeTimerSessionCleared:
+            return false
+        }
+    }
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -64,6 +212,9 @@ enum TBEvent: Codable, Equatable {
         case activeTimerSessionPersisted
         case activeTimerSessionCleared
         case statsRecordAppended
+        case devicePaired
+        case deviceRenamed
+        case deviceRemoved
     }
 
     init(from decoder: Decoder) throws {
@@ -102,6 +253,12 @@ enum TBEvent: Codable, Equatable {
             )
         case .statsRecordAppended:
             self = .statsRecordAppended(try container.decode(TBStatsRecordAppended.self, forKey: .payload))
+        case .devicePaired:
+            self = .devicePaired(try container.decode(TBDevicePaired.self, forKey: .payload))
+        case .deviceRenamed:
+            self = .deviceRenamed(try container.decode(TBDeviceRenamed.self, forKey: .payload))
+        case .deviceRemoved:
+            self = .deviceRemoved(try container.decode(TBDeviceRemoved.self, forKey: .payload))
         }
     }
 
@@ -149,6 +306,15 @@ enum TBEvent: Codable, Equatable {
             try container.encode(payload, forKey: .payload)
         case .statsRecordAppended(let payload):
             try container.encode(EventType.statsRecordAppended, forKey: .type)
+            try container.encode(payload, forKey: .payload)
+        case .devicePaired(let payload):
+            try container.encode(EventType.devicePaired, forKey: .type)
+            try container.encode(payload, forKey: .payload)
+        case .deviceRenamed(let payload):
+            try container.encode(EventType.deviceRenamed, forKey: .type)
+            try container.encode(payload, forKey: .payload)
+        case .deviceRemoved(let payload):
+            try container.encode(EventType.deviceRemoved, forKey: .type)
             try container.encode(payload, forKey: .payload)
         }
     }
@@ -283,6 +449,24 @@ struct TBStatsRecordAppended: Codable, Equatable {
     let record: TBSessionRecord
 }
 
+struct TBDevicePaired: Codable, Equatable {
+    let deviceID: String
+    let displayName: String
+    let platform: String
+    let pairedAt: Date
+}
+
+struct TBDeviceRenamed: Codable, Equatable {
+    let deviceID: String
+    let displayName: String
+    let renamedAt: Date
+}
+
+struct TBDeviceRemoved: Codable, Equatable {
+    let deviceID: String
+    let removedAt: Date
+}
+
 enum TBEventCommand: Equatable {
     case changeSetting(TBSettingKey, TBSettingValue)
     case upsertPreset(NamedTimerPreset)
@@ -374,10 +558,24 @@ final class TBJSONLEventStore {
 
 final class TBLocalEventLog {
     private let store: TBJSONLEventStore
+    private let identity: TBDeviceIdentity?
     private(set) var envelopes: [TBEventEnvelope]
 
-    init(store: TBJSONLEventStore = TBJSONLEventStore()) {
+    init(store: TBJSONLEventStore = TBJSONLEventStore(),
+         identityStore: TBDeviceIdentityStoring = TBFileDeviceIdentityStore()) {
         self.store = store
+        do {
+            identity = try TBDeviceIdentityProvider.loadOrCreate(store: identityStore)
+        } catch {
+            identity = nil
+            print("cannot load stable device identity: \(error)")
+        }
+        envelopes = (try? store.load()) ?? []
+    }
+
+    init(store: TBJSONLEventStore, identity: TBDeviceIdentity) {
+        self.store = store
+        self.identity = identity
         envelopes = (try? store.load()) ?? []
     }
 
@@ -387,9 +585,12 @@ final class TBLocalEventLog {
 
     func append(_ event: TBEvent) {
         envelopes = (try? store.load()) ?? envelopes
-        let envelope = TBEventEnvelope(streamID: "local",
-                                       sequence: nextSequence(),
-                                       event: event)
+        guard let envelope = TBEventEnvelopeFactory.makeLocal(event: event,
+                                                              existingEnvelopes: envelopes,
+                                                              identity: identity) else {
+            print("cannot write syncable event without stable device identity")
+            return
+        }
         do {
             try store.append(envelope)
             envelopes = TBEventProjector.canonicalize(envelopes + [envelope])
@@ -409,8 +610,123 @@ final class TBLocalEventLog {
         }
     }
 
-    private func nextSequence() -> Int64 {
-        (envelopes.map(\.sequence).max() ?? 0) + 1
+    func syncSummary() -> [String: Int64] {
+        TBAntiEntropy.syncSummary(for: envelopes)
+    }
+
+    func missingEvents(relativeTo summary: [String: Int64]) -> [TBEventEnvelope] {
+        TBAntiEntropy.missingEvents(in: envelopes, relativeTo: summary)
+    }
+
+    func importEvents(_ remoteEvents: [TBEventEnvelope]) -> TBImportResult {
+        envelopes = (try? store.load()) ?? envelopes
+        let existingIDs = Set(envelopes.map(\.eventID))
+        var mergedEvents = envelopes
+        let result = TBAntiEntropy.importEvents(remoteEvents, into: &mergedEvents)
+        let acceptedEvents = mergedEvents.filter { !existingIDs.contains($0.eventID) }
+        do {
+            try store.append(contentsOf: acceptedEvents)
+            envelopes = (try? store.load()) ?? mergedEvents
+        } catch {
+            print("cannot write imported events: \(error)")
+            var failedResult = result
+            failedResult.rejected += acceptedEvents.count
+            failedResult.imported = 0
+            failedResult.persistenceFailed = true
+            return failedResult
+        }
+        return result
+    }
+}
+
+struct TBImportResult: Equatable {
+    var imported = 0
+    var duplicate = 0
+    var rejected = 0
+    var collision = 0
+    var persistenceFailed = false
+}
+
+enum TBAntiEntropy {
+    static func syncSummary(for envelopes: [TBEventEnvelope]) -> [String: Int64] {
+        let grouped = Dictionary(grouping: syncableV2(envelopes)) { $0.originDeviceID! }
+        return grouped.mapValues { deviceEvents in
+            let sequences = Set(deviceEvents.compactMap(\.deviceSequence))
+            var cursor: Int64 = 0
+            while sequences.contains(cursor + 1) {
+                cursor += 1
+            }
+            return cursor
+        }.filter { $0.value > 0 }
+    }
+
+    static func missingEvents(in envelopes: [TBEventEnvelope], relativeTo summary: [String: Int64]) -> [TBEventEnvelope] {
+        TBEventProjector.canonicalize(syncableV2(envelopes).filter { envelope in
+            guard let origin = envelope.originDeviceID,
+                  let deviceSequence = envelope.deviceSequence else { return false }
+            return deviceSequence > (summary[origin] ?? 0)
+        })
+    }
+
+    static func importEvents(_ remoteEvents: [TBEventEnvelope], into localEvents: inout [TBEventEnvelope]) -> TBImportResult {
+        var result = TBImportResult()
+        var byEventID = Dictionary(uniqueKeysWithValues: localEvents.map { ($0.eventID, $0) })
+        var byOriginSequence: [String: TBEventEnvelope] = [:]
+        for envelope in syncableV2(localEvents) {
+            if let origin = envelope.originDeviceID, let deviceSequence = envelope.deviceSequence {
+                byOriginSequence["\(origin):\(deviceSequence)"] = envelope
+            }
+        }
+
+        for event in TBEventProjector.sort(remoteEvents) {
+            guard event.schemaVersion == TBEventSchemaVersion,
+                  event.event.isSyncable,
+                  let originDeviceID = event.originDeviceID,
+                  let deviceSequence = event.deviceSequence,
+                  deviceSequence > 0,
+                  event.eventID == TBSyncEventID.derive(originDeviceID: originDeviceID,
+                                                        deviceSequence: deviceSequence) else {
+                result.rejected += 1
+                continue
+            }
+            if let existing = byEventID[event.eventID] {
+                if payloadMatches(existing, event) {
+                    result.duplicate += 1
+                } else {
+                    result.collision += 1
+                }
+                continue
+            }
+            let originSequenceKey = "\(originDeviceID):\(deviceSequence)"
+            if let existing = byOriginSequence[originSequenceKey], existing.eventID != event.eventID {
+                result.collision += 1
+                continue
+            }
+            localEvents.append(event)
+            byEventID[event.eventID] = event
+            byOriginSequence[originSequenceKey] = event
+            result.imported += 1
+        }
+        localEvents = TBEventProjector.canonicalize(localEvents)
+        return result
+    }
+
+    private static func syncableV2(_ envelopes: [TBEventEnvelope]) -> [TBEventEnvelope] {
+        envelopes.filter { envelope in
+            envelope.schemaVersion == TBEventSchemaVersion &&
+                envelope.event.isSyncable &&
+                envelope.originDeviceID != nil &&
+                envelope.deviceSequence != nil
+        }
+    }
+
+    private static func payloadMatches(_ lhs: TBEventEnvelope, _ rhs: TBEventEnvelope) -> Bool {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        guard let lhsData = try? encoder.encode(lhs),
+              let rhsData = try? encoder.encode(rhs) else { return false }
+        return lhsData == rhsData
     }
 }
 
@@ -453,6 +769,14 @@ struct TBProjectedStatsRecord: Identifiable, Equatable {
     let overtimeDuration: TimeInterval
 }
 
+struct TBProjectedDevice: Identifiable, Equatable {
+    var id: String { deviceID }
+    let deviceID: String
+    var displayName: String
+    var platform: String
+    var pairedAt: Date
+}
+
 struct TBEventProjectionState: Equatable {
     var settings = TBSettingsProjection()
     var presets: [NamedTimerPreset] = []
@@ -460,6 +784,7 @@ struct TBEventProjectionState: Equatable {
     var stats: [TBSessionRecord] = []
     var timer: TBProjectedTimerSession?
     var activeTimerSession: PersistedTimerSession?
+    var pairedDevices: [TBProjectedDevice] = []
 }
 
 enum TBEventProjector {
@@ -471,13 +796,21 @@ enum TBEventProjector {
 
     static func canonicalize(_ envelopes: [TBEventEnvelope]) -> [TBEventEnvelope] {
         var seenIDs = Set<UUID>()
-        return envelopes.sorted { lhs, rhs in
-            if lhs.sequence == rhs.sequence {
-                return lhs.recordedAt < rhs.recordedAt
-            }
-            return lhs.sequence < rhs.sequence
-        }.filter { envelope in
+        return sort(envelopes).filter { envelope in
             seenIDs.insert(envelope.eventID).inserted
+        }
+    }
+
+    static func sort(_ envelopes: [TBEventEnvelope]) -> [TBEventEnvelope] {
+        envelopes.sorted { lhs, rhs in
+            if lhs.recordedAt != rhs.recordedAt { return lhs.recordedAt < rhs.recordedAt }
+            let lhsOrigin = lhs.originDeviceID ?? lhs.streamID
+            let rhsOrigin = rhs.originDeviceID ?? rhs.streamID
+            if lhsOrigin != rhsOrigin { return lhsOrigin < rhsOrigin }
+            let lhsSequence = lhs.deviceSequence ?? lhs.sequence
+            let rhsSequence = rhs.deviceSequence ?? rhs.sequence
+            if lhsSequence != rhsSequence { return lhsSequence < rhsSequence }
+            return lhs.eventID.uuidString < rhs.eventID.uuidString
         }
     }
 
@@ -551,6 +884,22 @@ enum TBEventProjector {
             } else {
                 state.stats.append(appended.record)
             }
+        case .devicePaired(let paired):
+            if let index = state.pairedDevices.firstIndex(where: { $0.deviceID == paired.deviceID }) {
+                state.pairedDevices[index].displayName = paired.displayName
+                state.pairedDevices[index].platform = paired.platform
+                state.pairedDevices[index].pairedAt = paired.pairedAt
+            } else {
+                state.pairedDevices.append(TBProjectedDevice(deviceID: paired.deviceID,
+                                                              displayName: paired.displayName,
+                                                              platform: paired.platform,
+                                                              pairedAt: paired.pairedAt))
+            }
+        case .deviceRenamed(let renamed):
+            guard let index = state.pairedDevices.firstIndex(where: { $0.deviceID == renamed.deviceID }) else { return }
+            state.pairedDevices[index].displayName = renamed.displayName
+        case .deviceRemoved(let removed):
+            state.pairedDevices.removeAll { $0.deviceID == removed.deviceID }
         }
     }
 

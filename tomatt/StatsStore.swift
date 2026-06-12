@@ -83,9 +83,12 @@ final class TBStatsStore: ObservableObject {
     @Published private(set) var records: [TBSessionRecord]
 
     private let eventStore: TBJSONLEventStore
+    private let identity: TBDeviceIdentity?
 
-    init(fileURL: URL? = nil) {
+    init(fileURL: URL? = nil,
+         identity: TBDeviceIdentity? = try? TBDeviceIdentityProvider.loadOrCreate(store: TBFileDeviceIdentityStore())) {
         eventStore = TBJSONLEventStore(fileURL: fileURL ?? TBStatsStore.defaultFileURL())
+        self.identity = identity
         records = []
         records = loadRecords()
     }
@@ -93,10 +96,14 @@ final class TBStatsStore: ObservableObject {
     func append(_ record: TBSessionRecord) {
         do {
             let existingEnvelopes = (try? eventStore.load()) ?? []
-            let sequence = (existingEnvelopes.map(\.sequence).max() ?? 0) + 1
-            let envelope = TBEventEnvelope(streamID: "local",
-                                           sequence: sequence,
-                                           event: .statsRecordAppended(TBStatsRecordAppended(record: record)))
+            let event = TBEvent.statsRecordAppended(TBStatsRecordAppended(record: record))
+            let envelope = TBEventEnvelopeFactory.makeLocal(event: event,
+                                                             existingEnvelopes: existingEnvelopes,
+                                                             identity: identity)
+            guard let envelope else {
+                print("cannot write stats record without stable device identity")
+                return
+            }
             try eventStore.append(envelope)
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }

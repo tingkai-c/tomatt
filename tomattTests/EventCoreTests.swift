@@ -83,12 +83,13 @@ final class EventCoreTests: XCTestCase {
         let newID = UUID(uuidString: "00000000-0000-0000-0000-000000000017")!
         let defaultPreset = NamedTimerPreset(id: defaultID, name: "Default", preset: TimerPreset())
         let newPreset = NamedTimerPreset(id: newID, name: "New", preset: TimerPreset(workIntervalLength: 50))
-        let log = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL))
+        let identity = TBDeviceIdentity(deviceID: "preset-test-device", displayName: "Preset Test", platform: "macOS")
+        let log = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
 
         log.seedDefaultPresetsIfEmpty([defaultPreset])
         log.append(.presetUpserted(TBPresetUpserted(preset: newPreset)))
 
-        let reloaded = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL))
+        let reloaded = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
         XCTAssertEqual(reloaded.projection.presets.map(\.id), [defaultID, newID])
         XCTAssertEqual(reloaded.projection.selectedPresetID, defaultID)
     }
@@ -275,6 +276,219 @@ final class EventCoreTests: XCTestCase {
         XCTAssertEqual(state.stats, [replacement])
     }
 
+    func testDeterministicSyncEventIDFixture() {
+        XCTAssertEqual(TBSyncEventID.derive(originDeviceID: "device-a", deviceSequence: 42),
+                       UUID(uuidString: "b7ec71b7-7944-5537-98d4-9928d1c68ef6"))
+    }
+
+    func testV1EnvelopeDecodesWithoutReplicatedFields() throws {
+        let raw = """
+        {"event":{"payload":{"key":"workDurationMinutes","value":{"type":"int","value":30}},"type":"settingChanged"},"eventID":"00000000-0000-0000-0000-000000000101","recordedAt":"2024-01-01T00:00:00Z","schemaVersion":1,"sequence":1,"streamID":"local"}
+        """
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(TBEventEnvelope.self, from: Data(raw.utf8))
+
+        XCTAssertEqual(decoded.schemaVersion, 1)
+        XCTAssertNil(decoded.originDeviceID)
+        XCTAssertNil(decoded.deviceSequence)
+        XCTAssertEqual(TBEventProjector.project([decoded]).settings.preset.workIntervalLength, 30)
+        XCTAssertTrue(TBAntiEntropy.missingEvents(in: [decoded], relativeTo: [:]).isEmpty)
+    }
+
+    func testLocalDeviceIdentityStoreIsInjectableAndStable() throws {
+        let store = MemoryIdentityStore()
+        let first = try TBDeviceIdentityProvider.loadOrCreate(store: store, defaultName: "Test Mac")
+        let second = try TBDeviceIdentityProvider.loadOrCreate(store: store, defaultName: "Other")
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(second.displayName, "Test Mac")
+    }
+
+    func testIdentityFailurePreventsSyncableAppend() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let fileURL = directory.appendingPathComponent("events.jsonl")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let log = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL),
+                                  identityStore: ThrowingIdentityStore())
+
+        log.append(.settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(35))))
+
+        XCTAssertEqual(log.envelopes, [])
+        XCTAssertEqual(try TBJSONLEventStore(fileURL: fileURL).load(), [])
+    }
+
+    func testSyncableOnlyDeviceSequenceAllocationSkipsLocalOnlyEvents() throws {
+        let log = try makeLog(identity: TBDeviceIdentity(deviceID: "local-device",
+                                                         displayName: "Local",
+                                                         platform: "macOS"))
+
+        log.append(.settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(35))))
+        log.append(.activeTimerSessionCleared(TBActiveTimerSessionCleared(clearedAt: Date(timeIntervalSince1970: 2))))
+        log.append(.settingChanged(TBSettingChanged(key: .shortRestDurationMinutes, value: .int(7))))
+
+        XCTAssertEqual(log.envelopes.map(\.sequence), [1, 2, 3])
+        XCTAssertEqual(log.envelopes.map(\.deviceSequence), [1, nil, 2])
+        XCTAssertEqual(log.envelopes[1].originDeviceID, nil)
+        XCTAssertEqual(log.syncSummary(), ["local-device": 2])
+    }
+
+    func testProjectionCanonicalizationIndependentOfAppendOrder() {
+        let first = syncEnvelope(origin: "a-device",
+                                 deviceSequence: 1,
+                                 recordedAt: Date(timeIntervalSince1970: 10),
+                                 event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(25))))
+        let second = syncEnvelope(origin: "b-device",
+                                  deviceSequence: 1,
+                                  recordedAt: Date(timeIntervalSince1970: 10),
+                                  event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(45))))
+
+        XCTAssertEqual(TBEventProjector.project([second, first]), TBEventProjector.project([first, second]))
+        XCTAssertEqual(TBEventProjector.project([second, first]).settings.preset.workIntervalLength, 45)
+    }
+
+    func testSyncabilityTableExcludesActiveTimerSnapshots() {
+        let now = Date(timeIntervalSince1970: 1)
+        XCTAssertFalse(TBEvent.activeTimerSessionCleared(TBActiveTimerSessionCleared(clearedAt: now)).isSyncable)
+        XCTAssertFalse(TBEvent.activeTimerSessionPersisted(
+            TBActiveTimerSessionPersisted(session: persistedSession(startedAt: now, finishAt: now.addingTimeInterval(60)))
+        ).isSyncable)
+        XCTAssertTrue(TBEvent.devicePaired(TBDevicePaired(deviceID: "peer",
+                                                          displayName: "Peer",
+                                                          platform: "macOS",
+                                                          pairedAt: now)).isSyncable)
+        XCTAssertTrue(TBEvent.statsRecordAppended(TBStatsRecordAppended(record: record(id: UUID(), startedAt: now, activeDuration: 60, completion: .completed))).isSyncable)
+    }
+
+    func testStrictImportDuplicateAndCollisionRules() throws {
+        let log = try makeLog(identity: TBDeviceIdentity(deviceID: "local",
+                                                         displayName: "Local",
+                                                         platform: "macOS"))
+        let remote = syncEnvelope(origin: "remote",
+                                  deviceSequence: 1,
+                                  event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(40))))
+
+        XCTAssertEqual(log.importEvents([remote]), TBImportResult(imported: 1, duplicate: 0, rejected: 0, collision: 0))
+        XCTAssertEqual(log.importEvents([remote]), TBImportResult(imported: 0, duplicate: 1, rejected: 0, collision: 0))
+
+        let eventIDCollision = syncEnvelope(eventID: remote.eventID,
+                                            origin: "remote",
+                                            deviceSequence: 1,
+                                            event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(41))))
+        let originSequenceCollision = syncEnvelope(eventID: UUID(uuidString: "00000000-0000-0000-0000-000000000202")!,
+                                                   origin: "remote",
+                                                   deviceSequence: 1,
+                                                   event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(42))))
+        let rejectedLocalOnly = syncEnvelope(origin: "remote",
+                                             deviceSequence: 3,
+                                             event: .activeTimerSessionCleared(TBActiveTimerSessionCleared(clearedAt: Date())))
+        let rejectedMissingOrigin = TBEventEnvelope(streamID: "remote",
+                                                    sequence: 4,
+                                                    deviceSequence: 4,
+                                                    event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(43))))
+        let futureSchema = syncEnvelope(schemaVersion: 999,
+                                        origin: "remote",
+                                        deviceSequence: 5,
+                                        event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(44))))
+        let nonPositiveSequence = syncEnvelope(origin: "remote",
+                                               deviceSequence: 0,
+                                               event: .settingChanged(TBSettingChanged(key: .workDurationMinutes,
+                                                                                       value: .int(45))))
+
+        XCTAssertEqual(log.importEvents([eventIDCollision,
+                                         originSequenceCollision,
+                                         rejectedLocalOnly,
+                                         rejectedMissingOrigin,
+                                         futureSchema,
+                                         nonPositiveSequence]),
+                       TBImportResult(imported: 0, duplicate: 0, rejected: 5, collision: 1))
+    }
+
+    func testGapHandlingBuffersOutOfOrderEventsWithoutAdvancingWatermark() throws {
+        let log = try makeLog(identity: TBDeviceIdentity(deviceID: "local",
+                                                         displayName: "Local",
+                                                         platform: "macOS"))
+        let third = syncEnvelope(origin: "remote", deviceSequence: 3,
+                                 event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(33))))
+        let first = syncEnvelope(origin: "remote", deviceSequence: 1,
+                                 event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(31))))
+
+        XCTAssertEqual(log.importEvents([third, first]).imported, 2)
+        XCTAssertEqual(log.syncSummary(), ["remote": 1])
+
+        let second = syncEnvelope(origin: "remote", deviceSequence: 2,
+                                  event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(32))))
+        XCTAssertEqual(log.importEvents([second]).imported, 1)
+        XCTAssertEqual(log.syncSummary(), ["remote": 3])
+    }
+
+    func testImportPersistenceFailureIsReportedWithoutClaimingImportedEvents() throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directoryURL) }
+        let log = TBLocalEventLog(store: TBJSONLEventStore(fileURL: directoryURL),
+                                  identity: TBDeviceIdentity(deviceID: "local",
+                                                             displayName: "Local",
+                                                             platform: "macOS"))
+        let remote = syncEnvelope(origin: "remote",
+                                  deviceSequence: 1,
+                                  event: .settingChanged(TBSettingChanged(key: .workDurationMinutes,
+                                                                          value: .int(40))))
+
+        XCTAssertEqual(log.importEvents([remote]),
+                       TBImportResult(imported: 0,
+                                      duplicate: 0,
+                                      rejected: 1,
+                                      collision: 0,
+                                      persistenceFailed: true))
+    }
+
+    func testMembershipProjectionPairRenameRemove() {
+        let now = Date(timeIntervalSince1970: 1)
+        let paired = syncEnvelope(origin: "local", deviceSequence: 1,
+                                  event: .devicePaired(TBDevicePaired(deviceID: "peer",
+                                                                      displayName: "Peer",
+                                                                      platform: "macOS",
+                                                                      pairedAt: now)))
+        let renamed = syncEnvelope(origin: "local", deviceSequence: 2,
+                                   event: .deviceRenamed(TBDeviceRenamed(deviceID: "peer", displayName: "Desk Mac", renamedAt: now.addingTimeInterval(1))))
+        let projectedRename = TBEventProjector.project([paired, renamed])
+
+        XCTAssertEqual(projectedRename.pairedDevices, [TBProjectedDevice(deviceID: "peer",
+                                                                         displayName: "Desk Mac",
+                                                                         platform: "macOS",
+                                                                         pairedAt: now)])
+
+        let removed = syncEnvelope(origin: "local", deviceSequence: 3,
+                                   event: .deviceRemoved(TBDeviceRemoved(deviceID: "peer", removedAt: now.addingTimeInterval(2))))
+        XCTAssertEqual(TBEventProjector.project([paired, renamed, removed]).pairedDevices, [])
+    }
+
+    func testTwoPeerCatchUpConvergesAndWatermarksReachTwo() throws {
+        let first = try makeLog(identity: TBDeviceIdentity(deviceID: "first",
+                                                           displayName: "First",
+                                                           platform: "macOS"))
+        let second = try makeLog(identity: TBDeviceIdentity(deviceID: "second",
+                                                            displayName: "Second",
+                                                            platform: "macOS"))
+
+        first.append(.settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(30))))
+        first.append(.settingChanged(TBSettingChanged(key: .shortRestDurationMinutes, value: .int(6))))
+        second.append(.settingChanged(TBSettingChanged(key: .longRestDurationMinutes, value: .int(18))))
+        second.append(.settingChanged(TBSettingChanged(key: .workIntervalsPerSet, value: .int(3))))
+
+        _ = second.importEvents(first.missingEvents(relativeTo: second.syncSummary()))
+        _ = first.importEvents(second.missingEvents(relativeTo: first.syncSummary()))
+
+        XCTAssertEqual(first.syncSummary(), ["first": 2, "second": 2])
+        XCTAssertEqual(second.syncSummary(), ["first": 2, "second": 2])
+        XCTAssertEqual(first.projection, second.projection)
+    }
+
     private func envelope(eventID: UUID = UUID(),
                           sequence: Int64,
                           event: TBEvent) -> TBEventEnvelope {
@@ -283,6 +497,32 @@ final class EventCoreTests: XCTestCase {
                         sequence: sequence,
                         recordedAt: Date(timeIntervalSince1970: TimeInterval(sequence)),
                         event: event)
+    }
+
+    private func syncEnvelope(schemaVersion: Int = TBEventSchemaVersion,
+                              eventID: UUID? = nil,
+                              origin: String,
+                              deviceSequence: Int64,
+                              recordedAt: Date? = nil,
+                              event: TBEvent) -> TBEventEnvelope {
+        let id = eventID ?? TBSyncEventID.derive(originDeviceID: origin, deviceSequence: deviceSequence)
+        return TBEventEnvelope(schemaVersion: schemaVersion,
+                               eventID: id,
+                               streamID: origin,
+                               sequence: deviceSequence,
+                               originDeviceID: origin,
+                               deviceSequence: deviceSequence,
+                               recordedAt: recordedAt ?? Date(timeIntervalSince1970: TimeInterval(deviceSequence)),
+                               event: event)
+    }
+
+    private func makeLog(identity: TBDeviceIdentity) throws -> TBLocalEventLog {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        return TBLocalEventLog(store: TBJSONLEventStore(fileURL: directory.appendingPathComponent("events.jsonl")),
+                               identity: identity)
     }
 
     private func persistedSession(startedAt: Date,
@@ -322,6 +562,30 @@ final class EventCoreTests: XCTestCase {
                         timezoneIdentifier: "UTC",
                         calendarIdentifier: "gregorian",
                         overtimeDuration: 0)
+    }
+}
+
+private final class MemoryIdentityStore: TBDeviceIdentityStoring {
+    var identity: TBDeviceIdentity?
+
+    func loadIdentity() throws -> TBDeviceIdentity? {
+        identity
+    }
+
+    func saveIdentity(_ identity: TBDeviceIdentity) throws {
+        self.identity = identity
+    }
+}
+
+private struct ThrowingIdentityStore: TBDeviceIdentityStoring {
+    struct IdentityError: Error {}
+
+    func loadIdentity() throws -> TBDeviceIdentity? {
+        throw IdentityError()
+    }
+
+    func saveIdentity(_: TBDeviceIdentity) throws {
+        throw IdentityError()
     }
 }
 
