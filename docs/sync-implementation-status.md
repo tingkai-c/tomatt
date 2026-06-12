@@ -110,7 +110,15 @@ Deferred by design:
 
 ## Implementation Pass 2: SyncCore Primitives
 
-Status: **implemented locally; awaiting CI delivery when committed/pushed**
+Status: **completed and delivered**
+
+Commit:
+
+- `f2b6a00 Add sync core primitives`
+
+CI delivery run:
+
+- Build/sign/notarize: <https://github.com/tingkai-c/tomatt/actions/runs/27398520677>
 
 This pass intentionally stayed inside SyncCore primitives. It did **not** add live Bonjour/Network.framework sockets, Cloudflare, APNs, crypto/signing, local-network `Info.plist` keys, network entitlements, workflow edits, or Sync UI.
 
@@ -164,3 +172,76 @@ recordedAt, originDeviceID ?? streamID, deviceSequence ?? sequence, eventID.uuid
 - Multi-user/team sync.
 - Multiple sync groups.
 - Cryptographic revocation/key rotation.
+
+## Recommended Next Pass: LAN Protocol Schema and Transport Skeleton
+
+The next implementation pass should still avoid full user-facing sync until pairing verification and authenticated sessions are ready. It should establish the cross-platform LAN protocol skeleton and message schema that future macOS, iOS/iPadOS, Android, and Linux clients can share.
+
+### Planned transport decisions
+
+- LAN discovery uses mDNS/DNS-SD service type `_tomatt-sync._tcp`.
+- LAN sessions use WebSocket connections with Protobuf binary frames.
+- User builds expose only the sync WebSocket endpoint:
+  - path: `/tomatt-sync`
+  - subprotocol: `tomatt.sync.v1.protobuf`
+- Protobuf schemas live in this repository initially, likely under `proto/tomatt/sync/v1/tomatt_sync.proto`.
+- The Protobuf package is `tomatt.sync.v1`.
+- Swift implementation should use SwiftProtobuf for generated messages and SwiftNIO/NIOWebSocket for the Apple WebSocket listener/client unless dependency research finds a better maintained lightweight option.
+- Generated Swift Protobuf files should be committed initially to avoid CI/tooling fragility.
+
+### Planned protocol shape
+
+- One WebSocket binary frame carries one top-level Protobuf envelope.
+- The envelope includes message ID, optional response/correlation ID, sent timestamp, version metadata where appropriate, and a `oneof` payload.
+- Session-layer messages include `Hello`, `Ping`, `Pong`, pairing messages, capability negotiation, and typed errors.
+- Sync-layer messages include event summaries, missing-event requests, event batches, event-batch acknowledgements, and new-events-available notifications.
+- `Hello` includes protocol major/minor version, app version/build, platform, display name where appropriate, and capabilities.
+- Peers require matching protocol major version; minor differences are handled through capability negotiation.
+- Protocol timestamps use `google.protobuf.Timestamp`.
+- UUID-like IDs are canonical lowercase UUID strings.
+- Duration fields use integer seconds.
+- Protobuf compatibility discipline applies from the start: never reuse field numbers, reserve removed fields, and use new packages such as `tomatt.sync.v2` for breaking changes.
+
+### Planned discovery and privacy behavior
+
+- mDNS TXT records should expose only minimal routing/compatibility metadata:
+  - `proto=tomatt-sync`
+  - `v=1`
+  - `transport=ws`
+  - `encoding=protobuf`
+  - `disc=<ephemeral discovery id>`
+- Stable `deviceId` values are not advertised through mDNS.
+- During explicit pairing/setup discovery, the service instance name may include the user-visible display name for easier selection.
+- Outside pairing/setup mode, advertisements should use a generic instance name and ephemeral discovery ID.
+- No manual IP/host fallback is planned for v1.
+
+### Planned connection behavior
+
+- Use hybrid discovery:
+  - broad browse/advertise while pairing/setup is active
+  - opportunistic reconnect for paired devices while LAN sync is enabled and the app is active/reachable
+- Either side may initiate outbound WebSocket connection after discovery.
+- Resolve duplicate connections deterministically by stable `deviceId` after identity is revealed/verified.
+- Keep persistent-ish connections open while reachable.
+- Use application-level `Ping`/`Pong` heartbeat, with native WebSocket ping/pong optional when convenient.
+- Use reconnect/backoff starting around one second and backing off to about one minute with jitter.
+
+### Planned pairing constraints
+
+- Discovery and `Hello` may occur before pairing, but sync event exchange is only allowed after pairing/trust.
+- Stable device IDs are exchanged inside the pairing handshake, not advertised in mDNS.
+- Pairing uses long-lived device keypairs and a six-digit verification code derived from the handshake transcript/public keys.
+- Pairing sessions expire after roughly two to five minutes.
+- Both devices must confirm the code.
+- Both devices must approve the pre-merge preview before membership or sync events are written.
+- Pre-merge preview should include device names/platforms, both idle status, settings-differ flag, preset counts, history counts, and history date ranges.
+
+### Out of scope for the next pass unless explicitly reopened
+
+- User-facing plaintext sync.
+- Full authenticated session encryption implementation, unless the pass is explicitly expanded to pairing/security.
+- Cloudflare relay transport.
+- APNs.
+- Android/Linux client implementations.
+- Screen Time blocking.
+- Manual IP pairing fallback.
