@@ -175,7 +175,21 @@ recordedAt, originDeviceID ?? streamID, deviceSequence ?? sequence, eventID.uuid
 
 ## Implementation Pass 3: Cross-Platform LAN Sync Skeleton and Gated Sync Surface
 
-Status: **implemented locally; pending review, CI, and delivery**
+Status: **completed and delivered**
+
+Commit:
+
+- `fffe715 Add LAN sync foundation`
+
+CI delivery run:
+
+- Build/sign/notarize: <https://github.com/tingkai-c/tomatt/actions/runs/27405487995>
+
+Installed artifact:
+
+- `/tmp/tomatt-ci-artifact-27405487995/download/tomatt-fffe715/tomatt-fffe715.zip`
+- Installed to `/Applications/tomatt.app`
+- Previous app backup: `/Applications/tomatt.app.backup-20260612T165746`
 
 This pass implements the cross-platform LAN sync protocol, security model, pairing model, encrypted in-memory anti-entropy engine, deterministic distributed timer conflict projection, and a gated Settings → Sync surface. It still does **not** ship a real live LAN WebSocket server/client connection path; the Settings UI explicitly disables LAN setup actions until that transport is productized.
 
