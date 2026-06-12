@@ -6,7 +6,6 @@ This repository builds the macOS app `tomatt.app` from `tomatt.xcodeproj` using 
 
 - GitHub Actions is the only authorized build, signing, notarization, stapling, validation, packaging, and artifact source for this repository.
 - The workflow is `.github/workflows/main.yml`; it is intended to run on branch pushes and `v*` tags.
-- Never run local Xcode builds, local `xcodebuild`, local signing builds, or local notarization for this repo.
 - Do not materially edit `.github/workflows/main.yml` unless a GitHub Actions log for the exact commit proves a workflow defect.
 - If CI fails, inspect remote logs with `gh run view --repo tingkai-c/tomatt <run-id> --log-failed`, patch only the proven defect, commit, push, and re-run CI.
 
