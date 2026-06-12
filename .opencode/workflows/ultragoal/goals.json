@@ -30,7 +30,7 @@
   {
     "id": "G005",
     "objective": "Run final static verification, independent review, commit/push, CI watch, artifact download/install/launch delivery loop.",
-    "status": "pending",
+    "status": "completed",
     "dependencies": ["G001", "G002", "G003", "G004"],
     "verification": ["git diff --check", "CI success", "tomatt.app artifact installed and launched"]
   }
