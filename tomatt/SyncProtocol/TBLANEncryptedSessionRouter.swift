@@ -310,14 +310,22 @@ final class TBLANEncryptedSessionRouter {
             let envelope = try TomattSyncProtoMapper.protoEnvelope(from: message)
             binding.session.send(envelope) { [weak self] result in
                 guard case .failure(let error) = result else { return }
-                Task { @MainActor in
+                Self.performOnMainActor {
                     self?.statusSink?.sendFailed(peerID: peerID,
-                                                 direction: binding.connectionState.direction,
-                                                 error: error)
+                                                  direction: binding.connectionState.direction,
+                                                  error: error)
                 }
             }
         } catch {
             statusSink?.sendFailed(peerID: peerID, direction: binding.connectionState.direction, error: error)
+        }
+    }
+
+    private static func performOnMainActor(_ operation: @escaping @MainActor () -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { operation() }
+        } else {
+            Task { @MainActor in operation() }
         }
     }
 

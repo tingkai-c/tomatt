@@ -312,7 +312,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         do {
             let endpoint = try LANManualEndpoint(host: host, port: port)
             manualConnector.connect(to: endpoint) { [weak self] result in
-                Task { @MainActor in
+                TBSyncService.performOnMainActor {
                     guard let self else { return }
                     switch result {
                     case .success(let session):
@@ -563,7 +563,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         do {
             let endpoint = try LANManualEndpoint(host: peer.host, port: peer.port)
             manualConnector.connect(to: endpoint) { [weak self] result in
-                Task { @MainActor in
+                TBSyncService.performOnMainActor {
                     guard let self else { return }
                     switch result {
                     case .success(let session):
@@ -938,6 +938,14 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             return "Pairing required (\(reason))"
         case .lanSyncDisabledRequiresReset(let reason):
             return "Reset required (\(reason))"
+        }
+    }
+
+    private static func performOnMainActor(_ operation: @escaping @MainActor () -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { operation() }
+        } else {
+            Task { @MainActor in operation() }
         }
     }
 
