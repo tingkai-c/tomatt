@@ -606,17 +606,20 @@ final class EventCoreTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let fileURL = directory.appendingPathComponent("events.jsonl")
         let identity = TBDeviceIdentity(deviceID: "local", displayName: "Local", platform: "macOS")
-        let timerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
-        let timer = TBTimer(eventLog: timerLog)
+        let readerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
         let writerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
         let sessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000801")!
+        let before = readerLog.projection
 
         _ = writerLog.importEvents([
             timerStartEnvelope(origin: "peer", sequence: 1, sessionID: sessionID, startedAt: Date(timeIntervalSince1970: 100))
         ])
-        timer.reloadFromEventLogAfterSync(trustedDeviceName: "Desk Mac")
+        readerLog.reloadFromStore()
 
-        XCTAssertEqual(timer.syncCorrectionNotice?.message, "Timer updated after syncing with Desk Mac.")
+        XCTAssertEqual(TBTimerSyncCorrectionNoticeFactory.notice(before: before,
+                                                                after: readerLog.projection,
+                                                                trustedDeviceName: "Desk Mac")?.message,
+                       "Timer updated after syncing with Desk Mac.")
     }
 
     @MainActor
@@ -627,19 +630,21 @@ final class EventCoreTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let fileURL = directory.appendingPathComponent("events.jsonl")
         let identity = TBDeviceIdentity(deviceID: "local", displayName: "Local", platform: "macOS")
-        let timerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
-        let timer = TBTimer(eventLog: timerLog)
+        let readerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
         let writerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
+        let before = readerLog.projection
 
         _ = writerLog.importEvents([
             syncEnvelope(origin: "peer",
                          deviceSequence: 1,
                          event: .settingChanged(TBSettingChanged(key: .pauseAfterRestFinish, value: .bool(true))))
         ])
-        timer.reloadFromEventLogAfterSync(trustedDeviceName: "Desk Mac")
+        readerLog.reloadFromStore()
 
-        XCTAssertNil(timer.syncCorrectionNotice)
-        XCTAssertTrue(timer.pauseAfterRestFinish)
+        XCTAssertNil(TBTimerSyncCorrectionNoticeFactory.notice(before: before,
+                                                              after: readerLog.projection,
+                                                              trustedDeviceName: "Desk Mac"))
+        XCTAssertTrue(readerLog.projection.settings.pauseAfterRestFinish)
     }
 
     func testReloadFromStoreRefreshesStatsAndTimerProjection() throws {

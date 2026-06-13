@@ -153,8 +153,8 @@ final class SyncServiceTests: XCTestCase {
                                                        displayName: "Test Mac",
                                                        platform: "macOS",
                                                        signingPublicKey: localSigner.publicKey)
-        let service = makeService(health: FakeServiceHealth(pairing: .ready, lan: .lanSyncDisabledRequiresPairing("missing active sync group")),
-                                  coordinator: coordinator,
+        let service = makeService(coordinator: coordinator,
+                                  health: FakeServiceHealth(pairing: .ready, lan: .lanSyncDisabledRequiresPairing("missing active sync group")),
                                   manualConnector: connector,
                                   router: router,
                                   pairingRuntime: pairingRuntime,
@@ -906,7 +906,7 @@ private final class FakeServiceLANRuntime: TBSyncLANRuntimeControlling {
     func markDisconnected(peerID: String, direction: LANDuplicateConnectionDirection, now: Date, jitterUnit: Double) {}
 }
 
-private final class FakeServiceCoordinator: TBSyncRuntimeCoordinating {
+private final class FakeServiceCoordinator: TBSyncRuntimeCoordinating, TBLANEncryptedSessionCoordinating {
     private let lanRuntime: FakeServiceLANRuntime
     var peers: [String: TBSyncRuntimePeer] = [:]
     var setModes: [TBSyncRuntimeMode] = []
@@ -965,6 +965,8 @@ private final class FakeServiceCoordinator: TBSyncRuntimeCoordinating {
                                       nonce: Data(repeating: 1, count: 12),
                                       ciphertextAndTag: Data(repeating: 2, count: 32))]
     }
+
+    func receive(_ message: TBEncryptedLANMessage, from deviceID: String) -> [TBEncryptedLANMessage] { [] }
 
     func triggerLocalSyncableEventAppended() -> [TBEncryptedLANMessage] {
         localAppendTriggerCount += 1
