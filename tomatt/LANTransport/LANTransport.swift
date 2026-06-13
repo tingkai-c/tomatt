@@ -446,7 +446,7 @@ final class NIOWebSocketLANSession: LANWebSocketSession {
     }
 }
 
-private final class NIOWebSocketLANFrameHandler: SimpleChannelInboundHandler {
+private final class NIOWebSocketLANFrameHandler: ChannelInboundHandler {
     typealias InboundIn = WebSocketFrame
     typealias OutboundOut = WebSocketFrame
     private let session: NIOWebSocketLANSession
@@ -455,7 +455,8 @@ private final class NIOWebSocketLANFrameHandler: SimpleChannelInboundHandler {
         self.session = session
     }
 
-    func channelRead0(context: ChannelHandlerContext, data frame: WebSocketFrame) {
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        let frame = unwrapInboundIn(data)
         var data = frame.data
         switch frame.opcode {
         case .binary:

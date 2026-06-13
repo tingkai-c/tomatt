@@ -1158,3 +1158,5 @@ class TBTimer: ObservableObject {
         return "\(sanitizedBase) \(suffix)"
     }
 }
+
+extension TBTimer: TBTimerSyncRefreshing {}

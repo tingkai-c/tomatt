@@ -1,6 +1,6 @@
 import Foundation
 
-enum TBLANEncryptedSessionAdmissionFailure: Equatable {
+enum TBLANEncryptedSessionAdmissionFailure: Error, Equatable {
     case untrustedPeer(String)
     case removedPeer(String)
     case badFingerprint(String)

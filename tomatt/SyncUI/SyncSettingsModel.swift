@@ -135,8 +135,8 @@ final class TBSyncSettingsModel: ObservableObject {
     init(selectedMode: TBSyncMode = .off,
          pairedDevices: [TBPairedSyncDevice] = [],
          capabilityGates: TBSyncCapabilityGates = .currentProductizedSurface,
-         deviceName: String = TBSyncSettingsModel.defaultDeviceName(),
-         deviceIdentity: String = TBSyncSettingsModel.defaultDeviceIdentity(),
+         deviceName: String? = nil,
+         deviceIdentity: String? = nil,
          lastSync: Date? = nil,
          retryStatus: String? = nil,
          listenerPort: Int = LANTransportInternalPlaintext.defaultPort,
@@ -151,8 +151,8 @@ final class TBSyncSettingsModel: ObservableObject {
         self.selectedMode = capabilityGates.userFacingLANSyncAvailable ? selectedMode : .off
         self.pairedDevices = pairedDevices
         self.capabilityGates = capabilityGates
-        self.deviceName = deviceName
-        self.deviceIdentity = deviceIdentity
+        self.deviceName = deviceName ?? Self.defaultDeviceName()
+        self.deviceIdentity = deviceIdentity ?? Self.defaultDeviceIdentity()
         self.lastSync = lastSync
         self.retryStatus = retryStatus
         self.listenerPort = listenerPort

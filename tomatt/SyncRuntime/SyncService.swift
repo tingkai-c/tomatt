@@ -1,6 +1,7 @@
 import Combine
 import CryptoKit
 import Foundation
+import SwiftProtobuf
 
 enum TBSyncServiceRuntimeMode: Equatable {
     case syncOff
@@ -127,8 +128,6 @@ protocol TBTimerSyncRefreshing: AnyObject {
     func reloadFromEventLogAfterSync(trustedDeviceName: String)
 }
 
-extension TBTimer: TBTimerSyncRefreshing {}
-
 struct TBPairingRuntimeFlow {
     let id: TBPairingRuntimeFlowID
     let session: TBPairingSession
@@ -221,7 +220,8 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
     private var retainedManualPairingSessions: [LANWebSocketSession] = []
     private var pairingArtifacts: [ObjectIdentifier: TBLocalPairingWireArtifacts] = [:]
 
-    init(dependencies: Dependencies = TBSyncService.defaultDependencies()) {
+    init(dependencies: Dependencies? = nil) {
+        let dependencies = dependencies ?? TBSyncService.defaultDependencies()
         self.lanRuntime = dependencies.lanRuntime
         self.coordinator = dependencies.coordinator
         self.router = dependencies.router

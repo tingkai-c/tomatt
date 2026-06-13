@@ -95,6 +95,7 @@ private extension AppSettings.PaneIdentifier {
     static let general = Self("general")
 }
 
+@MainActor
 class TBStatusItem: NSObject, NSApplicationDelegate {
     private let eventLog = TBLocalEventLog()
     lazy var timer = TBTimer(eventLog: eventLog)
