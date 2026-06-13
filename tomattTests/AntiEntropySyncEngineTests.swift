@@ -104,10 +104,15 @@ final class AntiEntropySyncEngineTests: XCTestCase {
                                              localNonceSeed: Data(repeating: 5, count: 32),
                                              peerNonceSeed: Data(repeating: 6, count: 32))
         let cSession = TBSyncSessionCryptoBox(context: cContext,
-                                             keyMaterial: key,
-                                             localRole: .responder,
-                                             localNonceSeed: Data(repeating: 6, count: 32),
-                                             peerNonceSeed: Data(repeating: 5, count: 32))
+                                              keyMaterial: key,
+                                              localRole: .responder,
+                                              localNonceSeed: Data(repeating: 6, count: 32),
+                                              peerNonceSeed: Data(repeating: 5, count: 32))
+        let cInspectionSession = TBSyncSessionCryptoBox(context: cContext,
+                                                       keyMaterial: key,
+                                                       localRole: .responder,
+                                                       localNonceSeed: Data(repeating: 6, count: 32),
+                                                       peerNonceSeed: Data(repeating: 5, count: 32))
         let bFacade = TBSyncEventLogFacade(eventLog: bLog)
         let cFacade = TBSyncEventLogFacade(eventLog: cLog)
         let cImporter = TBSignedSyncEventTrustedImporter(peerStore: cPeerStore,
@@ -130,7 +135,9 @@ final class AntiEntropySyncEngineTests: XCTestCase {
                                              trustedImporter: cImporter,
                                              signedEventStore: cSignedStore)
 
-        let summaries = try bEngine.beginSync().outgoingMessages.map { try cSession.open($0) }
+        let summaryMessages = bEngine.beginSync().outgoingMessages
+        let summaries = try summaryMessages.map { try cSession.open($0) }
+        _ = try summaryMessages.map { try cInspectionSession.open($0) }
         let advertised = summaries.compactMap { envelope -> Tomatt_Sync_V1_EventSummary? in
             if case .eventSummary(let summary)? = envelope.payload { return summary }
             return nil
@@ -139,7 +146,7 @@ final class AntiEntropySyncEngineTests: XCTestCase {
 
         let requestA = try sealMissingRequest(from: cSession, deviceID: aID, afterSequence: 0, messageID: "request-a")
         let batchResult = bEngine.receive(requestA)
-        let openedBatch = try XCTUnwrap(batchResult.outgoingMessages.first.map { try cSession.open($0) })
+        let openedBatch = try XCTUnwrap(batchResult.outgoingMessages.first.map { try cInspectionSession.open($0) })
         guard case .eventBatch(let batch)? = openedBatch.payload else { return XCTFail("expected A-origin batch") }
         let relayedSignedA = try XCTUnwrap(batch.events.first.map { try JSONDecoder().decode(TBSignedSyncEvent.self, from: $0.canonicalJson) })
         XCTAssertEqual(relayedSignedA.signerDeviceID, aID)

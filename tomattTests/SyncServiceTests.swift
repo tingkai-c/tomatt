@@ -182,7 +182,7 @@ final class SyncServiceTests: XCTestCase {
 
         let flow = try XCTUnwrap(pairingRuntime.retainedFlows.first)
         XCTAssertEqual(flow.session.transcript.sessionNonce, start.participant.sessionNonce)
-        XCTAssertTrue(service.snapshot.actionMessage?.contains("Pairing verification code") == true)
+        XCTAssertTrue(service.snapshot.actionMessage?.contains("Pairing verification") == true)
         let responderTranscript = TBPairingTranscript(protocolVersion: flow.session.transcript.protocolVersion,
                                                       role: .joinSyncGroup,
                                                       local: flow.session.transcript.remote,

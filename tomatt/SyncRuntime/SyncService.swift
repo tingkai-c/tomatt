@@ -919,6 +919,9 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             case .codeConfirmed:
                 code = nil
                 preview = Self.preview(for: flow.session.transcript)
+            case .previewApproved:
+                code = nil
+                preview = Self.preview(for: flow.session.transcript)
             default:
                 code = nil
                 preview = nil
