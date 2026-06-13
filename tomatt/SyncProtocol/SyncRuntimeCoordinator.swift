@@ -293,12 +293,12 @@ final class TBSyncRuntimeCoordinator {
     private func appendStatus(_ event: TBSyncRuntimeStatusEvent) {
         statusEvents.append(event)
         let diagnostic = syncDiagnostic(for: event)
-        logger.appendSyncDiagnostic(component: "TBSyncRuntimeCoordinator",
-                                    event: diagnostic.event,
-                                    peerID: diagnostic.peerID,
-                                    reason: diagnostic.reason,
-                                    counts: diagnostic.counts,
-                                    details: diagnostic.details)
+        TBSyncDiagnostics.append(component: "TBSyncRuntimeCoordinator",
+                                 event: diagnostic.event,
+                                 peerID: diagnostic.peerID,
+                                 reason: diagnostic.reason,
+                                 counts: diagnostic.counts,
+                                 details: diagnostic.details)
     }
 
     private func syncDiagnostic(for event: TBSyncRuntimeStatusEvent) -> (event: String, peerID: String?, reason: String?, counts: [String: Int]?, details: [String: String]?) {

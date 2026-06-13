@@ -3,6 +3,62 @@ import CryptoKit
 import Foundation
 import SwiftProtobuf
 
+private struct TBSyncDiagnosticLogEvent: Encodable {
+    let type = "syncDiagnostic"
+    let timestamp = Date()
+    let component: String
+    let event: String
+    let message: String?
+    let peerID: String?
+    let endpoint: String?
+    let reason: String?
+    let error: String?
+    let counts: [String: Int]?
+    let details: [String: String]?
+    let flags: [String: Bool]?
+}
+
+enum TBSyncDiagnostics {
+    private static let logFileName = "tomatt.log"
+    private static let lineEnd = "\n".data(using: .utf8)!
+
+    static func append(component: String,
+                       event: String,
+                       message: String? = nil,
+                       peerID: String? = nil,
+                       endpoint: String? = nil,
+                       reason: String? = nil,
+                       error: String? = nil,
+                       counts: [String: Int]? = nil,
+                       details: [String: String]? = nil,
+                       flags: [String: Bool]? = nil) {
+        let fileManager = FileManager.default
+        guard let logURL = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent(logFileName) else { return }
+        if !fileManager.fileExists(atPath: logURL.path) {
+            guard fileManager.createFile(atPath: logURL.path, contents: nil) else { return }
+        }
+        guard let handle = try? FileHandle(forUpdating: logURL) else { return }
+        defer { try? handle.close() }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let diagnostic = TBSyncDiagnosticLogEvent(component: component,
+                                                 event: event,
+                                                 message: message,
+                                                 peerID: peerID,
+                                                 endpoint: endpoint,
+                                                 reason: reason,
+                                                 error: error,
+                                                 counts: counts,
+                                                 details: details,
+                                                 flags: flags)
+        guard let data = try? encoder.encode(diagnostic) else { return }
+        try? handle.seekToEnd()
+        try? handle.write(contentsOf: data + lineEnd)
+        try? handle.synchronize()
+    }
+}
+
 enum TBSyncServiceRuntimeMode: Equatable {
     case syncOff
     case pairingSetup
@@ -1070,16 +1126,16 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding, TBLANEncryp
                          counts: [String: Int]? = nil,
                          details: [String: String]? = nil,
                          flags: [String: Bool]? = nil) {
-        logger.appendSyncDiagnostic(component: "TBSyncService",
-                                    event: event,
-                                    message: message,
-                                    peerID: peerID,
-                                    endpoint: endpoint,
-                                    reason: reason,
-                                    error: error,
-                                    counts: counts,
-                                    details: details,
-                                    flags: flags)
+        TBSyncDiagnostics.append(component: "TBSyncService",
+                                 event: event,
+                                 message: message,
+                                 peerID: peerID,
+                                 endpoint: endpoint,
+                                 reason: reason,
+                                 error: error,
+                                 counts: counts,
+                                 details: details,
+                                 flags: flags)
     }
 
     static func defaultDependencies(eventLog sharedEventLog: TBLocalEventLog = TBLocalEventLog(),

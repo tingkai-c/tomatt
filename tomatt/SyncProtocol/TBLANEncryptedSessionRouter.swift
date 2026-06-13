@@ -408,13 +408,13 @@ final class TBLANEncryptedSessionRouter {
                      error: String? = nil,
                      counts: [String: Int]? = nil,
                      details: [String: String]? = nil) {
-        logger.appendSyncDiagnostic(component: "TBLANEncryptedSessionRouter",
-                                    event: event,
-                                    peerID: peerID,
-                                    endpoint: endpoint,
-                                    reason: reason,
-                                    error: error,
-                                    counts: counts,
-                                    details: details)
+        TBSyncDiagnostics.append(component: "TBLANEncryptedSessionRouter",
+                                 event: event,
+                                 peerID: peerID,
+                                 endpoint: endpoint,
+                                 reason: reason,
+                                 error: error,
+                                 counts: counts,
+                                 details: details)
     }
 }
