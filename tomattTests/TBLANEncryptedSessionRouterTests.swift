@@ -197,8 +197,8 @@ final class TBLANEncryptedSessionRouterTests: XCTestCase {
     }
 
     private func makeRouter(admission: FakeRouterAdmission? = nil,
-                            coordinator: FakeRouterCoordinator = FakeRouterCoordinator(),
-                            statusSink: FakeRouterStatusSink = FakeRouterStatusSink()) -> TBLANEncryptedSessionRouter {
+                             coordinator: FakeRouterCoordinator = FakeRouterCoordinator(),
+                             statusSink: FakeRouterStatusSink? = nil) -> TBLANEncryptedSessionRouter {
         TBLANEncryptedSessionRouter(admission: admission ?? FakeRouterAdmission(context: context()),
                                     coordinator: coordinator,
                                     statusSink: statusSink,
