@@ -31,6 +31,44 @@ class TBLogEventTransition: TBLogEvent {
     }
 }
 
+class TBLogEventSyncDiagnostic: TBLogEvent {
+    internal let type = "syncDiagnostic"
+    internal let timestamp: Date = Date()
+
+    private let component: String
+    private let event: String
+    private let message: String?
+    private let peerID: String?
+    private let endpoint: String?
+    private let reason: String?
+    private let error: String?
+    private let counts: [String: Int]?
+    private let details: [String: String]?
+    private let flags: [String: Bool]?
+
+    init(component: String,
+         event: String,
+         message: String? = nil,
+         peerID: String? = nil,
+         endpoint: String? = nil,
+         reason: String? = nil,
+         error: String? = nil,
+         counts: [String: Int]? = nil,
+         details: [String: String]? = nil,
+         flags: [String: Bool]? = nil) {
+        self.component = component
+        self.event = event
+        self.message = message
+        self.peerID = peerID
+        self.endpoint = endpoint
+        self.reason = reason
+        self.error = error
+        self.counts = counts
+        self.details = details
+        self.flags = flags
+    }
+}
+
 private let logFileName = "tomatt.log"
 private let lineEnd = "\n".data(using: .utf8)!
 
@@ -78,5 +116,27 @@ class TBLogger {
         } catch {
             print("cannot write to log file: \(error)")
         }
+    }
+
+    func appendSyncDiagnostic(component: String,
+                              event: String,
+                              message: String? = nil,
+                              peerID: String? = nil,
+                              endpoint: String? = nil,
+                              reason: String? = nil,
+                              error: String? = nil,
+                              counts: [String: Int]? = nil,
+                              details: [String: String]? = nil,
+                              flags: [String: Bool]? = nil) {
+        append(event: TBLogEventSyncDiagnostic(component: component,
+                                               event: event,
+                                               message: message,
+                                               peerID: peerID,
+                                               endpoint: endpoint,
+                                               reason: reason,
+                                               error: error,
+                                               counts: counts,
+                                               details: details,
+                                               flags: flags))
     }
 }

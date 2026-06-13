@@ -259,6 +259,7 @@ struct SyncSettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(model.securityCopy)
                 Text(model.localNetworkPermissionCopy)
+                Text(model.syncDebugLogCopy)
             }
             .font(.caption)
             .foregroundColor(.secondary)

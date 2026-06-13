@@ -251,6 +251,10 @@ final class TBSyncSettingsModel: ObservableObject {
         "macOS may ask for Local Network access when tomatt browses for nearby devices, advertises this Mac, or listens on port \(listenerPort). Pair Device and Pair by Address start pairing setup when storage health permits it."
     }
 
+    var syncDebugLogCopy: String {
+        "Sync diagnostics are written to ~/Library/Containers/app.tomatt.tomatt/Data/Library/Caches/tomatt.log as JSON lines."
+    }
+
     var incompleteFeatureCopy: String {
         "Cloud Relay is unavailable in this build. LAN pairing and paired-peer resume use the local network only."
     }

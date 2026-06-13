@@ -93,7 +93,7 @@ final class TBSyncRuntimeCoordinator {
     @discardableResult
     func setMode(_ newMode: TBSyncRuntimeMode, discoveryID: LANDiscoveryID = .ephemeral()) -> Bool {
         mode = newMode
-        statusEvents.append(.modeChanged(newMode))
+        appendStatus(.modeChanged(newMode))
 
         if newMode == .off {
             stopLAN()
@@ -101,24 +101,24 @@ final class TBSyncRuntimeCoordinator {
         }
 
         if newMode == .lanAndCloudRelay {
-            statusEvents.append(.cloudRelayUnavailable)
+            appendStatus(.cloudRelayUnavailable)
         }
 
         let storageHealth = healthChecker.health()
         guard storageHealth.isLANSyncEnabled else {
             stopLAN()
-            statusEvents.append(.storageBlocked(storageHealth.status))
+            appendStatus(.storageBlocked(storageHealth.status))
             markAllPeersStorageBlocked(storageHealth.status)
             return false
         }
 
         lanRuntime.start(discoveryID: discoveryID)
         if case .active(let port) = lanRuntime.status {
-            statusEvents.append(.lanStarted(port: port))
+            appendStatus(.lanStarted(port: port))
             return true
         }
 
-        statusEvents.append(.storageBlocked(.lanSyncDisabledRequiresReset("LAN runtime failed to start")))
+        appendStatus(.storageBlocked(.lanSyncDisabledRequiresReset("LAN runtime failed to start")))
         return false
     }
 
@@ -206,9 +206,9 @@ final class TBSyncRuntimeCoordinator {
         }
 
         updatePeer(deviceID: deviceID, state: .syncing)
-        statusEvents.append(.syncTriggered(deviceID: deviceID, reason: reason))
+        appendStatus(.syncTriggered(deviceID: deviceID, reason: reason))
         let result = step(engine)
-        result.statuses.forEach { statusEvents.append(.syncStatus(deviceID: deviceID, $0)) }
+        result.statuses.forEach { appendStatus(.syncStatus(deviceID: deviceID, $0)) }
         notifyRemoteImportIfNeeded(deviceID: deviceID, statuses: result.statuses)
         updatePeer(deviceID: deviceID, state: state(after: result.statuses))
         return result.outgoingMessages
@@ -251,7 +251,7 @@ final class TBSyncRuntimeCoordinator {
 
     private func stopLAN() {
         lanRuntime.stop()
-        statusEvents.append(.lanStopped)
+        appendStatus(.lanStopped)
     }
 
     private func markAllPeersStorageBlocked(_ status: TBSyncStorageHealthStatus) {
@@ -287,6 +287,57 @@ final class TBSyncRuntimeCoordinator {
         peer.state = state
         if let lastSeenAt { peer.lastSeenAt = lastSeenAt }
         peers[deviceID] = peer
-        statusEvents.append(.peerStateChanged(deviceID: deviceID, state: state))
+        appendStatus(.peerStateChanged(deviceID: deviceID, state: state))
+    }
+
+    private func appendStatus(_ event: TBSyncRuntimeStatusEvent) {
+        statusEvents.append(event)
+        let diagnostic = syncDiagnostic(for: event)
+        logger.appendSyncDiagnostic(component: "TBSyncRuntimeCoordinator",
+                                    event: diagnostic.event,
+                                    peerID: diagnostic.peerID,
+                                    reason: diagnostic.reason,
+                                    counts: diagnostic.counts,
+                                    details: diagnostic.details)
+    }
+
+    private func syncDiagnostic(for event: TBSyncRuntimeStatusEvent) -> (event: String, peerID: String?, reason: String?, counts: [String: Int]?, details: [String: String]?) {
+        switch event {
+        case .modeChanged(let mode):
+            return ("status_mode_changed", nil, nil, nil, ["mode": String(describing: mode)])
+        case .storageBlocked(let status):
+            return ("status_storage_blocked", nil, String(describing: status), nil, nil)
+        case .lanStarted(let port):
+            return ("status_lan_started", nil, nil, ["port": port], nil)
+        case .lanStopped:
+            return ("status_lan_stopped", nil, nil, nil, nil)
+        case .cloudRelayUnavailable:
+            return ("status_cloud_relay_unavailable", nil, nil, nil, nil)
+        case .peerStateChanged(let deviceID, let state):
+            return ("status_peer_state_changed", deviceID, nil, nil, ["state": String(describing: state)])
+        case .syncTriggered(let deviceID, let reason):
+            return ("status_sync_triggered", deviceID, nil, nil, ["reason": String(describing: reason)])
+        case .syncStatus(let deviceID, let status):
+            return syncStatusDiagnostic(deviceID: deviceID, status: status)
+        }
+    }
+
+    private func syncStatusDiagnostic(deviceID: String, status: TBAntiEntropySyncStatus) -> (event: String, peerID: String?, reason: String?, counts: [String: Int]?, details: [String: String]?) {
+        switch status {
+        case .summaryReceived(_, let eventCount):
+            return ("status_summary_received", deviceID, nil, ["eventCount": Int(eventCount)], nil)
+        case .missingEventsRequested(_, let afterSequence):
+            return ("status_missing_events_requested", deviceID, nil, ["afterSequence": Int(afterSequence)], nil)
+        case .eventBatchSent(_, let eventIDs):
+            return ("status_event_batch_sent", deviceID, nil, ["eventCount": eventIDs.count], nil)
+        case .eventBatchImported(_, let outcome):
+            return ("status_event_batch_imported", deviceID, nil, ["imported": outcome.imported, "rejected": outcome.rejected], nil)
+        case .eventBatchAcked(let ack):
+            return ("status_event_batch_acked", deviceID, nil, ["accepted": ack.acceptedEventIDs.count, "rejected": ack.rejectedEventIDs.count], nil)
+        case .newEventsAvailable(_, let eventCount):
+            return ("status_new_events_available", deviceID, nil, ["eventCount": Int(eventCount)], nil)
+        case .error(let error):
+            return ("status_sync_error", deviceID, String(describing: error), nil, nil)
+        }
     }
 }

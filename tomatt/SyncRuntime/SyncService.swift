@@ -184,7 +184,7 @@ final class TBPairingRuntimeCoordinator {
 }
 
 @MainActor
-final class TBSyncService: ObservableObject, TBSyncServiceProviding {
+final class TBSyncService: ObservableObject, TBSyncServiceProviding, TBLANEncryptedSessionStatusSinking {
     struct Dependencies {
         var lanRuntime: TBSyncLANRuntimeControlling
         var coordinator: TBSyncRuntimeCoordinating
@@ -246,8 +246,9 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
                                                correctionNotice: nil,
                                                statusMessage: nil,
                                                actionMessage: nil,
-                                               resetAvailable: dependencies.resetService != nil,
-                                               activePairingFlows: [])
+                                                resetAvailable: dependencies.resetService != nil,
+                                                activePairingFlows: [])
+        self.router?.setStatusSink(self)
         dependencies.eventLog?.onLocalSyncableEventAppended = { [weak self] in
             Task { @MainActor in self?.syncLocalEventAppendToActiveSessions() }
         }
@@ -261,18 +262,29 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             guard let self else { return false }
             return self.handlePairingEnvelope(envelope, from: session)
         }
+        logSync(event: "init_dependencies",
+                details: ["runtimeStatus": String(describing: dependencies.lanRuntime.status)],
+                flags: ["router": dependencies.router != nil,
+                        "manualConnector": dependencies.manualConnector != nil,
+                        "localIdentity": dependencies.localIdentity != nil,
+                        "engineMaker": dependencies.engineMaker != nil,
+                        "eventLog": dependencies.eventLog != nil,
+                        "timerSyncRefresher": dependencies.timerSyncRefresher != nil])
         refreshDeviceRows()
     }
 
     func syncLocalEventAppendToActiveSessions() {
         let messages = coordinator.triggerLocalSyncableEventAppended()
         let grouped = Dictionary(grouping: messages, by: \.recipientDeviceID)
+        logSync(event: "local_event_append", counts: ["peerCount": grouped.count, "messageCount": messages.count])
         for (peerID, peerMessages) in grouped {
+            logSync(event: "local_event_send", peerID: peerID, counts: ["messageCount": peerMessages.count])
             router?.send(messages: peerMessages, to: peerID)
         }
     }
 
     private func handleRemoteImport(from trustedDeviceName: String) {
+        logSync(event: "remote_import", message: "Imported remote sync events.", details: ["trustedDeviceName": trustedDeviceName])
         snapshot.lastSync = Date()
         snapshot.statusMessage = "Synced with \(trustedDeviceName)."
         timerSyncRefresher?.reloadFromEventLogAfterSync(trustedDeviceName: trustedDeviceName)
@@ -281,6 +293,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
 
     @discardableResult
     func selectMode(_ mode: TBSyncMode) -> TBSyncServiceActionResult {
+        logSync(event: "select_mode", details: ["mode": mode.rawValue])
         switch mode {
         case .off:
             stopLAN(message: "Sync is off.")
@@ -301,29 +314,39 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
 
     @discardableResult
     func pairByAddress(host: String, port: Int) -> TBSyncServiceActionResult {
+        logSync(event: "pair_by_address_start", endpoint: "\(host):\(port)")
         let setupResult = startPairingSetup(message: "Pairing setup is active. Manual pairing connection is entering the pairing/runtime flow.")
-        guard case .started = setupResult else { return setupResult }
+        guard case .started = setupResult else {
+            logSync(event: "pair_by_address_blocked", endpoint: "\(host):\(port)", reason: String(describing: setupResult))
+            return setupResult
+        }
         guard let manualConnector else {
             let message = "Manual pairing is unavailable because LAN connector infrastructure is not available."
             snapshot.actionMessage = message
+            logSync(event: "pair_by_address_blocked", endpoint: "\(host):\(port)", reason: "manual_connector_unavailable")
             return .blocked(message)
         }
 
         do {
             let endpoint = try LANManualEndpoint(host: host, port: port)
+            logSync(event: "pair_by_address_connect_start", endpoint: "\(endpoint.host):\(endpoint.port)")
             manualConnector.connect(to: endpoint) { [weak self] result in
                 TBSyncService.performOnMainActor {
                     guard let self else { return }
                     switch result {
                     case .success(let session):
+                        self.logSync(event: "pair_by_address_connect_success", endpoint: "\(endpoint.host):\(endpoint.port)")
                         self.retainedManualPairingSessions.append(session)
                         if let peerID = self.peerIDForManualEndpoint(endpoint), self.initiateOutboundResume(session: session, peerID: peerID) {
+                            self.logSync(event: "pair_by_address_branch", peerID: peerID, endpoint: "\(endpoint.host):\(endpoint.port)", details: ["branch": "resume"])
                             self.snapshot.actionMessage = "Connected to paired peer \(peerID). Resume handshake started."
                         } else {
+                            self.logSync(event: "pair_by_address_branch", endpoint: "\(endpoint.host):\(endpoint.port)", details: ["branch": "pairing"])
                             self.startPairingWireFlow(session: session, endpoint: endpoint)
                             self.snapshot.actionMessage = "Connected to \(endpoint.host):\(endpoint.port). Pairing runtime flow is active and awaiting peer verification data."
                         }
                     case .failure(let error):
+                        self.logSync(event: "pair_by_address_connect_failure", endpoint: "\(endpoint.host):\(endpoint.port)", error: error.localizedDescription)
                         self.snapshot.actionMessage = "Manual pairing connection failed: \(error.localizedDescription)"
                     }
                 }
@@ -332,6 +355,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         } catch {
             let message = "The pairing address is invalid."
             snapshot.actionMessage = message
+            logSync(event: "pair_by_address_invalid", endpoint: "\(host):\(port)", error: String(describing: error))
             return .blocked(message)
         }
     }
@@ -347,11 +371,13 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         guard let flow = pairingRuntime.flow(id: id) else {
             let message = "Pairing flow is no longer available."
             snapshot.actionMessage = message
+            logSync(event: "commit_pairing_blocked", reason: "flow_missing")
             return .blocked(message)
         }
         guard let pairingCommitPersister, let localIdentity, let engineMaker else {
             let message = "Pairing commit is unavailable because sync runtime dependencies are not ready."
             snapshot.actionMessage = message
+            logSync(event: "commit_pairing_blocked", peerID: flow.session.transcript.remote.deviceID, reason: "dependencies_unavailable")
             return .blocked(message)
         }
 
@@ -379,6 +405,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             refreshPairingFlowPresentations()
             refreshDeviceRows()
             snapshot.actionMessage = "Paired \(flow.session.transcript.remote.displayName)."
+            logSync(event: "commit_pairing_success", peerID: peerID, details: ["remoteDisplayName": flow.session.transcript.remote.displayName], flags: ["lanSessionBound": flow.lanSession != nil])
             return .started(snapshot.actionMessage ?? "Pairing committed.")
         } catch {
             if let persistenceError = error as? TBPairingCommitPersistenceError, persistenceError.requiresReset {
@@ -386,6 +413,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             }
             let message = "Pairing commit failed: \(error)"
             snapshot.actionMessage = message
+            logSync(event: "commit_pairing_failure", peerID: flow.session.transcript.remote.deviceID, error: String(describing: error))
             return .blocked(message)
         }
     }
@@ -395,16 +423,19 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         guard let flow = pairingRuntime.flow(id: id) else {
             let message = "Pairing flow is no longer available."
             snapshot.actionMessage = message
+            logSync(event: "confirm_pairing_blocked", reason: "flow_missing")
             return .blocked(message)
         }
         do {
             try flow.session.confirmCode(code, now: now)
             refreshPairingFlowPresentations()
             snapshot.actionMessage = "Pairing verification code confirmed for \(flow.session.transcript.remote.displayName)."
+            logSync(event: "confirm_pairing_success", peerID: flow.session.transcript.remote.deviceID)
             return .started(snapshot.actionMessage ?? "Pairing code confirmed.")
         } catch {
             let message = "Pairing verification failed: \(error)"
             snapshot.actionMessage = message
+            logSync(event: "confirm_pairing_failure", peerID: flow.session.transcript.remote.deviceID, error: String(describing: error))
             return .blocked(message)
         }
     }
@@ -414,6 +445,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         guard let flow = pairingRuntime.flow(id: flowID), case .awaitingCodeConfirmation(let code) = flow.session.state else {
             let message = "Pairing flow is not waiting for verification confirmation."
             snapshot.actionMessage = message
+            logSync(event: "confirm_verification_blocked", reason: "not_waiting_for_confirmation")
             return .blocked(message)
         }
         return confirmPairingRuntimeFlow(id: flowID, code: code)
@@ -426,6 +458,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         guard let flow = pairingRuntime.flow(id: id) else {
             let message = "Pairing flow is no longer available."
             snapshot.actionMessage = message
+            logSync(event: "approve_pairing_blocked", reason: "flow_missing")
             return .blocked(message)
         }
         do {
@@ -433,10 +466,12 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             preview.settingsSourceChoice = settingsSource
             try flow.session.approvePreview(preview, now: now)
             refreshPairingFlowPresentations()
+            logSync(event: "approve_pairing_success", peerID: flow.session.transcript.remote.deviceID, details: ["settingsSource": String(describing: settingsSource)])
             return commitPairingRuntimeFlow(id: id, now: now)
         } catch {
             let message = "Pairing preview approval failed: \(error)"
             snapshot.actionMessage = message
+            logSync(event: "approve_pairing_failure", peerID: flow.session.transcript.remote.deviceID, error: String(describing: error))
             return .blocked(message)
         }
     }
@@ -451,10 +486,12 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         guard let resetService else {
             let message = "Reset Sync is unavailable because reset storage wiring is not available."
             snapshot.actionMessage = message
+            logSync(event: "reset_sync_blocked", reason: "reset_service_unavailable")
             return .blocked(message)
         }
 
         do {
+            logSync(event: "reset_sync_start")
             stopLAN(message: "Sync reset in progress.")
             try resetService.resetSync(preservingRawEventsAt: nil)
             pairingRuntime.reset()
@@ -467,10 +504,12 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             snapshot.storageHealthStatus = healthChecker.lanSyncHealth().status
             snapshot.actionMessage = "Sync identity, trusted peers, and sync metadata were reset."
             snapshot.pairedDevices = []
+            logSync(event: "reset_sync_success")
             return .reset(snapshot.actionMessage ?? "Sync reset complete.")
         } catch {
             let message = "Reset Sync failed: \(error.localizedDescription)"
             snapshot.actionMessage = message
+            logSync(event: "reset_sync_failure", error: error.localizedDescription)
             return .blocked(message)
         }
     }
@@ -480,6 +519,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         guard let device = snapshot.pairedDevices.first(where: { $0.id == id }) else {
             let message = "Device is no longer paired."
             snapshot.actionMessage = message
+            logSync(event: "remove_device_blocked", peerID: id.uuidString.lowercased(), reason: "device_not_found")
             return .blocked(message)
         }
         let deviceID = id.uuidString.lowercased()
@@ -492,19 +532,23 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             } catch {
                 let message = "Remove Device failed: \(error)"
                 snapshot.actionMessage = message
+                logSync(event: "remove_device_failure", peerID: deviceID, error: String(describing: error))
                 return .blocked(message)
             }
         }
         coordinator.markRemoved(deviceID: deviceID, displayName: device.name)
         snapshot.pairedDevices.removeAll { $0.id == id }
         snapshot.actionMessage = "Removed \(device.name) from future sync attempts."
+        logSync(event: "remove_device_success", peerID: deviceID, details: ["displayName": device.name])
         return .started(snapshot.actionMessage ?? "Device removed.")
     }
 
     private func startPairingSetup(message: String) -> TBSyncServiceActionResult {
+        logSync(event: "start_pairing_setup_start")
         guard snapshot.capabilityGates.userFacingLANSyncAvailable else {
             let message = "Pairing setup is unavailable because LAN runtime infrastructure is not available."
             snapshot.actionMessage = message
+            logSync(event: "start_pairing_setup_blocked", reason: "capability_gate_unavailable")
             return .blocked(message)
         }
 
@@ -513,6 +557,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         guard health.isPairingSetupEligible else {
             let blocked = "Pairing setup is blocked: \(storageHealthSummary(health.status))."
             snapshot.actionMessage = blocked
+            logSync(event: "start_pairing_setup_blocked", reason: storageHealthSummary(health.status))
             return .blocked(blocked)
         }
 
@@ -520,6 +565,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         guard case .active = lanRuntime.status else {
             let blocked = "Pairing setup could not start LAN runtime."
             snapshot.actionMessage = blocked
+            logSync(event: "start_pairing_setup_failure", reason: String(describing: lanRuntime.status))
             return .blocked(blocked)
         }
 
@@ -527,13 +573,16 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         snapshot.selectedMode = .off
         snapshot.statusMessage = message
         snapshot.actionMessage = message
+        logSync(event: "start_pairing_setup_success", details: ["runtimeStatus": String(describing: lanRuntime.status)])
         return .started(message)
     }
 
     private func startLanSync() -> TBSyncServiceActionResult {
+        logSync(event: "start_lan_sync_start")
         guard snapshot.capabilityGates.userFacingLANSyncAvailable else {
             let message = "LAN sync is unavailable because LAN runtime infrastructure is not available."
             snapshot.actionMessage = message
+            logSync(event: "start_lan_sync_blocked", reason: "capability_gate_unavailable")
             return .blocked(message)
         }
 
@@ -541,11 +590,13 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         snapshot.storageHealthStatus = health.status
         guard health.isLANSyncEnabled else {
             stopLAN(message: "LAN sync is blocked: \(storageHealthSummary(health.status)).")
+            logSync(event: "start_lan_sync_blocked", reason: storageHealthSummary(health.status))
             return .blocked(snapshot.actionMessage ?? "LAN sync is blocked.")
         }
 
         guard coordinator.setMode(.lanOnly, discoveryID: .ephemeral()) else {
             snapshot.actionMessage = "LAN sync could not start."
+            logSync(event: "start_lan_sync_failure", reason: "coordinator_set_mode_failed")
             return .blocked(snapshot.actionMessage ?? "LAN sync could not start.")
         }
 
@@ -554,28 +605,40 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         snapshot.statusMessage = "LAN sync is active on this local network."
         snapshot.actionMessage = "LAN sync started."
         refreshDeviceRows()
+        logSync(event: "start_lan_sync_success", details: ["runtimeStatus": String(describing: lanRuntime.status)])
         return .started("LAN sync started.")
     }
 
     private func handleDiscoveredPeer(_ peer: LANDiscoveredPeer) {
-        guard snapshot.runtimeMode == .lanSync else { return }
-        guard let manualConnector else { return }
+        logSync(event: "discovered_peer", peerID: peer.discoveryID.rawValue, endpoint: "\(peer.host):\(peer.port)", counts: ["metadataCount": peer.metadata.count])
+        guard snapshot.runtimeMode == .lanSync else {
+            logSync(event: "discovered_peer_ignored", peerID: peer.discoveryID.rawValue, endpoint: "\(peer.host):\(peer.port)", reason: "runtime_not_lan_sync")
+            return
+        }
+        guard let manualConnector else {
+            logSync(event: "discovered_peer_ignored", peerID: peer.discoveryID.rawValue, endpoint: "\(peer.host):\(peer.port)", reason: "manual_connector_unavailable")
+            return
+        }
         do {
             let endpoint = try LANManualEndpoint(host: peer.host, port: peer.port)
+            logSync(event: "discovered_peer_connect_start", peerID: peer.discoveryID.rawValue, endpoint: "\(endpoint.host):\(endpoint.port)")
             manualConnector.connect(to: endpoint) { [weak self] result in
                 TBSyncService.performOnMainActor {
                     guard let self else { return }
                     switch result {
                     case .success(let session):
+                        self.logSync(event: "discovered_peer_connect_success", peerID: peer.discoveryID.rawValue, endpoint: "\(endpoint.host):\(endpoint.port)")
                         self.retainedManualPairingSessions.append(session)
                         _ = self.initiateOutboundResume(session: session)
                     case .failure(let error):
+                        self.logSync(event: "discovered_peer_connect_failure", peerID: peer.discoveryID.rawValue, endpoint: "\(endpoint.host):\(endpoint.port)", error: error.localizedDescription)
                         self.snapshot.actionMessage = "LAN resume connection failed: \(error.localizedDescription)"
                     }
                 }
             }
         } catch {
             snapshot.actionMessage = "Discovered LAN peer endpoint is invalid."
+            logSync(event: "discovered_peer_invalid_endpoint", peerID: peer.discoveryID.rawValue, endpoint: "\(peer.host):\(peer.port)", error: String(describing: error))
         }
     }
 
@@ -586,28 +649,41 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
     }
 
     private func initiateOutboundResume(session: LANWebSocketSession, peerID: String) -> Bool {
-        guard let router else { return false }
+        guard let router else {
+            logSync(event: "outbound_resume_failure", peerID: peerID, endpoint: session.endpointDescription, reason: "router_unavailable")
+            return false
+        }
         let started = router.initiateOutboundResume(session: session, peerID: peerID)
         if started {
             snapshot.runtimeMode = .lanSync
             snapshot.selectedMode = .lanOnly
             snapshot.statusMessage = "Resume handshake started with paired peer."
+            logSync(event: "outbound_resume_success", peerID: peerID, endpoint: session.endpointDescription)
+        } else {
+            logSync(event: "outbound_resume_failure", peerID: peerID, endpoint: session.endpointDescription, reason: "router_rejected")
         }
         return started
     }
 
     private func initiateOutboundResume(session: LANWebSocketSession) -> Bool {
-        guard let router else { return false }
+        guard let router else {
+            logSync(event: "outbound_resume_failure", endpoint: session.endpointDescription, reason: "router_unavailable")
+            return false
+        }
         let started = router.initiateOutboundResume(session: session)
         if started {
             snapshot.runtimeMode = .lanSync
             snapshot.selectedMode = .lanOnly
             snapshot.statusMessage = "Resume handshake started with discovered peer."
+            logSync(event: "outbound_resume_success", endpoint: session.endpointDescription, details: ["peerSelection": "any"])
+        } else {
+            logSync(event: "outbound_resume_failure", endpoint: session.endpointDescription, reason: "router_rejected", details: ["peerSelection": "any"])
         }
         return started
     }
 
     private func startPairingWireFlow(session: LANWebSocketSession, endpoint: LANManualEndpoint) {
+        logSync(event: "start_pairing_wire_flow", endpoint: "\(endpoint.host):\(endpoint.port)")
         pairingRuntime.markPairingSessionActive(session)
         router?.admit(session: session)
         guard let artifacts = makeLocalPairingArtifacts(session: session,
@@ -615,22 +691,29 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
                                                         role: .addDevice,
                                                         sessionNonce: Data((0..<32).map { _ in UInt8.random(in: UInt8.min...UInt8.max) })) else {
             snapshot.actionMessage = "Pairing cannot start because local sync identity is unavailable."
+            logSync(event: "start_pairing_wire_flow_failure", endpoint: "\(endpoint.host):\(endpoint.port)", reason: "local_artifacts_unavailable")
             return
         }
         pairingArtifacts[ObjectIdentifier(session)] = artifacts
         session.send(artifacts.startEnvelope) { _ in }
         coordinator.beginPairing(deviceID: endpoint.host)
+        logSync(event: "start_pairing_wire_flow_success", peerID: endpoint.host, endpoint: "\(endpoint.host):\(endpoint.port)")
     }
 
     private func handlePairingEnvelope(_ envelope: Tomatt_Sync_V1_Envelope, from session: LANWebSocketSession) -> Bool {
-        guard snapshot.runtimeMode == .pairingSetup || pairingRuntime.hasActivePairingSession(session) else { return false }
+        guard snapshot.runtimeMode == .pairingSetup || pairingRuntime.hasActivePairingSession(session) else {
+            logSync(event: "pairing_envelope_ignored", endpoint: session.endpointDescription, reason: "pairing_runtime_inactive")
+            return false
+        }
         switch envelope.payload {
         case .pairingStart(let start):
+            logSync(event: "pairing_envelope_start", peerID: start.deviceID.isEmpty ? nil : start.deviceID, endpoint: session.endpointDescription)
             pairingRuntime.markPairingSessionActive(session)
             coordinator.beginPairing(deviceID: start.deviceID.isEmpty ? session.endpointDescription : start.deviceID)
             guard start.hasParticipant,
                   let remoteParticipant = try? Self.participant(from: start.participant) else {
                 snapshot.actionMessage = "Pairing start was missing transcript data."
+                logSync(event: "pairing_envelope_missing_transcript", peerID: start.deviceID.isEmpty ? nil : start.deviceID, endpoint: session.endpointDescription, reason: "pairing_start_missing_transcript")
                 return true
             }
             let endpoint = (try? LANManualEndpoint(host: session.endpointDescription, port: snapshot.listenerPort))
@@ -640,27 +723,38 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
                                                             role: .joinSyncGroup,
                                                             sessionNonce: start.participant.sessionNonce) else {
                 snapshot.actionMessage = "Pairing cannot continue because local sync identity is unavailable."
+                logSync(event: "pairing_envelope_failure", peerID: remoteParticipant.deviceID, endpoint: session.endpointDescription, reason: "local_artifacts_unavailable")
                 return true
             }
             pairingArtifacts[ObjectIdentifier(session)] = artifacts
             session.send(artifacts.challengeEnvelope) { _ in }
             retainFlowIfPossible(localArtifacts: artifacts, remoteParticipant: remoteParticipant, lanSession: session)
+            logSync(event: "pairing_envelope_success", peerID: remoteParticipant.deviceID, endpoint: session.endpointDescription, details: ["payload": "pairingStart"])
             return true
         case .pairingChallenge(let challenge):
+            logSync(event: "pairing_envelope_challenge", endpoint: session.endpointDescription)
             pairingRuntime.markPairingSessionActive(session)
             guard challenge.hasParticipant,
                   let artifacts = pairingArtifacts[ObjectIdentifier(session)],
                   let remoteParticipant = try? Self.participant(from: challenge.participant) else {
                 snapshot.actionMessage = "Pairing challenge was missing transcript data."
+                logSync(event: "pairing_envelope_missing_transcript", endpoint: session.endpointDescription, reason: "pairing_challenge_missing_transcript")
                 return true
             }
             retainFlowIfPossible(localArtifacts: artifacts, remoteParticipant: remoteParticipant, lanSession: session)
             snapshot.actionMessage = "Pairing verification data received. Confirm the verification code to finish pairing."
+            logSync(event: "pairing_envelope_success", peerID: remoteParticipant.deviceID, endpoint: session.endpointDescription, details: ["payload": "pairingChallenge"])
             return true
-        case .pairingResponse, .pairingComplete:
+        case .pairingResponse:
             pairingRuntime.markPairingSessionActive(session)
+            logSync(event: "pairing_envelope_success", endpoint: session.endpointDescription, details: ["payload": "pairingResponse"])
+            return true
+        case .pairingComplete:
+            pairingRuntime.markPairingSessionActive(session)
+            logSync(event: "pairing_envelope_success", endpoint: session.endpointDescription, details: ["payload": "pairingComplete"])
             return true
         default:
+            logSync(event: "pairing_envelope_ignored", endpoint: session.endpointDescription, reason: "unsupported_pairing_payload")
             return false
         }
     }
@@ -669,13 +763,17 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
                                            endpoint: LANManualEndpoint,
                                            role: TBPairingRole,
                                            sessionNonce: Data) -> TBLocalPairingWireArtifacts? {
-        guard let localIdentity else { return nil }
+        guard let localIdentity else {
+            logSync(event: "make_pairing_artifacts_failure", endpoint: "\(endpoint.host):\(endpoint.port)", reason: "local_identity_unavailable")
+            return nil
+        }
         let keyPair = TBPairingEphemeralKeyPair()
         let groupState: TBPairingGroupState
         do {
             groupState = try pairingCommitPersister?.activePairingGroupState() ?? .standalone
         } catch {
             snapshot.actionMessage = "Pairing cannot start because local sync group state is unavailable: \(error)"
+            logSync(event: "make_pairing_artifacts_failure", endpoint: "\(endpoint.host):\(endpoint.port)", error: String(describing: error))
             return nil
         }
         let participant = TBPairingTranscriptParticipant(deviceID: localIdentity.deviceID,
@@ -741,8 +839,10 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             pairingRuntime.retain(flow)
             refreshPairingFlowPresentations()
             snapshot.actionMessage = "Pairing verification code \(code) is ready for \(remoteParticipant.displayName). Review the preview before approving."
+            logSync(event: "retain_pairing_flow_success", peerID: remoteParticipant.deviceID, endpoint: lanSession.endpointDescription, details: ["remoteDisplayName": remoteParticipant.displayName])
         } catch {
             snapshot.actionMessage = "Pairing transcript could not be established: \(error)"
+            logSync(event: "retain_pairing_flow_failure", peerID: remoteParticipant.deviceID, endpoint: lanSession.endpointDescription, error: String(describing: error))
         }
     }
 
@@ -887,6 +987,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
     }
 
     private func stopLAN(message: String) {
+        logSync(event: "stop_lan", message: message, counts: ["retainedSessionCount": retainedManualPairingSessions.count])
         retainedManualPairingSessions.forEach { $0.close() }
         retainedManualPairingSessions.removeAll()
         coordinator.setMode(.off, discoveryID: .ephemeral())
@@ -896,6 +997,14 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         snapshot.storageHealthStatus = healthChecker.lanSyncHealth().status
         snapshot.statusMessage = message
         snapshot.actionMessage = message
+    }
+
+    func sessionRejected(peerID: String?, state: TBSyncPeerRuntimeState, reason: String) {
+        logSync(event: "router_session_rejected", peerID: peerID, reason: reason, details: ["state": String(describing: state)])
+    }
+
+    func sendFailed(peerID: String, direction: LANDuplicateConnectionDirection, error: Error) {
+        logSync(event: "router_send_failed", peerID: peerID, error: String(describing: error), details: ["direction": String(describing: direction)])
     }
 
     private func refreshDeviceRows() {
@@ -950,6 +1059,27 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
         } else {
             Task { @MainActor in operation() }
         }
+    }
+
+    private func logSync(event: String,
+                         message: String? = nil,
+                         peerID: String? = nil,
+                         endpoint: String? = nil,
+                         reason: String? = nil,
+                         error: String? = nil,
+                         counts: [String: Int]? = nil,
+                         details: [String: String]? = nil,
+                         flags: [String: Bool]? = nil) {
+        logger.appendSyncDiagnostic(component: "TBSyncService",
+                                    event: event,
+                                    message: message,
+                                    peerID: peerID,
+                                    endpoint: endpoint,
+                                    reason: reason,
+                                    error: error,
+                                    counts: counts,
+                                    details: details,
+                                    flags: flags)
     }
 
     static func defaultDependencies(eventLog sharedEventLog: TBLocalEventLog = TBLocalEventLog(),

@@ -44,6 +44,7 @@ protocol TBLANEncryptedSessionCoordinating: AnyObject {
 
 extension TBSyncRuntimeCoordinator: TBLANEncryptedSessionCoordinating {}
 
+@MainActor
 protocol TBLANEncryptedSessionStatusSinking: AnyObject {
     func sessionRejected(peerID: String?, state: TBSyncPeerRuntimeState, reason: String)
     func sendFailed(peerID: String, direction: LANDuplicateConnectionDirection, error: Error)
@@ -87,7 +88,12 @@ final class TBLANEncryptedSessionRouter {
         self.now = now
     }
 
+    func setStatusSink(_ statusSink: TBLANEncryptedSessionStatusSinking?) {
+        self.statusSink = statusSink
+    }
+
     func admit(session: LANWebSocketSession) {
+        log(event: "admit", endpoint: session.endpointDescription)
         anonymousSessions[ObjectIdentifier(session)] = session
         session.onEnvelopeReceived = { [weak self, weak session] envelope in
             guard let self, let session else { return }
@@ -103,6 +109,7 @@ final class TBLANEncryptedSessionRouter {
 
     @discardableResult
     func initiateOutboundResume(session: LANWebSocketSession, peerID: String) -> Bool {
+        log(event: "outbound_resume_start", peerID: peerID, endpoint: session.endpointDescription)
         switch admission.prepareOutboundResume(peerID: peerID) {
         case .success(let hello):
             admit(session: session)
@@ -112,8 +119,10 @@ final class TBLANEncryptedSessionRouter {
             envelope.protocolMinor = TomattSyncProtocolV1.supportedMinorVersion
             envelope.hello = hello
             session.send(envelope) { _ in }
+            log(event: "outbound_resume_success", peerID: peerID, endpoint: session.endpointDescription)
             return true
         case .failure(let failure):
+            log(event: "outbound_resume_failure", peerID: peerID, endpoint: session.endpointDescription, reason: String(describing: failure))
             reject(session: session,
                    peerID: peerID,
                    state: runtimeState(for: failure),
@@ -124,6 +133,7 @@ final class TBLANEncryptedSessionRouter {
 
     @discardableResult
     func initiateOutboundResume(session: LANWebSocketSession) -> Bool {
+        log(event: "outbound_resume_start", endpoint: session.endpointDescription, details: ["peerSelection": "any"])
         switch admission.prepareAnyOutboundResume() {
         case .success(let hello):
             admit(session: session)
@@ -133,8 +143,10 @@ final class TBLANEncryptedSessionRouter {
             envelope.protocolMinor = TomattSyncProtocolV1.supportedMinorVersion
             envelope.hello = hello
             session.send(envelope) { _ in }
+            log(event: "outbound_resume_success", peerID: hello.deviceID, endpoint: session.endpointDescription, details: ["peerSelection": "any"])
             return true
         case .failure(let failure):
+            log(event: "outbound_resume_failure", endpoint: session.endpointDescription, reason: String(describing: failure), details: ["peerSelection": "any"])
             reject(session: session,
                    peerID: nil,
                    state: runtimeState(for: failure),
@@ -157,6 +169,7 @@ final class TBLANEncryptedSessionRouter {
               direction: LANDuplicateConnectionDirection,
               establishedAt: Date) {
         guard let context = pendingContexts.removeValue(forKey: peerID) ?? admission.sessionContext(for: peerID) else {
+            log(event: "bind_failure", peerID: peerID, endpoint: session.endpointDescription, reason: "missing_context")
             reject(session: session,
                    peerID: peerID,
                    state: .blocked("No admitted encrypted LAN session context"),
@@ -177,15 +190,19 @@ final class TBLANEncryptedSessionRouter {
             switch LANDuplicateConnectionResolver.resolveAfterVerifiedIdentity(existing: existing.connectionState,
                                                                                candidate: candidateState) {
             case .replaceExisting:
+                log(event: "bind_duplicate_replace_existing", peerID: peerID, endpoint: session.endpointDescription)
                 existing.session.close()
                 boundSessions[peerID] = candidate
             case .keepExisting, .deferUntilVerifiedIdentity:
+                log(event: "bind_duplicate_keep_existing", peerID: peerID, endpoint: session.endpointDescription)
                 session.close()
                 return
             }
         } else {
             boundSessions[peerID] = candidate
         }
+
+        log(event: "bind_success", peerID: peerID, endpoint: session.endpointDescription, details: ["direction": String(describing: direction)])
 
         session.onEnvelopeReceived = { [weak self, weak session] envelope in
             guard let self, let session else { return }
@@ -206,6 +223,7 @@ final class TBLANEncryptedSessionRouter {
 
     func send(messages: [TBEncryptedLANMessage], to peerID: String) {
         guard let binding = boundSessions[peerID] else {
+            log(event: "send_no_bound_session", peerID: peerID, reason: "No encrypted LAN session bound for peer", counts: ["messageCount": messages.count])
             statusSink?.sessionRejected(peerID: peerID,
                                         state: .retryScheduled(now()),
                                         reason: "No encrypted LAN session bound for peer")
@@ -267,6 +285,7 @@ final class TBLANEncryptedSessionRouter {
 
         switch admission.admitResume(hello: hello) {
         case .success(let context):
+            log(event: "anonymous_hello_admit_success", peerID: context.peerID, endpoint: session.endpointDescription)
             anonymousOutboundLocalHellos.removeValue(forKey: ObjectIdentifier(session))
             pendingContexts[context.peerID] = context
             bind(session: session, to: context.peerID, direction: .inbound, establishedAt: now())
@@ -278,6 +297,7 @@ final class TBLANEncryptedSessionRouter {
             }
             send(messages: coordinator.triggerConnectionEstablishedSync(deviceID: context.peerID), to: context.peerID)
         case .failure(let failure):
+            log(event: "anonymous_hello_admit_failure", peerID: hello.deviceID, endpoint: session.endpointDescription, reason: String(describing: failure))
             let state = runtimeState(for: failure)
             reject(session: session,
                    peerID: hello.deviceID,
@@ -292,11 +312,13 @@ final class TBLANEncryptedSessionRouter {
         do {
             let message = try TomattSyncProtoMapper.encryptedLANMessage(from: envelope)
             guard message.senderDeviceID == peerID else {
+                log(event: "bound_envelope_peer_mismatch", peerID: peerID, endpoint: session.endpointDescription, reason: "sender_device_id_mismatch")
                 throw TBLANEncryptedSessionRouterError.peerMismatch(expected: peerID, actual: message.senderDeviceID)
             }
             let responses = coordinator.receive(message, from: peerID)
             send(messages: responses, to: peerID)
         } catch {
+            log(event: "bound_envelope_mapper_error", peerID: peerID, endpoint: session.endpointDescription, error: String(describing: error))
             reject(session: session,
                    peerID: peerID,
                    state: .blocked("Invalid encrypted LAN payload"),
@@ -311,12 +333,14 @@ final class TBLANEncryptedSessionRouter {
             binding.session.send(envelope) { [weak self] result in
                 guard case .failure(let error) = result else { return }
                 Self.performOnMainActor {
+                    self?.log(event: "send_failure", peerID: peerID, reason: "transport_send_failed", error: String(describing: error))
                     self?.statusSink?.sendFailed(peerID: peerID,
                                                   direction: binding.connectionState.direction,
                                                   error: error)
                 }
             }
         } catch {
+            log(event: "send_failure", peerID: peerID, reason: "mapper_failed", error: String(describing: error))
             statusSink?.sendFailed(peerID: peerID, direction: binding.connectionState.direction, error: error)
         }
     }
@@ -337,6 +361,7 @@ final class TBLANEncryptedSessionRouter {
                         peerID: String?,
                         state: TBSyncPeerRuntimeState,
                         reason: String) {
+        log(event: "reject", peerID: peerID, endpoint: session.endpointDescription, reason: reason, details: ["state": String(describing: state)])
         session.close()
         anonymousSessions.removeValue(forKey: ObjectIdentifier(session))
         anonymousOutboundLocalHellos.removeValue(forKey: ObjectIdentifier(session))
@@ -374,5 +399,22 @@ final class TBLANEncryptedSessionRouter {
              .notReady(let reason):
             return .blocked(reason)
         }
+    }
+
+    private func log(event: String,
+                     peerID: String? = nil,
+                     endpoint: String? = nil,
+                     reason: String? = nil,
+                     error: String? = nil,
+                     counts: [String: Int]? = nil,
+                     details: [String: String]? = nil) {
+        logger.appendSyncDiagnostic(component: "TBLANEncryptedSessionRouter",
+                                    event: event,
+                                    peerID: peerID,
+                                    endpoint: endpoint,
+                                    reason: reason,
+                                    error: error,
+                                    counts: counts,
+                                    details: details)
     }
 }
