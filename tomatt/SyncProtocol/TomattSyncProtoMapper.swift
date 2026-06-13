@@ -9,6 +9,32 @@ enum TomattSyncProtoMapperError: Error, Equatable {
     case unsupportedFutureSchema(Int)
     case nonSyncableEvent
     case eventIdentityMismatch
+    case missingEncryptedLANMessage
+    case invalidEncryptedLANMessageField(String)
+    case invalidEncryptedLANMessageDirection(Int)
+    case missingPairingPayload
+    case invalidPairingPayloadField(String)
+}
+
+struct TBPairingWireStart: Equatable {
+    var deviceID: String
+    var displayName: String
+    var participant: Tomatt_Sync_V1_PairingTranscriptParticipant? = nil
+}
+
+struct TBPairingWireChallenge: Equatable {
+    var challengeID: String
+    var challenge: Data
+    var participant: Tomatt_Sync_V1_PairingTranscriptParticipant? = nil
+}
+
+struct TBPairingWireResponse: Equatable {
+    var challengeID: String
+    var response: Data
+}
+
+struct TBPairingWireComplete: Equatable {
+    var pairingID: String
 }
 
 enum TomattSyncProtoMapper {
@@ -119,6 +145,113 @@ enum TomattSyncProtoMapper {
         return envelope
     }
 
+    static func protoEnvelope(from encryptedMessage: TBEncryptedLANMessage) throws -> Tomatt_Sync_V1_Envelope {
+        try validateEncryptedLANMessage(encryptedMessage)
+
+        var proto = Tomatt_Sync_V1_EncryptedLANMessage()
+        proto.protocolVersion = encryptedMessage.protocolVersion
+        proto.senderDeviceID = encryptedMessage.senderDeviceID
+        proto.recipientDeviceID = encryptedMessage.recipientDeviceID
+        proto.senderSigningKeyFingerprint = encryptedMessage.senderSigningKeyFingerprint
+        proto.direction = protoDirection(from: encryptedMessage.direction)
+        proto.counter = encryptedMessage.counter
+        proto.nonce = encryptedMessage.nonce
+        proto.ciphertextAndTag = encryptedMessage.ciphertextAndTag
+
+        var envelope = Tomatt_Sync_V1_Envelope()
+        envelope.protocolMajor = TomattSyncProtocolV1.supportedMajorVersion
+        envelope.encryptedLanMessage = proto
+        return envelope
+    }
+
+    static func encryptedLANMessage(from envelope: Tomatt_Sync_V1_Envelope) throws -> TBEncryptedLANMessage {
+        guard case .encryptedLanMessage(let proto)? = envelope.payload else {
+            throw TomattSyncProtoMapperError.missingEncryptedLANMessage
+        }
+        let direction = try syncDirection(from: proto.direction)
+        let message = TBEncryptedLANMessage(protocolVersion: proto.protocolVersion,
+                                            senderDeviceID: proto.senderDeviceID,
+                                            recipientDeviceID: proto.recipientDeviceID,
+                                            senderSigningKeyFingerprint: proto.senderSigningKeyFingerprint,
+                                            direction: direction,
+                                            counter: proto.counter,
+                                            nonce: proto.nonce,
+                                            ciphertextAndTag: proto.ciphertextAndTag)
+        try validateEncryptedLANMessage(message)
+        return message
+    }
+
+    static func protoEnvelope(from start: TBPairingWireStart) throws -> Tomatt_Sync_V1_Envelope {
+        guard !start.deviceID.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("deviceID") }
+        var envelope = baseEnvelope()
+        envelope.pairingStart = Tomatt_Sync_V1_PairingStart.with {
+            $0.deviceID = start.deviceID
+            $0.displayName = start.displayName
+            if let participant = start.participant { $0.participant = participant }
+        }
+        return envelope
+    }
+
+    static func pairingStart(from envelope: Tomatt_Sync_V1_Envelope) throws -> TBPairingWireStart {
+        guard case .pairingStart(let proto)? = envelope.payload else { throw TomattSyncProtoMapperError.missingPairingPayload }
+        guard !proto.deviceID.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("deviceID") }
+        return TBPairingWireStart(deviceID: proto.deviceID,
+                                  displayName: proto.displayName,
+                                  participant: proto.hasParticipant ? proto.participant : nil)
+    }
+
+    static func protoEnvelope(from challenge: TBPairingWireChallenge) throws -> Tomatt_Sync_V1_Envelope {
+        guard !challenge.challengeID.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("challengeID") }
+        guard !challenge.challenge.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("challenge") }
+        var envelope = baseEnvelope()
+        envelope.pairingChallenge = Tomatt_Sync_V1_PairingChallenge.with {
+            $0.challengeID = challenge.challengeID
+            $0.challenge = challenge.challenge
+            if let participant = challenge.participant { $0.participant = participant }
+        }
+        return envelope
+    }
+
+    static func pairingChallenge(from envelope: Tomatt_Sync_V1_Envelope) throws -> TBPairingWireChallenge {
+        guard case .pairingChallenge(let proto)? = envelope.payload else { throw TomattSyncProtoMapperError.missingPairingPayload }
+        guard !proto.challengeID.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("challengeID") }
+        guard !proto.challenge.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("challenge") }
+        return TBPairingWireChallenge(challengeID: proto.challengeID,
+                                      challenge: proto.challenge,
+                                      participant: proto.hasParticipant ? proto.participant : nil)
+    }
+
+    static func protoEnvelope(from response: TBPairingWireResponse) throws -> Tomatt_Sync_V1_Envelope {
+        guard !response.challengeID.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("challengeID") }
+        guard !response.response.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("response") }
+        var envelope = baseEnvelope()
+        envelope.pairingResponse = Tomatt_Sync_V1_PairingResponse.with {
+            $0.challengeID = response.challengeID
+            $0.response = response.response
+        }
+        return envelope
+    }
+
+    static func pairingResponse(from envelope: Tomatt_Sync_V1_Envelope) throws -> TBPairingWireResponse {
+        guard case .pairingResponse(let proto)? = envelope.payload else { throw TomattSyncProtoMapperError.missingPairingPayload }
+        guard !proto.challengeID.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("challengeID") }
+        guard !proto.response.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("response") }
+        return TBPairingWireResponse(challengeID: proto.challengeID, response: proto.response)
+    }
+
+    static func protoEnvelope(from complete: TBPairingWireComplete) throws -> Tomatt_Sync_V1_Envelope {
+        guard !complete.pairingID.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("pairingID") }
+        var envelope = baseEnvelope()
+        envelope.pairingComplete = Tomatt_Sync_V1_PairingComplete.with { $0.pairingID = complete.pairingID }
+        return envelope
+    }
+
+    static func pairingComplete(from envelope: Tomatt_Sync_V1_Envelope) throws -> TBPairingWireComplete {
+        guard case .pairingComplete(let proto)? = envelope.payload else { throw TomattSyncProtoMapperError.missingPairingPayload }
+        guard !proto.pairingID.isEmpty else { throw TomattSyncProtoMapperError.invalidPairingPayloadField("pairingID") }
+        return TBPairingWireComplete(pairingID: proto.pairingID)
+    }
+
     private static func canonicalEnvelopeData(from envelope: TBEventEnvelope) throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -126,9 +259,56 @@ enum TomattSyncProtoMapper {
         return try encoder.encode(envelope)
     }
 
+    private static func baseEnvelope() -> Tomatt_Sync_V1_Envelope {
+        var envelope = Tomatt_Sync_V1_Envelope()
+        envelope.protocolMajor = TomattSyncProtocolV1.supportedMajorVersion
+        envelope.protocolMinor = TomattSyncProtocolV1.supportedMinorVersion
+        return envelope
+    }
+
     private static func validateCanonicalUUID(_ value: String) throws {
         guard TomattSyncProtocolV1.isCanonicalLowercaseUUIDString(value) else {
             throw TomattSyncProtoMapperError.invalidCanonicalUUID(value)
+        }
+    }
+
+    private static func validateEncryptedLANMessage(_ message: TBEncryptedLANMessage) throws {
+        guard message.protocolVersion > 0 else {
+            throw TomattSyncProtoMapperError.invalidEncryptedLANMessageField("protocolVersion")
+        }
+        try validateCanonicalUUID(message.senderDeviceID)
+        try validateCanonicalUUID(message.recipientDeviceID)
+        guard !message.senderSigningKeyFingerprint.isEmpty else {
+            throw TomattSyncProtoMapperError.invalidEncryptedLANMessageField("senderSigningKeyFingerprint")
+        }
+        guard message.counter > 0 else {
+            throw TomattSyncProtoMapperError.invalidEncryptedLANMessageField("counter")
+        }
+        guard !message.nonce.isEmpty else {
+            throw TomattSyncProtoMapperError.invalidEncryptedLANMessageField("nonce")
+        }
+        guard !message.ciphertextAndTag.isEmpty else {
+            throw TomattSyncProtoMapperError.invalidEncryptedLANMessageField("ciphertextAndTag")
+        }
+    }
+
+    private static func protoDirection(from direction: TBSyncSessionDirection) -> Tomatt_Sync_V1_EncryptedLANMessage.Direction {
+        switch direction {
+        case .initiatorToResponder:
+            return .initiatorToResponder
+        case .responderToInitiator:
+            return .responderToInitiator
+        }
+    }
+
+    private static func syncDirection(from direction: Tomatt_Sync_V1_EncryptedLANMessage.Direction) throws -> TBSyncSessionDirection {
+        switch direction {
+        case .initiatorToResponder:
+            return .initiatorToResponder
+        case .responderToInitiator:
+            return .responderToInitiator
+        case .unspecified, .UNRECOGNIZED:
+            throw TomattSyncProtoMapperError.invalidEncryptedLANMessageDirection(direction.rawValue)
         }
     }
 

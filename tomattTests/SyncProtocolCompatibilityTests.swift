@@ -27,23 +27,28 @@ final class SyncProtocolCompatibilityTests: XCTestCase {
         XCTAssertEqual(decoded.ping.nonce, "ping-1")
     }
 
-    func testHelloMajorVersionMatchingMinorAndCapabilities() {
+    func testHelloMajorMinorVersionCompatibilityAndCapabilities() {
         let compatible = Tomatt_Sync_V1_Hello.with {
             $0.deviceID = "00000000-0000-0000-0000-000000000010"
             $0.displayName = "MacBook"
             $0.platform = "macOS"
             $0.protocolMajor = 1
-            $0.protocolMinor = 2
+            $0.protocolMinor = TomattSyncProtocolV1.supportedMinorVersion
             $0.capabilities = ["event-summary", "event-batch"]
         }
-        let incompatible = Tomatt_Sync_V1_Hello.with {
+        let incompatibleMajor = Tomatt_Sync_V1_Hello.with {
             $0.protocolMajor = 2
             $0.protocolMinor = 0
         }
+        let incompatibleMinor = Tomatt_Sync_V1_Hello.with {
+            $0.protocolMajor = TomattSyncProtocolV1.supportedMajorVersion
+            $0.protocolMinor = TomattSyncProtocolV1.supportedMinorVersion + 1
+        }
 
         XCTAssertTrue(TomattSyncProtocolV1.isCompatibleHello(compatible))
-        XCTAssertFalse(TomattSyncProtocolV1.isCompatibleHello(incompatible))
-        XCTAssertEqual(compatible.protocolMinor, 2)
+        XCTAssertFalse(TomattSyncProtocolV1.isCompatibleHello(incompatibleMajor))
+        XCTAssertFalse(TomattSyncProtocolV1.isCompatibleHello(incompatibleMinor))
+        XCTAssertEqual(compatible.protocolMinor, TomattSyncProtocolV1.supportedMinorVersion)
         XCTAssertEqual(compatible.capabilities, ["event-summary", "event-batch"])
     }
 

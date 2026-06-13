@@ -7,6 +7,7 @@ enum TBAntiEntropySyncError: Error, Equatable {
     case importSecurity(TBSyncSecurityError)
     case importFailed(TBSyncImportOutcome)
     case decoding(String)
+    case signedMetadataMissing(deviceID: String, sequence: Int64)
 }
 
 enum TBAntiEntropySyncStatus: Equatable {
@@ -41,6 +42,7 @@ final class TBAntiEntropySyncEngine {
     private let signerDeviceID: String
     private let signer: TBSyncEventSigning
     private let trustedImporter: TBSignedSyncEventTrustedImporter
+    private let signedEventStore: TBSignedSyncEventStoring?
     private let batchLimit: Int
     private var nextMessageSequence: UInt64 = 0
 
@@ -49,12 +51,14 @@ final class TBAntiEntropySyncEngine {
          signerDeviceID: String,
          signer: TBSyncEventSigning,
          trustedImporter: TBSignedSyncEventTrustedImporter,
+         signedEventStore: TBSignedSyncEventStoring? = nil,
          batchLimit: Int = 250) {
         self.session = session
         self.eventLog = eventLog
         self.signerDeviceID = signerDeviceID
         self.signer = signer
         self.trustedImporter = trustedImporter
+        self.signedEventStore = signedEventStore
         self.batchLimit = batchLimit
     }
 
@@ -63,24 +67,28 @@ final class TBAntiEntropySyncEngine {
     }
 
     func notifyNewLocalEventsAvailable() -> TBAntiEntropySyncStepResult {
-        let summary = localSignerSummary()
-        let eventCount = summary[signerDeviceID] ?? 0
-        var notification = Tomatt_Sync_V1_NewEventsAvailable()
-        notification.deviceID = signerDeviceID
-        notification.eventCount = UInt64(max(0, eventCount))
+        let summary = localSummary()
+        var messages: [TBEncryptedLANMessage] = []
+        var statuses: [TBAntiEntropySyncStatus] = []
+        for deviceID in summary.keys.sorted() {
+            let eventCount = summary[deviceID] ?? 0
+            var notification = Tomatt_Sync_V1_NewEventsAvailable()
+            notification.deviceID = deviceID
+            notification.eventCount = UInt64(max(0, eventCount))
 
-        let messageID = nextMessageID(prefix: "new-events")
-        var envelope = makeEnvelope(messageID: messageID)
-        envelope.payload = .newEventsAvailable(notification)
-        do {
-            return TBAntiEntropySyncStepResult(outgoingMessages: [try session.seal(envelope: envelope)],
-                                             statuses: [.newEventsAvailable(deviceID: signerDeviceID,
-                                                                           eventCount: eventCount)])
-        } catch let error as TBSyncSessionError {
-            return TBAntiEntropySyncStepResult(statuses: [.error(.session(error))])
-        } catch {
-            return TBAntiEntropySyncStepResult(statuses: [.error(.protocolViolation(String(describing: error)))])
+            let messageID = nextMessageID(prefix: "new-events")
+            var envelope = makeEnvelope(messageID: messageID)
+            envelope.payload = .newEventsAvailable(notification)
+            do {
+                messages.append(try session.seal(envelope: envelope))
+                statuses.append(.newEventsAvailable(deviceID: deviceID, eventCount: eventCount))
+            } catch let error as TBSyncSessionError {
+                statuses.append(.error(.session(error)))
+            } catch {
+                statuses.append(.error(.protocolViolation(String(describing: error))))
+            }
         }
+        return TBAntiEntropySyncStepResult(outgoingMessages: messages, statuses: statuses)
     }
 
     func receive(_ message: TBEncryptedLANMessage) -> TBAntiEntropySyncStepResult {
@@ -115,7 +123,7 @@ final class TBAntiEntropySyncEngine {
     }
 
     private func sealLocalSummaries(reason: String) -> TBAntiEntropySyncStepResult {
-        let summary = localSignerSummary()
+        let summary = localSummary()
 
         var messages: [TBEncryptedLANMessage] = []
         var statuses: [TBAntiEntropySyncStatus] = []
@@ -140,7 +148,6 @@ final class TBAntiEntropySyncEngine {
     private func handleSummary(_ summary: Tomatt_Sync_V1_EventSummary) -> TBAntiEntropySyncStepResult {
         let remoteCount = Int64(summary.eventCount)
         var statuses: [TBAntiEntropySyncStatus] = [.summaryReceived(deviceID: summary.deviceID, eventCount: remoteCount)]
-        guard summary.deviceID == session.context.peerDeviceID else { return TBAntiEntropySyncStepResult(statuses: statuses) }
         let localCount = eventLog.localSummary()[summary.deviceID] ?? 0
         guard remoteCount > localCount else { return TBAntiEntropySyncStepResult(statuses: statuses) }
 
@@ -154,7 +161,6 @@ final class TBAntiEntropySyncEngine {
         let remoteCount = Int64(notification.eventCount)
         var statuses: [TBAntiEntropySyncStatus] = [.newEventsAvailable(deviceID: notification.deviceID,
                                                                        eventCount: remoteCount)]
-        guard notification.deviceID == session.context.peerDeviceID else { return TBAntiEntropySyncStepResult(statuses: statuses) }
         let localCount = eventLog.localSummary()[notification.deviceID] ?? 0
         guard remoteCount > localCount else { return TBAntiEntropySyncStepResult(statuses: statuses) }
 
@@ -180,24 +186,31 @@ final class TBAntiEntropySyncEngine {
     }
 
     private func handleMissingEventRequest(_ proto: Tomatt_Sync_V1_MissingEventRequest) -> TBAntiEntropySyncStepResult {
+        let limit = proto.limit == 0 ? batchLimit : Int(proto.limit)
         let request = TBSyncMissingEventsRequest(remoteSummary: [proto.deviceID: Int64(proto.afterSequence)],
-                                                 limit: proto.limit == 0 ? batchLimit : Int(proto.limit))
+                                                 limit: nil)
         let batch = TBSyncEventBatch(events: eventLog.missingEvents(for: request).events.filter {
-            $0.originDeviceID == signerDeviceID
-        })
+            $0.originDeviceID == proto.deviceID
+        }.prefix(limit).map { $0 })
         do {
-            let signedEvents = try batch.events.map {
-                try TBSignedSyncEvent.sign(envelope: $0, signerDeviceID: signerDeviceID, signer: signer)
+            var signedEvents: [TBSignedSyncEvent] = []
+            var statuses: [TBAntiEntropySyncStatus] = []
+            for event in batch.events {
+                do {
+                    signedEvents.append(try signedEventForExport(event))
+                } catch let error as TBAntiEntropySyncError {
+                    statuses.append(.error(error))
+                }
             }
             let messageID = nextMessageID(prefix: "batch")
             var protoBatch = Tomatt_Sync_V1_EventBatch()
-            protoBatch.deviceID = signerDeviceID
+            protoBatch.deviceID = proto.deviceID
             protoBatch.events = try signedEvents.map(protoSyncEvent(from:))
             var envelope = makeEnvelope(messageID: messageID)
             envelope.payload = .eventBatch(protoBatch)
             return TBAntiEntropySyncStepResult(outgoingMessages: [try session.seal(envelope: envelope)],
-                                             statuses: [.eventBatchSent(messageID: messageID,
-                                                                       eventIDs: signedEvents.map { $0.envelope.eventID.uuidString.lowercased() })])
+                                             statuses: statuses + [.eventBatchSent(messageID: messageID,
+                                                                                   eventIDs: signedEvents.map { $0.envelope.eventID.uuidString.lowercased() })])
         } catch let error as TBSyncSessionError {
             return TBAntiEntropySyncStepResult(statuses: [.error(.session(error))])
         } catch {
@@ -215,8 +228,11 @@ final class TBAntiEntropySyncEngine {
         }
 
         let eventIDs = signedEvents.map { $0.envelope.eventID.uuidString.lowercased() }
+        let originDeviceID = batch.deviceID
+        let previousWatermark = eventLog.localSummary()[originDeviceID] ?? 0
         do {
             let outcome = try trustedImporter.importSignedEvents(signedEvents, context: session.context.importContext)
+            let currentWatermark = eventLog.localSummary()[originDeviceID] ?? 0
             let hasImportFailure = outcome.rejected > 0 || outcome.collision > 0 || outcome.persistenceFailed
             let accepted = hasImportFailure ? [] : eventIDs
             let rejected = hasImportFailure ? eventIDs : []
@@ -227,7 +243,17 @@ final class TBAntiEntropySyncEngine {
             if hasImportFailure {
                 statuses.append(.error(.importFailed(outcome)))
             }
-            return appendAck(ack, statuses: statuses)
+            var result = appendAck(ack, statuses: statuses)
+            if !hasImportFailure,
+               batchLimit > 0,
+               signedEvents.count >= batchLimit,
+               currentWatermark > previousWatermark {
+                let continuation = sealMissingRequest(missingRequest(deviceID: originDeviceID,
+                                                                     afterSequence: currentWatermark))
+                result.outgoingMessages.append(contentsOf: continuation.outgoingMessages)
+                result.statuses.append(contentsOf: continuation.statuses)
+            }
+            return result
         } catch let error as TBSyncSecurityError {
             let ack = TBAntiEntropyEventBatchAck(batchMessageID: messageID,
                                                 acceptedEventIDs: [],
@@ -279,6 +305,21 @@ final class TBAntiEntropySyncEngine {
         return proto
     }
 
+    private func signedEventForExport(_ envelope: TBEventEnvelope) throws -> TBSignedSyncEvent {
+        if let existing = try signedEventStore?.signedSyncEvent(eventID: envelope.eventID) {
+            return existing
+        }
+        guard envelope.originDeviceID == signerDeviceID else {
+            throw TBAntiEntropySyncError.signedMetadataMissing(deviceID: envelope.originDeviceID ?? "",
+                                                              sequence: envelope.deviceSequence ?? 0)
+        }
+        let signed = try TBSignedSyncEvent.sign(envelope: envelope,
+                                               signerDeviceID: signerDeviceID,
+                                               signer: signer)
+        try signedEventStore?.saveSignedSyncEvent(signed)
+        return signed
+    }
+
     private func missingRequest(deviceID: String, afterSequence: Int64) -> Tomatt_Sync_V1_MissingEventRequest {
         var request = Tomatt_Sync_V1_MissingEventRequest()
         request.deviceID = deviceID
@@ -287,8 +328,8 @@ final class TBAntiEntropySyncEngine {
         return request
     }
 
-    private func localSignerSummary() -> TBSyncWatermarkSummary {
-        [signerDeviceID: eventLog.localSummary()[signerDeviceID] ?? 0]
+    private func localSummary() -> TBSyncWatermarkSummary {
+        eventLog.localSummary()
     }
 
     private func makeEnvelope(messageID: String) -> Tomatt_Sync_V1_Envelope {

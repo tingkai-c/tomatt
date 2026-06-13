@@ -35,16 +35,44 @@ message Envelope {
     EventBatch event_batch = 32;
     EventBatchAck event_batch_ack = 33;
     NewEventsAvailable new_events_available = 34;
+    EncryptedLANMessage encrypted_lan_message = 40;
   }
 }
 
 message Hello {
+  enum SessionRole {
+    SESSION_ROLE_UNSPECIFIED = 0;
+    SESSION_ROLE_INITIATOR = 1;
+    SESSION_ROLE_RESPONDER = 2;
+  }
+
   string device_id = 1;
   string display_name = 2;
   string platform = 3;
   uint32 protocol_major = 4;
   uint32 protocol_minor = 5;
   repeated string capabilities = 6;
+  string session_key_id = 7;
+  bytes session_nonce_seed = 8;
+  SessionRole session_role = 9;
+  string sync_group_id = 10;
+}
+
+message EncryptedLANMessage {
+  enum Direction {
+    DIRECTION_UNSPECIFIED = 0;
+    DIRECTION_INITIATOR_TO_RESPONDER = 1;
+    DIRECTION_RESPONDER_TO_INITIATOR = 2;
+  }
+
+  uint32 protocol_version = 1;
+  string sender_device_id = 2;
+  string recipient_device_id = 3;
+  string sender_signing_key_fingerprint = 4;
+  Direction direction = 5;
+  uint64 counter = 6;
+  bytes nonce = 7;
+  bytes ciphertext_and_tag = 8;
 }
 
 message Ping {
@@ -70,15 +98,57 @@ message ProtocolError {
   string detail = 3;
 }
 
-// Pairing placeholders only. Pairing behavior is intentionally out of G001.
+message PairingEndpointMetadata {
+  string host = 1;
+  uint32 port = 2;
+  string transport = 3;
+  string path = 4;
+  map<string, string> metadata = 5;
+}
+
+message PairingIdleDeclaration {
+  bool is_idle = 1;
+  google.protobuf.Timestamp declared_at = 2;
+  string reason = 3;
+}
+
+message PairingGroupState {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_STANDALONE = 1;
+    KIND_GROUPED = 2;
+  }
+
+  Kind kind = 1;
+  string group_id = 2;
+}
+
+message PairingTranscriptParticipant {
+  string device_id = 1;
+  string display_name = 2;
+  string platform = 3;
+  bytes sync_signing_public_key = 4;
+  string sync_signing_key_fingerprint = 5;
+  bytes ephemeral_pairing_public_key = 6;
+  string ephemeral_discovery_id = 7;
+  PairingEndpointMetadata endpoint = 8;
+  PairingIdleDeclaration idle = 9;
+  repeated string capabilities = 10;
+  PairingGroupState group_state = 11;
+  bytes session_nonce = 12;
+  uint32 transcript_protocol_version = 13;
+}
+
 message PairingStart {
   string device_id = 1;
   string display_name = 2;
+  PairingTranscriptParticipant participant = 3;
 }
 
 message PairingChallenge {
   string challenge_id = 1;
   bytes challenge = 2;
+  PairingTranscriptParticipant participant = 3;
 }
 
 message PairingResponse {

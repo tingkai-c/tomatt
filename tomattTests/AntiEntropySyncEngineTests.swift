@@ -13,17 +13,17 @@ final class AntiEntropySyncEngineTests: XCTestCase {
         XCTAssertTrue(statuses.contains { if case .eventBatchImported = $0 { return true }; return false })
     }
 
-    func testPeerDoesNotAdvertiseOrExportThirdPartyOriginEvents() throws {
+    func testPeerAdvertisesThirdPartyOriginsButDoesNotExportWithoutSignedMetadata() throws {
         let cID = "00000000-0000-0000-0000-000000000103"
         let fixture = try makeFixture(seedA: [makeEnvelope(deviceID: cID, sequence: 1)])
 
         let summaries = try fixture.aPeer.beginSync().map { try fixture.bSession.open($0) }
         XCTAssertEqual(summaries.count, 1)
         guard case .eventSummary(let advertised)? = summaries.first?.payload else {
-            return XCTFail("expected A to advertise a local summary")
+            return XCTFail("expected A to advertise a summary")
         }
-        XCTAssertEqual(advertised.deviceID, fixture.aID)
-        XCTAssertEqual(advertised.eventCount, 0)
+        XCTAssertEqual(advertised.deviceID, cID)
+        XCTAssertEqual(advertised.eventCount, 1)
 
         let requestC = try sealMissingRequest(from: fixture.bSession,
                                               deviceID: cID,
@@ -31,6 +31,7 @@ final class AntiEntropySyncEngineTests: XCTestCase {
                                               messageID: "request-third-party-c")
         let result = fixture.aPeer.receive(requestC)
 
+        XCTAssertTrue(result.statuses.contains(.error(.signedMetadataMissing(deviceID: cID, sequence: 1))))
         guard case .eventBatchSent(_, let eventIDs)? = result.statuses.first(where: {
             if case .eventBatchSent = $0 { return true }
             return false
@@ -55,11 +56,111 @@ final class AntiEntropySyncEngineTests: XCTestCase {
 
         let summaryResult = fixture.aPeer.receive(try fixture.bSession.seal(envelope: summaryEnvelope))
 
-        XCTAssertEqual(summaryResult.outgoingMessages, [])
-        XCTAssertFalse(summaryResult.statuses.contains {
-            if case .missingEventsRequested(let deviceID, _) = $0 { return deviceID == cID }
+        XCTAssertTrue(summaryResult.statuses.contains {
+            if case .missingEventsRequested(let deviceID, let afterSequence) = $0 {
+                return deviceID == cID && afterSequence == 1
+            }
             return false
         })
+    }
+
+    func testRelayReexportsOriginalSignedEventForOfflineOriginAndDuplicateImportIsIdempotent() throws {
+        let aID = "00000000-0000-0000-0000-000000000101"
+        let bID = "00000000-0000-0000-0000-000000000102"
+        let cID = "00000000-0000-0000-0000-000000000103"
+        let aSigner = TBDeterministicTestSigner(secret: Data("relay-a".utf8))
+        let bSigner = TBDeterministicTestSigner(secret: Data("relay-b".utf8))
+        let cSigner = TBDeterministicTestSigner(secret: Data("relay-c".utf8))
+        let aEvent = makeEnvelope(deviceID: aID, sequence: 1)
+        let bEvent = makeEnvelope(deviceID: bID, sequence: 1)
+        let signedA = try TBSignedSyncEvent.sign(envelope: aEvent, signerDeviceID: aID, signer: aSigner)
+        let bLog = try makeLog(deviceID: bID, seed: [aEvent, bEvent])
+        let cLog = try makeLog(deviceID: cID, seed: [])
+        let bSignedStore = InMemorySignedSyncEventStore([signedA])
+        let cSignedStore = InMemorySignedSyncEventStore()
+
+        let bIdentity = TBSyncDevicePublicIdentity(deviceID: bID, displayName: "B", platform: "macOS", signingPublicKey: bSigner.publicKey)
+        let cIdentity = TBSyncDevicePublicIdentity(deviceID: cID, displayName: "C", platform: "macOS", signingPublicKey: cSigner.publicKey)
+        let bPeerStore = TBInMemoryTrustedPeerStore(records: [
+            peerRecord(deviceID: aID, displayName: "A", signingPublicKey: aSigner.publicKey),
+            peerRecord(deviceID: cID, displayName: "C", signingPublicKey: cSigner.publicKey),
+        ])
+        let cPeerStore = TBInMemoryTrustedPeerStore(records: [
+            peerRecord(deviceID: aID, displayName: "A", signingPublicKey: aSigner.publicKey),
+            peerRecord(deviceID: bID, displayName: "B", signingPublicKey: bSigner.publicKey),
+        ])
+        let bContext = try TBAuthenticatedPeerContextBuilder.build(localIdentity: bIdentity,
+                                                                   peerDeviceID: cID,
+                                                                   peerStore: bPeerStore,
+                                                                   capabilities: ["encrypted-lan", "signed-events"])
+        let cContext = try TBAuthenticatedPeerContextBuilder.build(localIdentity: cIdentity,
+                                                                   peerDeviceID: bID,
+                                                                   peerStore: cPeerStore,
+                                                                   capabilities: ["encrypted-lan", "signed-events"])
+        let key = try TBSessionKeyMaterial.fixedTestKey(Data(repeating: 8, count: 32), keyID: "relay-test")
+        let bSession = TBSyncSessionCryptoBox(context: bContext,
+                                             keyMaterial: key,
+                                             localRole: .initiator,
+                                             localNonceSeed: Data(repeating: 5, count: 32),
+                                             peerNonceSeed: Data(repeating: 6, count: 32))
+        let cSession = TBSyncSessionCryptoBox(context: cContext,
+                                             keyMaterial: key,
+                                             localRole: .responder,
+                                             localNonceSeed: Data(repeating: 6, count: 32),
+                                             peerNonceSeed: Data(repeating: 5, count: 32))
+        let bFacade = TBSyncEventLogFacade(eventLog: bLog)
+        let cFacade = TBSyncEventLogFacade(eventLog: cLog)
+        let cImporter = TBSignedSyncEventTrustedImporter(peerStore: cPeerStore,
+                                                        verifier: cSigner,
+                                                        sink: cFacade,
+                                                        signedEventStore: cSignedStore)
+        let bEngine = TBAntiEntropySyncEngine(session: bSession,
+                                             eventLog: bFacade,
+                                             signerDeviceID: bID,
+                                             signer: bSigner,
+                                             trustedImporter: TBSignedSyncEventTrustedImporter(peerStore: bPeerStore,
+                                                                                              verifier: bSigner,
+                                                                                              sink: bFacade,
+                                                                                              signedEventStore: bSignedStore),
+                                             signedEventStore: bSignedStore)
+        let cEngine = TBAntiEntropySyncEngine(session: cSession,
+                                             eventLog: cFacade,
+                                             signerDeviceID: cID,
+                                             signer: cSigner,
+                                             trustedImporter: cImporter,
+                                             signedEventStore: cSignedStore)
+
+        let summaries = try bEngine.beginSync().outgoingMessages.map { try cSession.open($0) }
+        let advertised = summaries.compactMap { envelope -> Tomatt_Sync_V1_EventSummary? in
+            if case .eventSummary(let summary)? = envelope.payload { return summary }
+            return nil
+        }
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: advertised.map { ($0.deviceID, Int64($0.eventCount)) }), [aID: 1, bID: 1])
+
+        let requestA = try sealMissingRequest(from: cSession, deviceID: aID, afterSequence: 0, messageID: "request-a")
+        let batchResult = bEngine.receive(requestA)
+        let openedBatch = try XCTUnwrap(batchResult.outgoingMessages.first.map { try cSession.open($0) })
+        guard case .eventBatch(let batch)? = openedBatch.payload else { return XCTFail("expected A-origin batch") }
+        let relayedSignedA = try XCTUnwrap(batch.events.first.map { try JSONDecoder().decode(TBSignedSyncEvent.self, from: $0.canonicalJson) })
+        XCTAssertEqual(relayedSignedA.signerDeviceID, aID)
+        XCTAssertEqual(relayedSignedA.signature, signedA.signature)
+
+        let firstImport = cEngine.receive(batchResult.outgoingMessages[0])
+        XCTAssertTrue(firstImport.statuses.contains { status in
+            if case .eventBatchImported(_, let outcome) = status { return outcome.imported == 1 }
+            return false
+        })
+        let duplicateRequestA = try sealMissingRequest(from: cSession,
+                                                       deviceID: aID,
+                                                       afterSequence: 0,
+                                                       messageID: "request-a-duplicate")
+        let duplicateBatchResult = bEngine.receive(duplicateRequestA)
+        let duplicateImport = cEngine.receive(duplicateBatchResult.outgoingMessages[0])
+        XCTAssertTrue(duplicateImport.statuses.contains { status in
+            if case .eventBatchImported(_, let outcome) = status { return outcome.duplicate == 1 && outcome.imported == 0 }
+            return false
+        })
+        XCTAssertEqual(cLog.syncSummary()[aID], 1)
     }
 
     func testLocalOnlyActiveTimerSnapshotsAreNotExported() throws {
@@ -156,6 +257,19 @@ final class AntiEntropySyncEngineTests: XCTestCase {
         XCTAssertTrue(statuses.contains(.newEventsAvailable(deviceID: fixture.aID, eventCount: 1)))
     }
 
+    func testFullBatchRequestsBacklogContinuationAfterWatermarkAdvances() throws {
+        let fixture = try makeFixture(seedA: [
+            makeEnvelope(deviceID: "00000000-0000-0000-0000-000000000101", sequence: 1),
+            makeEnvelope(deviceID: "00000000-0000-0000-0000-000000000101", sequence: 2),
+            makeEnvelope(deviceID: "00000000-0000-0000-0000-000000000101", sequence: 3),
+        ], batchLimit: 2)
+
+        let statuses = drain(fixture, initialMessages: fixture.aPeer.beginSync())
+
+        XCTAssertEqual(fixture.bLog.syncSummary()[fixture.aID], 3)
+        XCTAssertTrue(statuses.contains(.missingEventsRequested(deviceID: fixture.aID, afterSequence: 2)))
+    }
+
     func testEventBatchAckContainsAcceptedStatus() throws {
         let fixture = try makeFixture(seedA: [makeEnvelope(deviceID: "00000000-0000-0000-0000-000000000101", sequence: 1)])
         let request = try sealMissingRequest(from: fixture.bSession,
@@ -209,7 +323,9 @@ final class AntiEntropySyncEngineTests: XCTestCase {
         }
     }
 
-    private func makeFixture(seedA: [TBEventEnvelope] = [], seedB: [TBEventEnvelope] = []) throws -> Fixture {
+    private func makeFixture(seedA: [TBEventEnvelope] = [],
+                             seedB: [TBEventEnvelope] = [],
+                             batchLimit: Int = 250) throws -> Fixture {
         let aID = "00000000-0000-0000-0000-000000000101"
         let bID = "00000000-0000-0000-0000-000000000102"
         let aSigner = TBDeterministicTestSigner(secret: Data("engine-a".utf8))
@@ -247,18 +363,24 @@ final class AntiEntropySyncEngineTests: XCTestCase {
                                              peerNonceSeed: Data(repeating: 3, count: 32))
         let aFacade = TBSyncEventLogFacade(eventLog: aLog)
         let bFacade = TBSyncEventLogFacade(eventLog: bLog)
-        let aImporter = TBSignedSyncEventTrustedImporter(peerStore: aStore, verifier: bSigner, sink: aFacade)
-        let bImporter = TBSignedSyncEventTrustedImporter(peerStore: bStore, verifier: aSigner, sink: bFacade)
+        let aSignedStore = InMemorySignedSyncEventStore()
+        let bSignedStore = InMemorySignedSyncEventStore()
+        let aImporter = TBSignedSyncEventTrustedImporter(peerStore: aStore, verifier: bSigner, sink: aFacade, signedEventStore: aSignedStore)
+        let bImporter = TBSignedSyncEventTrustedImporter(peerStore: bStore, verifier: aSigner, sink: bFacade, signedEventStore: bSignedStore)
         let aEngine = TBAntiEntropySyncEngine(session: aSession,
-                                             eventLog: aFacade,
-                                             signerDeviceID: aID,
-                                             signer: aSigner,
-                                             trustedImporter: aImporter)
+                                              eventLog: aFacade,
+                                              signerDeviceID: aID,
+                                              signer: aSigner,
+                                              trustedImporter: aImporter,
+                                              signedEventStore: aSignedStore,
+                                              batchLimit: batchLimit)
         let bEngine = TBAntiEntropySyncEngine(session: bSession,
-                                             eventLog: bFacade,
-                                             signerDeviceID: bID,
-                                             signer: bSigner,
-                                             trustedImporter: bImporter)
+                                              eventLog: bFacade,
+                                              signerDeviceID: bID,
+                                              signer: bSigner,
+                                              trustedImporter: bImporter,
+                                              signedEventStore: bSignedStore,
+                                              batchLimit: batchLimit)
         return Fixture(aID: aID,
                        bID: bID,
                        aSigner: aSigner,
@@ -334,6 +456,48 @@ final class AntiEntropySyncEngineTests: XCTestCase {
 
     private func makeEnvelope(deviceID: String, sequence: Int64, value: Int) -> TBEventEnvelope {
         Self.makeEnvelope(deviceID: deviceID, sequence: sequence, value: value)
+    }
+
+    private func peerRecord(deviceID: String, displayName: String, signingPublicKey: Data) -> TBTrustedPeerRecord {
+        TBTrustedPeerRecord(deviceID: deviceID,
+                            displayName: displayName,
+                            platform: "macOS",
+                            signingPublicKey: signingPublicKey)
+    }
+
+    private final class InMemorySignedSyncEventStore: TBSignedSyncEventStoring {
+        private var eventsByID: [UUID: TBSignedSyncEvent] = [:]
+
+        init(_ events: [TBSignedSyncEvent] = []) {
+            for event in events { eventsByID[event.envelope.eventID] = event }
+        }
+
+        func saveSignedSyncEvent(_ event: TBSignedSyncEvent) throws {
+            eventsByID[event.envelope.eventID] = event
+        }
+
+        func signedSyncEvent(eventID: UUID) throws -> TBSignedSyncEvent? {
+            eventsByID[eventID]
+        }
+
+        func signedSyncEvent(originDeviceID: String, deviceSequence: Int64) throws -> TBSignedSyncEvent? {
+            try signedSyncEvents(originDeviceID: originDeviceID, sequenceRange: deviceSequence...deviceSequence).first
+        }
+
+        func signedSyncEvents(originDeviceID: String, sequenceRange: ClosedRange<Int64>) throws -> [TBSignedSyncEvent] {
+            eventsByID.values.filter { event in
+                event.envelope.originDeviceID == originDeviceID
+                    && event.envelope.deviceSequence.map { sequenceRange.contains($0) } == true
+            }.sorted { ($0.envelope.deviceSequence ?? 0) < ($1.envelope.deviceSequence ?? 0) }
+        }
+
+        func hasSignedMetadata(for envelope: TBEventEnvelope) throws -> Bool {
+            eventsByID[envelope.eventID] != nil
+        }
+
+        func exportSignedSyncEvents() throws -> [TBSignedSyncEvent] {
+            eventsByID.values.sorted { ($0.envelope.deviceSequence ?? 0) < ($1.envelope.deviceSequence ?? 0) }
+        }
     }
 
     private struct Fixture {

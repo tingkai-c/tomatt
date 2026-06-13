@@ -11,6 +11,69 @@ enum TBPairingRole: String, Codable, Equatable {
     case joinSyncGroup = "join-sync-group"
 }
 
+enum TBPairDeviceUserAction: String, Codable, Equatable {
+    case pairDevice = "pair-device"
+
+    var title: String { "Pair Device" }
+}
+
+struct TBPairDeviceFlowModel: Equatable {
+    let primaryAction: TBPairDeviceUserAction = .pairDevice
+    let internalRole: TBPairingRole
+
+    var primaryActionTitle: String { primaryAction.title }
+
+    /// G005 intentionally exposes one user-facing Pair Device flow. The
+    /// deterministic add/join split remains internal transcript state only.
+    var exposesTopLevelAddOrJoinActions: Bool { false }
+}
+
+struct TBPairingRuntimeFlowID: RawRepresentable, Hashable, Codable, Equatable {
+    let rawValue: String
+
+    init(rawValue: String) {
+        self.rawValue = rawValue
+    }
+
+    static func random() -> TBPairingRuntimeFlowID {
+        TBPairingRuntimeFlowID(rawValue: UUID().uuidString.lowercased())
+    }
+}
+
+enum TBPairingGroupState: Codable, Equatable {
+    case standalone
+    case grouped(groupID: String)
+}
+
+enum TBPairingGroupCompatibility: Equatable {
+    case createNewSyncGroup
+    case joinExistingGroup(groupID: String)
+    case sameGroup(groupID: String)
+}
+
+enum TBPairingGroupCompatibilityError: Error, Equatable {
+    case differentGroups(localGroupID: String, remoteGroupID: String, guidance: String)
+}
+
+enum TBPairingGroupCompatibilityRules {
+    static let resetGuidance = "Reset sync on one device before pairing devices that already belong to different Sync Groups."
+
+    static func evaluate(local: TBPairingGroupState, remote: TBPairingGroupState) throws -> TBPairingGroupCompatibility {
+        switch (local, remote) {
+        case (.standalone, .standalone):
+            return .createNewSyncGroup
+        case (.grouped(let groupID), .standalone), (.standalone, .grouped(let groupID)):
+            return .joinExistingGroup(groupID: groupID)
+        case (.grouped(let localGroupID), .grouped(let remoteGroupID)) where localGroupID == remoteGroupID:
+            return .sameGroup(groupID: localGroupID)
+        case (.grouped(let localGroupID), .grouped(let remoteGroupID)):
+            throw TBPairingGroupCompatibilityError.differentGroups(localGroupID: localGroupID,
+                                                                   remoteGroupID: remoteGroupID,
+                                                                   guidance: resetGuidance)
+        }
+    }
+}
+
 struct TBPairingIdleDeclaration: Codable, Equatable {
     var isIdle: Bool
     var declaredAt: Date
@@ -65,6 +128,7 @@ struct TBPairingTranscriptParticipant: Codable, Equatable {
     var endpoint: TBPairingEndpointMetadata
     var idle: TBPairingIdleDeclaration
     var capabilities: [String]
+    var groupState: TBPairingGroupState
 }
 
 struct TBPairingTranscript: Codable, Equatable {
@@ -89,7 +153,8 @@ struct TBPairingTranscript: Codable, Equatable {
             joinSyncGroupParticipant: CanonicalParticipant(joinSyncGroupParticipant),
             timestamp: Self.iso8601(timestamp),
             sessionNonceBase64: sessionNonce.base64EncodedString(),
-            capabilities: capabilities.sorted()
+            capabilities: capabilities.sorted(),
+            groupCompatibility: try Self.canonicalGroupCompatibility(local: local.groupState, remote: remote.groupState)
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -106,6 +171,17 @@ struct TBPairingTranscript: Codable, Equatable {
         return formatter.string(from: date)
     }
 
+    private static func canonicalGroupCompatibility(local: TBPairingGroupState, remote: TBPairingGroupState) throws -> String {
+        switch try TBPairingGroupCompatibilityRules.evaluate(local: local, remote: remote) {
+        case .createNewSyncGroup:
+            return "create-new-sync-group"
+        case .joinExistingGroup(let groupID):
+            return "join-existing-group:\(groupID)"
+        case .sameGroup(let groupID):
+            return "same-group:\(groupID)"
+        }
+    }
+
     private var addDeviceParticipant: TBPairingTranscriptParticipant {
         role == .addDevice ? local : remote
     }
@@ -113,6 +189,14 @@ struct TBPairingTranscript: Codable, Equatable {
     private var joinSyncGroupParticipant: TBPairingTranscriptParticipant {
         role == .addDevice ? remote : local
     }
+
+    var localSessionRole: TBSyncSessionRole {
+        role == .addDevice ? .initiator : .responder
+    }
+
+    var addDevicePublicKeyForKeyID: Data { addDeviceParticipant.ephemeralPairingPublicKey }
+
+    var joinSyncGroupPublicKeyForKeyID: Data { joinSyncGroupParticipant.ephemeralPairingPublicKey }
 
     private struct CanonicalTranscript: Encodable {
         let canonicalVersion: Int
@@ -122,6 +206,7 @@ struct TBPairingTranscript: Codable, Equatable {
         let timestamp: String
         let sessionNonceBase64: String
         let capabilities: [String]
+        let groupCompatibility: String
     }
 
     private struct CanonicalParticipant: Encodable {
@@ -134,6 +219,7 @@ struct TBPairingTranscript: Codable, Equatable {
         let endpoint: CanonicalEndpoint
         let idle: CanonicalIdle
         let capabilities: [String]
+        let groupState: CanonicalGroupState
 
         init(_ participant: TBPairingTranscriptParticipant) {
             deviceID = participant.deviceID
@@ -145,6 +231,23 @@ struct TBPairingTranscript: Codable, Equatable {
             endpoint = CanonicalEndpoint(participant.endpoint)
             idle = CanonicalIdle(participant.idle)
             capabilities = participant.capabilities.sorted()
+            groupState = CanonicalGroupState(participant.groupState)
+        }
+    }
+
+    private struct CanonicalGroupState: Encodable {
+        let kind: String
+        let groupID: String?
+
+        init(_ state: TBPairingGroupState) {
+            switch state {
+            case .standalone:
+                kind = "standalone"
+                groupID = nil
+            case .grouped(let groupID):
+                kind = "grouped"
+                self.groupID = groupID
+            }
         }
     }
 
@@ -183,6 +286,73 @@ enum TBPairingVerificationCode {
         let first31Bits = (UInt32(digest[0]) << 24 | UInt32(digest[1]) << 16 | UInt32(digest[2]) << 8 | UInt32(digest[3])) & 0x7fff_ffff
         return String(format: "%06u", first31Bits % 1_000_000)
     }
+}
+
+struct TBPairingEphemeralKeyPair {
+    private let privateKey: P256.KeyAgreement.PrivateKey
+
+    var publicKey: Data { privateKey.publicKey.rawRepresentation }
+
+    init() {
+        privateKey = P256.KeyAgreement.PrivateKey()
+    }
+
+    init(rawPrivateKeyRepresentation: Data) throws {
+        privateKey = try P256.KeyAgreement.PrivateKey(rawRepresentation: rawPrivateKeyRepresentation)
+    }
+
+    func deriveSessionEstablishment(localTranscript: TBPairingTranscript) throws -> TBPairingSessionEstablishment {
+        guard publicKey == localTranscript.local.ephemeralPairingPublicKey else {
+            throw TBPairingKeyAgreementError.localPublicKeyMismatch
+        }
+        _ = try TBPairingGroupCompatibilityRules.evaluate(local: localTranscript.local.groupState,
+                                                          remote: localTranscript.remote.groupState)
+        let remotePublicKey = try P256.KeyAgreement.PublicKey(rawRepresentation: localTranscript.remote.ephemeralPairingPublicKey)
+        let sharedSecret = try privateKey.sharedSecretFromKeyAgreement(with: remotePublicKey)
+        let canonicalTranscript = try localTranscript.canonicalBytes()
+        let salt = SHA256.hash(data: canonicalTranscript)
+        let sessionKey = sharedSecret.hkdfDerivedSymmetricKey(using: SHA256.self,
+                                                              salt: Data(salt),
+                                                              sharedInfo: Data("tomatt-pairing-session-key-v1".utf8),
+                                                              outputByteCount: 32)
+        let initiatorNonceSeed = sharedSecret.hkdfDerivedData(salt: Data(salt),
+                                                              sharedInfo: Data("tomatt-pairing-initiator-nonce-v1".utf8),
+                                                              outputByteCount: 32)
+        let responderNonceSeed = sharedSecret.hkdfDerivedData(salt: Data(salt),
+                                                              sharedInfo: Data("tomatt-pairing-responder-nonce-v1".utf8),
+                                                              outputByteCount: 32)
+        let localNonceSeed = localTranscript.localSessionRole == .initiator ? initiatorNonceSeed : responderNonceSeed
+        let peerNonceSeed = localTranscript.localSessionRole == .initiator ? responderNonceSeed : initiatorNonceSeed
+        let keyIDMaterial = canonicalTranscript
+            + localTranscript.addDevicePublicKeyForKeyID
+            + localTranscript.joinSyncGroupPublicKeyForKeyID
+            + Data("tomatt-pairing-key-id-v1".utf8)
+        let keyID = "pairing-v1-" + Data(SHA256.hash(data: keyIDMaterial)).tbPairingHexString.prefixString(16)
+
+        return TBPairingSessionEstablishment(keyMaterial: TBSessionKeyMaterial(keyID: keyID, symmetricKey: sessionKey),
+                                             localRole: localTranscript.localSessionRole,
+                                             localNonceSeed: localNonceSeed,
+                                             peerNonceSeed: peerNonceSeed)
+    }
+}
+
+struct TBPairingSessionEstablishment {
+    let keyMaterial: TBSessionKeyMaterial
+    let localRole: TBSyncSessionRole
+    let localNonceSeed: Data
+    let peerNonceSeed: Data
+
+    func makeCryptoBox(context: TBAuthenticatedPeerContext) -> TBSyncSessionCryptoBox {
+        TBSyncSessionCryptoBox(context: context,
+                               keyMaterial: keyMaterial,
+                               localRole: localRole,
+                               localNonceSeed: localNonceSeed,
+                               peerNonceSeed: peerNonceSeed)
+    }
+}
+
+enum TBPairingKeyAgreementError: Error, Equatable {
+    case localPublicKeyMismatch
 }
 
 enum TBPairingSettingsSourceChoice: String, Codable, Equatable {
@@ -319,6 +489,10 @@ final class TBPairingSession {
         approvedPreview = nil
     }
 
+    var stagedSyncGroupID: String {
+        stagedCommit.syncGroupKey.groupID
+    }
+
     func retry(expiresAt: Date) -> TBPairingSession {
         TBPairingSession(transcript: transcript, stagedCommit: stagedCommit, expiresAt: expiresAt)
     }
@@ -336,4 +510,22 @@ final class TBPairingSession {
         guard local.isIdle else { throw TBPairingGateError.localNotIdle }
         guard remote.isIdle else { throw TBPairingGateError.remoteNotIdle }
     }
+}
+
+private extension SharedSecret {
+    func hkdfDerivedData(salt: Data, sharedInfo: Data, outputByteCount: Int) -> Data {
+        let key = hkdfDerivedSymmetricKey(using: SHA256.self,
+                                          salt: salt,
+                                          sharedInfo: sharedInfo,
+                                          outputByteCount: outputByteCount)
+        return key.withUnsafeBytes { Data($0) }
+    }
+}
+
+private extension Data {
+    var tbPairingHexString: String { map { String(format: "%02x", $0) }.joined() }
+}
+
+private extension String {
+    func prefixString(_ count: Int) -> String { String(prefix(count)) }
 }

@@ -96,7 +96,10 @@ private extension AppSettings.PaneIdentifier {
 }
 
 class TBStatusItem: NSObject, NSApplicationDelegate {
-    let timer = TBTimer()
+    private let eventLog = TBLocalEventLog()
+    lazy var timer = TBTimer(eventLog: eventLog)
+    lazy var syncService = TBSyncService(dependencies: TBSyncService.defaultDependencies(eventLog: eventLog,
+                                                                                         timerSyncRefresher: timer))
     let appearanceController = TBAppearanceController()
     private var popupController: TBMenuBarPopupController?
     private var statusBarItem: NSStatusItem?
@@ -220,7 +223,7 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
                     title: NSLocalizedString("SettingsWindow.sync.tab", comment: "Sync settings tab"),
                     toolbarIcon: toolbarIcon(systemName: "arrow.triangle.2.circlepath")
                 ) {
-                    SyncSettingsView()
+                    SyncSettingsView(service: syncService)
                 },
                 AppSettings.Pane(
                     identifier: .general,

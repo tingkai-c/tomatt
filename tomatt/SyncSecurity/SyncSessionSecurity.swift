@@ -60,6 +60,8 @@ struct TBSessionKeyMaterial {
     let keyID: String
     let symmetricKey: SymmetricKey
 
+    var rawKeyData: Data { symmetricKey.withUnsafeBytes { Data($0) } }
+
     init(keyID: String, symmetricKey: SymmetricKey) {
         self.keyID = keyID
         self.symmetricKey = symmetricKey
@@ -68,6 +70,149 @@ struct TBSessionKeyMaterial {
     static func fixedTestKey(_ data: Data, keyID: String = "fixed-test") throws -> TBSessionKeyMaterial {
         guard data.count == 32 else { throw TBSyncSessionError.unsupportedKeyMaterial }
         return TBSessionKeyMaterial(keyID: keyID, symmetricKey: SymmetricKey(data: data))
+    }
+}
+
+enum TBReconnectSessionHydrationError: Error, Equatable {
+    case pairingRequired(String)
+    case resetRequired(String)
+    case unpairedPeer(String)
+    case removedPeer(String)
+    case wrongGroup(String)
+    case missingSyncGroupKey(String)
+    case retiredSyncGroupKey(String)
+    case invalidHello(String)
+}
+
+struct TBReconnectSessionHydrationResult {
+    let context: TBAuthenticatedPeerContext
+    let keyMaterial: TBSessionKeyMaterial
+    let localRole: TBSyncSessionRole
+    let localNonceSeed: Data
+    let peerNonceSeed: Data
+
+    func makeCryptoBox() -> TBSyncSessionCryptoBox {
+        TBSyncSessionCryptoBox(context: context,
+                               keyMaterial: keyMaterial,
+                               localRole: localRole,
+                               localNonceSeed: localNonceSeed,
+                               peerNonceSeed: peerNonceSeed)
+    }
+}
+
+enum TBReconnectSessionHydrator {
+    static func hydrate(localIdentity: TBSyncDevicePublicIdentity,
+                        localHello: Tomatt_Sync_V1_Hello,
+                        peerHello: Tomatt_Sync_V1_Hello,
+                        peerStore: TBTrustedPeerStoring,
+                        metadataStore: TBSyncGroupMetadataStoring,
+                        groupKeyStore: TBSyncGroupKeyStoring,
+                        protocolMajor: UInt32 = TomattSyncProtocolV1.supportedMajorVersion,
+                        protocolMinor: UInt32 = 0,
+                        capabilities: [String] = []) throws -> TBReconnectSessionHydrationResult {
+        guard localHello.deviceID == localIdentity.deviceID else { throw TBReconnectSessionHydrationError.invalidHello("local.device_id") }
+        try validateHello(localHello, fieldPrefix: "local")
+        try validateHello(peerHello, fieldPrefix: "peer")
+        guard localHello.sessionRole != peerHello.sessionRole else {
+            throw TBReconnectSessionHydrationError.invalidHello("duplicate session_role")
+        }
+        guard localHello.sessionKeyID == peerHello.sessionKeyID else {
+            throw TBReconnectSessionHydrationError.invalidHello("session_key_id mismatch")
+        }
+        guard localHello.syncGroupID == peerHello.syncGroupID else {
+            throw TBReconnectSessionHydrationError.wrongGroup("hello sync_group_id mismatch")
+        }
+
+        let activeGroups = try metadataStore.loadActiveSyncGroupMetadata()
+        guard !activeGroups.isEmpty else { throw TBReconnectSessionHydrationError.pairingRequired("missing active sync group") }
+        guard activeGroups.count == 1 else { throw TBReconnectSessionHydrationError.resetRequired("multiple active sync groups") }
+        let metadata = activeGroups[0]
+        guard metadata.groupID == localHello.syncGroupID else {
+            throw TBReconnectSessionHydrationError.wrongGroup("hello sync_group_id is not the active sync group")
+        }
+        guard let syncGroupKey = try groupKeyStore.loadSyncGroupKey(groupID: metadata.groupID),
+              syncGroupKey.keyID == metadata.keyID else {
+            throw TBReconnectSessionHydrationError.missingSyncGroupKey(metadata.groupID)
+        }
+        guard syncGroupKey.isUsableForLANSync else {
+            throw TBReconnectSessionHydrationError.retiredSyncGroupKey(syncGroupKey.keyID)
+        }
+        guard let peer = try peerStore.trustedPeer(deviceID: peerHello.deviceID) else {
+            throw TBReconnectSessionHydrationError.unpairedPeer(peerHello.deviceID)
+        }
+        guard !peer.isRemoved else { throw TBReconnectSessionHydrationError.removedPeer(peerHello.deviceID) }
+
+        let context = TBAuthenticatedPeerContext(localDeviceID: localIdentity.deviceID,
+                                                 localSigningKeyFingerprint: localIdentity.signingKeyFingerprint,
+                                                 peerDeviceID: peer.deviceID,
+                                                 peerSigningKeyFingerprint: peer.signingKeyFingerprint,
+                                                 protocolMajor: protocolMajor,
+                                                 protocolMinor: protocolMinor,
+                                                 capabilities: capabilities.sorted())
+        let keyMaterial = deriveKeyMaterial(localDeviceID: localIdentity.deviceID,
+                                            peerDeviceID: peer.deviceID,
+                                            localHello: localHello,
+                                            peerHello: peerHello,
+                                            syncGroupKey: syncGroupKey)
+        return TBReconnectSessionHydrationResult(context: context,
+                                                 keyMaterial: keyMaterial,
+                                                 localRole: syncRole(from: localHello.sessionRole)!,
+                                                 localNonceSeed: localHello.sessionNonceSeed,
+                                                 peerNonceSeed: peerHello.sessionNonceSeed)
+    }
+
+    private static func validateHello(_ hello: Tomatt_Sync_V1_Hello, fieldPrefix: String) throws {
+        guard TomattSyncProtocolV1.isCompatibleHello(hello) else {
+            throw TBReconnectSessionHydrationError.invalidHello("\(fieldPrefix).protocol_version")
+        }
+        guard TomattSyncProtocolV1.isCanonicalLowercaseUUIDString(hello.deviceID) else {
+            throw TBReconnectSessionHydrationError.invalidHello("\(fieldPrefix).device_id")
+        }
+        guard !hello.sessionKeyID.isEmpty else { throw TBReconnectSessionHydrationError.invalidHello("\(fieldPrefix).session_key_id") }
+        guard hello.sessionNonceSeed.count == 32 else { throw TBReconnectSessionHydrationError.invalidHello("\(fieldPrefix).session_nonce_seed") }
+        guard syncRole(from: hello.sessionRole) != nil else { throw TBReconnectSessionHydrationError.invalidHello("\(fieldPrefix).session_role") }
+        guard !hello.syncGroupID.isEmpty else { throw TBReconnectSessionHydrationError.invalidHello("\(fieldPrefix).sync_group_id") }
+    }
+
+    private static func deriveKeyMaterial(localDeviceID: String,
+                                          peerDeviceID: String,
+                                          localHello: Tomatt_Sync_V1_Hello,
+                                          peerHello: Tomatt_Sync_V1_Hello,
+                                          syncGroupKey: TBSyncGroupKeyRecord) -> TBSessionKeyMaterial {
+        let orderedIDs = [localDeviceID, peerDeviceID].sorted()
+        let initiatorNonce = localHello.sessionRole == .initiator ? localHello.sessionNonceSeed : peerHello.sessionNonceSeed
+        let responderNonce = localHello.sessionRole == .responder ? localHello.sessionNonceSeed : peerHello.sessionNonceSeed
+        let salt = Data("tomatt.lan.session.v1.salt".utf8)
+            + Data(syncGroupKey.groupID.utf8)
+            + Data(orderedIDs[0].utf8)
+            + Data(orderedIDs[1].utf8)
+            + initiatorNonce
+            + responderNonce
+        let info = Data("tomatt.lan.session.v1.key".utf8)
+            + Data(syncGroupKey.keyID.utf8)
+            + Data(localHello.sessionKeyID.utf8)
+        let derivedKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: SymmetricKey(data: syncGroupKey.secret),
+                                                salt: salt,
+                                                info: info,
+                                                outputByteCount: 32)
+        let keyIDMaterial = Data("tomatt.lan.session.v1.keyid".utf8)
+            + Data(syncGroupKey.groupID.utf8)
+            + Data(syncGroupKey.keyID.utf8)
+            + Data(localHello.sessionKeyID.utf8)
+            + Data(orderedIDs[0].utf8)
+            + Data(orderedIDs[1].utf8)
+            + initiatorNonce
+            + responderNonce
+        return TBSessionKeyMaterial(keyID: Data(SHA256.hash(data: keyIDMaterial)).tbSessionHexString,
+                                    symmetricKey: derivedKey)
+    }
+
+    private static func syncRole(from protoRole: Tomatt_Sync_V1_Hello.SessionRole) -> TBSyncSessionRole? {
+        switch protoRole {
+        case .initiator: return .initiator
+        case .responder: return .responder
+        default: return nil
+        }
     }
 }
 

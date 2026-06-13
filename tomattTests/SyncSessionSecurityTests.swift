@@ -21,6 +21,56 @@ final class SyncSessionSecurityTests: XCTestCase {
         XCTAssertEqual(opened.ping.nonce, "nonce-1")
     }
 
+    func testPairingDerivedSessionMaterialMatchesAndSealsOpens() throws {
+        let initiatorID = "00000000-0000-0000-0000-000000000101"
+        let responderID = "00000000-0000-0000-0000-000000000102"
+        let initiatorSigner = TBDeterministicTestSigner(secret: Data("initiator".utf8))
+        let responderSigner = TBDeterministicTestSigner(secret: Data("responder".utf8))
+        let initiatorKeyPair = try TBPairingEphemeralKeyPair(rawPrivateKeyRepresentation: Data(repeating: 1, count: 32))
+        let responderKeyPair = try TBPairingEphemeralKeyPair(rawPrivateKeyRepresentation: Data(repeating: 2, count: 32))
+        let initiatorTranscript = makePairingTranscript(localDeviceID: initiatorID,
+                                                        remoteDeviceID: responderID,
+                                                        role: .addDevice,
+                                                        localEphemeralPublicKey: initiatorKeyPair.publicKey,
+                                                        remoteEphemeralPublicKey: responderKeyPair.publicKey,
+                                                        localSigningPublicKey: initiatorSigner.publicKey,
+                                                        remoteSigningPublicKey: responderSigner.publicKey)
+        let responderTranscript = makePairingTranscript(localDeviceID: responderID,
+                                                        remoteDeviceID: initiatorID,
+                                                        role: .joinSyncGroup,
+                                                        localEphemeralPublicKey: responderKeyPair.publicKey,
+                                                        remoteEphemeralPublicKey: initiatorKeyPair.publicKey,
+                                                        localSigningPublicKey: responderSigner.publicKey,
+                                                        remoteSigningPublicKey: initiatorSigner.publicKey)
+
+        XCTAssertEqual(try initiatorTranscript.verificationCode(), try responderTranscript.verificationCode())
+        let initiatorEstablishment = try initiatorKeyPair.deriveSessionEstablishment(localTranscript: initiatorTranscript)
+        let responderEstablishment = try responderKeyPair.deriveSessionEstablishment(localTranscript: responderTranscript)
+        XCTAssertEqual(initiatorEstablishment.keyMaterial.keyID, responderEstablishment.keyMaterial.keyID)
+        XCTAssertEqual(initiatorEstablishment.localNonceSeed, responderEstablishment.peerNonceSeed)
+        XCTAssertEqual(initiatorEstablishment.peerNonceSeed, responderEstablishment.localNonceSeed)
+
+        let initiatorContext = try makeAuthenticatedContext(localID: initiatorID,
+                                                            localName: "Initiator",
+                                                            localSigner: initiatorSigner,
+                                                            peerID: responderID,
+                                                            peerName: "Responder",
+                                                            peerSigner: responderSigner)
+        let responderContext = try makeAuthenticatedContext(localID: responderID,
+                                                            localName: "Responder",
+                                                            localSigner: responderSigner,
+                                                            peerID: initiatorID,
+                                                            peerName: "Initiator",
+                                                            peerSigner: initiatorSigner)
+        let initiatorSession = initiatorEstablishment.makeCryptoBox(context: initiatorContext)
+        let responderSession = responderEstablishment.makeCryptoBox(context: responderContext)
+        let encrypted = try initiatorSession.seal(envelope: LANControlEnvelopeFactory.ping(messageID: "paired", nonce: "nonce"))
+        let opened = try responderSession.open(encrypted)
+
+        XCTAssertEqual(opened.messageID, "paired")
+        XCTAssertEqual(opened.ping.nonce, "nonce")
+    }
+
     func testTamperedCiphertextOrTagRejected() throws {
         let fixture = try makeFixture()
         var encrypted = try fixture.initiatorSession.seal(envelope: LANControlEnvelopeFactory.ping(messageID: "p", nonce: "n"))
@@ -112,6 +162,138 @@ final class SyncSessionSecurityTests: XCTestCase {
                                                                          peerDeviceID: "00000000-0000-0000-0000-000000000102",
                                                                          peerStore: store)) { error in
             XCTAssertEqual(error as? TBSyncSessionError, .removedPeer("00000000-0000-0000-0000-000000000102"))
+        }
+    }
+
+    func testReconnectHKDFVectorMatchesBothDirectionsAndImportedKeyUsable() throws {
+        let localSigner = TBDeterministicTestSigner(secret: Data("local".utf8))
+        let peerSigner = TBDeterministicTestSigner(secret: Data("peer".utf8))
+        let local = TBSyncDevicePublicIdentity(deviceID: "00000000-0000-0000-0000-000000000201",
+                                               displayName: "Local",
+                                               platform: "macOS",
+                                               signingPublicKey: localSigner.publicKey)
+        let peerID = "00000000-0000-0000-0000-000000000202"
+        let peerStore = TBInMemoryTrustedPeerStore(records: [TBTrustedPeerRecord(deviceID: peerID,
+                                                                                  displayName: "Peer",
+                                                                                  platform: "macOS",
+                                                                                  signingPublicKey: peerSigner.publicKey)])
+        let peerIdentity = TBSyncDevicePublicIdentity(deviceID: peerID,
+                                                      displayName: "Peer",
+                                                      platform: "macOS",
+                                                      signingPublicKey: peerSigner.publicKey)
+        let reversePeerStore = TBInMemoryTrustedPeerStore(records: [TBTrustedPeerRecord(deviceID: local.deviceID,
+                                                                                         displayName: "Local",
+                                                                                         platform: "macOS",
+                                                                                         signingPublicKey: localSigner.publicKey)])
+        let metadataStore = TBInMemorySyncGroupMetadataStore()
+        let groupKeyStore = TBInMemorySyncGroupKeyStore()
+        let groupKey = try TBSyncGroupKeyRecord.importExisting(groupID: "group-a",
+                                                               keyID: "key-a",
+                                                               secret: Data((0..<32).map { UInt8($0) }),
+                                                               createdAt: Date(timeIntervalSince1970: 1))
+        try metadataStore.saveSyncGroupMetadata(TBSyncGroupMetadataRecord(groupID: "group-a",
+                                                                          keyID: "key-a",
+                                                                          createdAt: groupKey.createdAt,
+                                                                          state: .active))
+        try groupKeyStore.saveSyncGroupKey(groupKey)
+        let localHello = makeResumeHello(deviceID: local.deviceID,
+                                         role: .initiator,
+                                         nonce: Data(repeating: 1, count: 32))
+        let peerHello = makeResumeHello(deviceID: peerID,
+                                        role: .responder,
+                                        nonce: Data(repeating: 2, count: 32))
+
+        let forward = try TBReconnectSessionHydrator.hydrate(localIdentity: local,
+                                                             localHello: localHello,
+                                                             peerHello: peerHello,
+                                                             peerStore: peerStore,
+                                                             metadataStore: metadataStore,
+                                                             groupKeyStore: groupKeyStore)
+        let reverse = try TBReconnectSessionHydrator.hydrate(localIdentity: peerIdentity,
+                                                             localHello: peerHello,
+                                                             peerHello: localHello,
+                                                             peerStore: reversePeerStore,
+                                                             metadataStore: metadataStore,
+                                                             groupKeyStore: groupKeyStore)
+
+        XCTAssertEqual(forward.keyMaterial.keyID, reverse.keyMaterial.keyID)
+        XCTAssertEqual(forward.keyMaterial.rawKeyData, reverse.keyMaterial.rawKeyData)
+        XCTAssertEqual(forward.keyMaterial.keyID, "7347637312aa7849206ce21a198f5e039b4e3e0907ab941063de48568bac4be4")
+        XCTAssertEqual(forward.keyMaterial.rawKeyData.map { String(format: "%02x", $0) }.joined(),
+                       "68defa787f0b8662878a1d1075238f8e80403d46504469eebe8dc061f3f83e45")
+        XCTAssertEqual(forward.localNonceSeed, reverse.peerNonceSeed)
+        XCTAssertEqual(forward.peerNonceSeed, reverse.localNonceSeed)
+    }
+
+    func testReconnectHydrationFailsClosedForMissingMultipleRetiredRemovedAndUnpaired() throws {
+        let signer = TBDeterministicTestSigner(secret: Data("local".utf8))
+        let peerSigner = TBDeterministicTestSigner(secret: Data("peer".utf8))
+        let local = TBSyncDevicePublicIdentity(deviceID: "00000000-0000-0000-0000-000000000211",
+                                               displayName: "Local",
+                                               platform: "macOS",
+                                               signingPublicKey: signer.publicKey)
+        let peerID = "00000000-0000-0000-0000-000000000212"
+        let localHello = makeResumeHello(deviceID: local.deviceID, role: .initiator, nonce: Data(repeating: 3, count: 32))
+        let peerHello = makeResumeHello(deviceID: peerID, role: .responder, nonce: Data(repeating: 4, count: 32))
+
+        XCTAssertThrowsError(try TBReconnectSessionHydrator.hydrate(localIdentity: local,
+                                                                    localHello: localHello,
+                                                                    peerHello: peerHello,
+                                                                    peerStore: TBInMemoryTrustedPeerStore(),
+                                                                    metadataStore: TBInMemorySyncGroupMetadataStore(),
+                                                                    groupKeyStore: TBInMemorySyncGroupKeyStore())) { error in
+            XCTAssertEqual(error as? TBReconnectSessionHydrationError, .pairingRequired("missing active sync group"))
+        }
+
+        let multipleMetadata = TBInMemorySyncGroupMetadataStore()
+        try multipleMetadata.saveSyncGroupMetadata(TBSyncGroupMetadataRecord(groupID: "group-a", keyID: "key-a", createdAt: Date(), state: .active))
+        try multipleMetadata.saveSyncGroupMetadata(TBSyncGroupMetadataRecord(groupID: "group-b", keyID: "key-b", createdAt: Date(), state: .active))
+        XCTAssertThrowsError(try TBReconnectSessionHydrator.hydrate(localIdentity: local,
+                                                                    localHello: localHello,
+                                                                    peerHello: peerHello,
+                                                                    peerStore: TBInMemoryTrustedPeerStore(),
+                                                                    metadataStore: multipleMetadata,
+                                                                    groupKeyStore: TBInMemorySyncGroupKeyStore())) { error in
+            XCTAssertEqual(error as? TBReconnectSessionHydrationError, .resetRequired("multiple active sync groups"))
+        }
+
+        let metadata = TBInMemorySyncGroupMetadataStore()
+        let keys = TBInMemorySyncGroupKeyStore()
+        try metadata.saveSyncGroupMetadata(TBSyncGroupMetadataRecord(groupID: "group-a", keyID: "key-a", createdAt: Date(), state: .active))
+        try keys.saveSyncGroupKey(TBSyncGroupKeyRecord(groupID: "group-a",
+                                                       keyID: "key-a",
+                                                       secret: Data(repeating: 9, count: 32),
+                                                       createdAt: Date(),
+                                                       state: .retired))
+        XCTAssertThrowsError(try TBReconnectSessionHydrator.hydrate(localIdentity: local,
+                                                                    localHello: localHello,
+                                                                    peerHello: peerHello,
+                                                                    peerStore: TBInMemoryTrustedPeerStore(records: [TBTrustedPeerRecord(deviceID: peerID, displayName: "Peer", platform: "macOS", signingPublicKey: peerSigner.publicKey)]),
+                                                                    metadataStore: metadata,
+                                                                    groupKeyStore: keys)) { error in
+            XCTAssertEqual(error as? TBReconnectSessionHydrationError, .retiredSyncGroupKey("key-a"))
+        }
+
+        try keys.saveSyncGroupKey(TBSyncGroupKeyRecord(groupID: "group-a",
+                                                       keyID: "key-a",
+                                                       secret: Data(repeating: 9, count: 32),
+                                                       createdAt: Date(),
+                                                       state: .active))
+        XCTAssertThrowsError(try TBReconnectSessionHydrator.hydrate(localIdentity: local,
+                                                                    localHello: localHello,
+                                                                    peerHello: peerHello,
+                                                                    peerStore: TBInMemoryTrustedPeerStore(),
+                                                                    metadataStore: metadata,
+                                                                    groupKeyStore: keys)) { error in
+            XCTAssertEqual(error as? TBReconnectSessionHydrationError, .unpairedPeer(peerID))
+        }
+        XCTAssertThrowsError(try TBReconnectSessionHydrator.hydrate(localIdentity: local,
+                                                                    localHello: localHello,
+                                                                    peerHello: peerHello,
+                                                                    peerStore: TBInMemoryTrustedPeerStore(records: [TBTrustedPeerRecord(deviceID: peerID, displayName: "Peer", platform: "macOS", signingPublicKey: peerSigner.publicKey, isRemoved: true)]),
+                                                                    metadataStore: metadata,
+                                                                    groupKeyStore: keys)) { error in
+            XCTAssertEqual(error as? TBReconnectSessionHydrationError, .removedPeer(peerID))
         }
     }
 
@@ -215,6 +397,21 @@ final class SyncSessionSecurityTests: XCTestCase {
                        responderSink: responderSink)
     }
 
+    private func makeResumeHello(deviceID: String,
+                                 role: Tomatt_Sync_V1_Hello.SessionRole,
+                                 nonce: Data,
+                                 groupID: String = "group-a") -> Tomatt_Sync_V1_Hello {
+        var hello = Tomatt_Sync_V1_Hello()
+        hello.deviceID = deviceID
+        hello.displayName = deviceID
+        hello.protocolMajor = TomattSyncProtocolV1.supportedMajorVersion
+        hello.sessionKeyID = "session-a"
+        hello.sessionNonceSeed = nonce
+        hello.sessionRole = role
+        hello.syncGroupID = groupID
+        return hello
+    }
+
     private func makeEnvelope(deviceID: String, sequence: Int64) -> TBEventEnvelope {
         TBEventEnvelope(eventID: TBSyncEventID.derive(originDeviceID: deviceID, deviceSequence: sequence),
                         streamID: "sync",
@@ -223,6 +420,78 @@ final class SyncSessionSecurityTests: XCTestCase {
                         deviceSequence: sequence,
                         recordedAt: Date(timeIntervalSince1970: 1_700_000_000),
                         event: .settingChanged(TBSettingChanged(key: .workDurationMinutes, value: .int(25))))
+    }
+
+    private func makeAuthenticatedContext(localID: String,
+                                          localName: String,
+                                          localSigner: TBDeterministicTestSigner,
+                                          peerID: String,
+                                          peerName: String,
+                                          peerSigner: TBDeterministicTestSigner) throws -> TBAuthenticatedPeerContext {
+        let identity = TBSyncDevicePublicIdentity(deviceID: localID,
+                                                  displayName: localName,
+                                                  platform: "macOS",
+                                                  signingPublicKey: localSigner.publicKey)
+        let store = TBInMemoryTrustedPeerStore(records: [TBTrustedPeerRecord(deviceID: peerID,
+                                                                              displayName: peerName,
+                                                                              platform: "macOS",
+                                                                              signingPublicKey: peerSigner.publicKey)])
+        return try TBAuthenticatedPeerContextBuilder.build(localIdentity: identity,
+                                                           peerDeviceID: peerID,
+                                                           peerStore: store,
+                                                           capabilities: ["encrypted-lan", "signed-events"])
+    }
+
+    private func makePairingTranscript(localDeviceID: String,
+                                       remoteDeviceID: String,
+                                       role: TBPairingRole,
+                                       localEphemeralPublicKey: Data,
+                                       remoteEphemeralPublicKey: Data,
+                                       localSigningPublicKey: Data,
+                                       remoteSigningPublicKey: Data) -> TBPairingTranscript {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        return TBPairingTranscript(protocolVersion: 1,
+                                   role: role,
+                                   local: makePairingParticipant(deviceID: localDeviceID,
+                                                                 displayName: role == .addDevice ? "Initiator" : "Responder",
+                                                                 ephemeralPublicKey: localEphemeralPublicKey,
+                                                                 signingPublicKey: localSigningPublicKey,
+                                                                 host: role == .addDevice ? "initiator.local" : "responder.local",
+                                                                 port: role == .addDevice ? 4040 : 4041,
+                                                                 date: date),
+                                   remote: makePairingParticipant(deviceID: remoteDeviceID,
+                                                                  displayName: role == .addDevice ? "Responder" : "Initiator",
+                                                                  ephemeralPublicKey: remoteEphemeralPublicKey,
+                                                                  signingPublicKey: remoteSigningPublicKey,
+                                                                  host: role == .addDevice ? "responder.local" : "initiator.local",
+                                                                  port: role == .addDevice ? 4041 : 4040,
+                                                                  date: date),
+                                   timestamp: date,
+                                   sessionNonce: Data("session-nonce-0001".utf8),
+                                   capabilities: ["pairing-v1", "preview-v1"])
+    }
+
+    private func makePairingParticipant(deviceID: String,
+                                        displayName: String,
+                                        ephemeralPublicKey: Data,
+                                        signingPublicKey: Data,
+                                        host: String,
+                                        port: Int,
+                                        date: Date) -> TBPairingTranscriptParticipant {
+        TBPairingTranscriptParticipant(deviceID: deviceID,
+                                       displayName: displayName,
+                                       platform: "macOS",
+                                       ephemeralPairingPublicKey: ephemeralPublicKey,
+                                       signingPublicKey: signingPublicKey,
+                                       ephemeralDiscoveryID: "disc-\(deviceID)",
+                                       endpoint: TBPairingEndpointMetadata(host: host,
+                                                                           port: port,
+                                                                           transport: "ws",
+                                                                           path: "/tomatt-sync",
+                                                                           metadata: ["source": "bonjour", "encoding": "protobuf"]),
+                                       idle: .idle(at: date),
+                                       capabilities: ["pairing-v1", "preview-v1"],
+                                       groupState: .standalone)
     }
 
     private struct Fixture {

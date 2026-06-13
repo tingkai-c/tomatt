@@ -23,3 +23,11 @@ _Avoid_: Nearby device, connected peer
 **Device Identity**:
 The stable identity of one app install on one device, used to distinguish who created sync events and which devices are trusted.
 _Avoid_: Account, user, session
+
+**Signed Sync Event**:
+A syncable event bound to its original creating device by a verifiable signature, so paired devices can relay it without claiming authorship.
+_Avoid_: Relayed event, forwarded event, peer copy
+
+**Pairing Address**:
+A user-provided LAN or private-overlay network address used to reach another tomatt device for pairing when automatic nearby-device discovery is unavailable.
+_Avoid_: Account address, relay address, cloud address

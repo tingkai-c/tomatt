@@ -1,13 +1,23 @@
 import SwiftUI
 
 struct SyncSettingsView: View {
-    @StateObject private var model = TBSyncSettingsModel()
+    @ObservedObject private var service: TBSyncService
+    @State private var addressHost = ""
+    @State private var addressPort = ""
+    @State private var manualAddressMessage: String?
+
+    init(service: TBSyncService) {
+        self.service = service
+    }
+
+    private var model: TBSyncSettingsModel { TBSyncSettingsModel(service: service) }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 syncModeSection
                 statusSection
+                networkSection
                 deviceSection
                 pairingSection
                 privacySection
@@ -38,10 +48,6 @@ struct SyncSettingsView: View {
                                     Text("Future/unavailable: Cloud Relay is not included in this build.")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
-                                } else if mode == .lanOnly && !model.capabilityGates.realLANTransportAvailable {
-                                    Text("Unavailable until real LAN server/client transport is productized.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
                                 }
                             }
                             Spacer()
@@ -68,11 +74,52 @@ struct SyncSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
+                if let correctionNotice = model.correctionNotice {
+                    Label(correctionNotice, systemImage: "arrow.triangle.2.circlepath.circle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let actionMessage = model.actionMessage {
+                    Text(actionMessage)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 Text(model.incompleteFeatureCopy)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(16)
+        }
+    }
+
+    private var networkSection: some View {
+        SyncSettingsSection(title: "Network") {
+            VStack(alignment: .leading, spacing: 12) {
+                deviceInfoRow(title: "Storage", value: model.storageHealthSummary)
+                deviceInfoRow(title: "Port", value: String(model.listenerPort))
+                Text(model.portOverrideCopy)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 10) {
+                    Button("Reset Sync…", role: .destructive) {
+                        _ = model.resetSync()
+                    }
+                    .disabled(!model.canResetSync)
+                    Spacer()
+                }
+                Text(model.resetSyncCopy)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.system(size: 13))
             .padding(16)
         }
     }
@@ -103,7 +150,7 @@ struct SyncSettingsView: View {
         SyncSettingsSection(title: "Paired Devices") {
             VStack(alignment: .leading, spacing: 14) {
                 if model.pairedDevices.isEmpty {
-                    Text("No paired devices yet. Add and Join are visible for setup, but disabled until real LAN transport is available.")
+                    Text("No paired devices yet. Use Pair Device for nearby devices or Pair by Address for LAN IP/Tailscale/hostname pairing.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -118,18 +165,73 @@ struct SyncSettingsView: View {
                     }
                 }
 
+                pairingFlowControls
+
                 HStack(spacing: 10) {
-                    Button(model.addDeviceButtonTitle) {}
+                    Button(model.pairDeviceButtonTitle) {
+                        _ = model.startPairDevice()
+                    }
                         .disabled(!model.areLANSetupActionsEnabled)
-                    Button(model.joinSyncGroupButtonTitle) {}
+                    Button(model.pairByAddressButtonTitle) {
+                        pairByAddress()
+                    }
                         .disabled(!model.areLANSetupActionsEnabled)
                     Spacer()
                 }
                 .help(model.capabilityGates.realLANTransportAvailable
-                      ? "Start secure pairing on the local network."
-                      : "Pairing setup is disabled until real LAN transport is productized.")
+                      ? "Start secure pairing on the local network or by address."
+                      : "Pairing setup is disabled because LAN transport is unavailable.")
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Pair by Address")
+                        .font(.system(size: 13, weight: .semibold))
+                    HStack(spacing: 8) {
+                        TextField("IP, Tailscale address, or hostname", text: $addressHost)
+                        TextField(String(model.listenerPort), text: $addressPort)
+                            .frame(width: 86)
+                    }
+                    Text("Uses the same verification, encryption, and preview flow as nearby-device pairing.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if let manualAddressMessage {
+                        Text(manualAddressMessage)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Text(model.removeDeviceCopy)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(16)
+        }
+    }
+
+    private var pairingFlowControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(model.activePairingFlows) { flow in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Pairing with \(flow.remoteDisplayName)")
+                        .font(.system(size: 13, weight: .semibold))
+                    if let code = flow.verificationCode {
+                        Text("Verification code: \(code)")
+                            .font(.system(.body, design: .monospaced))
+                        Button("Confirm Matching Code") {
+                            _ = model.confirmVerificationCode(flowID: flow.id)
+                        }
+                    }
+                    if let preview = flow.preview {
+                        Text(preview.settingsDiffer ? "Review settings before approving pairing." : "Preview ready. Local settings will be kept.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Approve Preview") {
+                            _ = model.approvePreview(flowID: flow.id, settingsSource: .keepLocal)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -143,7 +245,7 @@ struct SyncSettingsView: View {
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Button("Unpair") {
+            Button("Remove") {
                 model.unpairDevice(id: device.id)
             }
             .controlSize(.small)
@@ -167,6 +269,19 @@ struct SyncSettingsView: View {
     private func lastSeenText(_ date: Date?) -> String {
         guard let date else { return "Never seen" }
         return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
+    }
+
+    private func pairByAddress() {
+        switch model.manualEndpoint(host: addressHost, portText: addressPort) {
+        case .success(let endpoint):
+            let result = model.pairByAddress(host: endpoint.host, port: endpoint.port)
+            switch result {
+            case .started(let message), .blocked(let message), .reset(let message), .stopped(let message):
+                manualAddressMessage = message
+            }
+        case .failure(.message(let message)):
+            manualAddressMessage = message
+        }
     }
 }
 

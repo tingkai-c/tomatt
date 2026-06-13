@@ -44,6 +44,23 @@
 		F00100000000000000000005 /* SyncProtocolCompatibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* SyncProtocolCompatibilityTests.swift */; };
 		F0010000000000000000000E /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F0010000000000000000000D /* SwiftProtobuf */; };
 		F0010000000000000000000F /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F0010000000000000000000D /* SwiftProtobuf */; };
+		F01000000000000000000001 /* NIOCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0100000000000000000000B /* NIOCore */; };
+		F01000000000000000000002 /* NIOCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0100000000000000000000B /* NIOCore */; };
+		F01000000000000000000003 /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = F0100000000000000000000C /* NIOHTTP1 */; };
+		F01000000000000000000004 /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = F0100000000000000000000C /* NIOHTTP1 */; };
+		F01000000000000000000005 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = F0100000000000000000000D /* NIOPosix */; };
+		F01000000000000000000006 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = F0100000000000000000000D /* NIOPosix */; };
+		F01000000000000000000007 /* NIOWebSocket in Frameworks */ = {isa = PBXBuildFile; productRef = F0100000000000000000000E /* NIOWebSocket */; };
+		F01000000000000000000008 /* NIOWebSocket in Frameworks */ = {isa = PBXBuildFile; productRef = F0100000000000000000000E /* NIOWebSocket */; };
+		F01100000000000000000001 /* SyncRuntimeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01100000000000000000003 /* SyncRuntimeCoordinator.swift */; };
+		F01100000000000000000002 /* SyncRuntimeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01100000000000000000003 /* SyncRuntimeCoordinator.swift */; };
+		F01100000000000000000004 /* SyncRuntimeCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01100000000000000000005 /* SyncRuntimeCoordinatorTests.swift */; };
+		F01200000000000000000001 /* TBLANEncryptedSessionRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01200000000000000000003 /* TBLANEncryptedSessionRouter.swift */; };
+		F01200000000000000000002 /* TBLANEncryptedSessionRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01200000000000000000003 /* TBLANEncryptedSessionRouter.swift */; };
+		F01200000000000000000004 /* TBLANEncryptedSessionRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01200000000000000000005 /* TBLANEncryptedSessionRouterTests.swift */; };
+		F01300000000000000000001 /* SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01300000000000000000003 /* SyncService.swift */; };
+		F01300000000000000000002 /* SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01300000000000000000003 /* SyncService.swift */; };
+		F01300000000000000000004 /* SyncServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01300000000000000000005 /* SyncServiceTests.swift */; };
 		F00200000000000000000001 /* SyncCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000007 /* SyncCore.swift */; };
 		F00200000000000000000002 /* SyncCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000007 /* SyncCore.swift */; };
 		F00200000000000000000003 /* TomattSyncProtoMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000008 /* TomattSyncProtoMapper.swift */; };
@@ -128,6 +145,12 @@
 		F00900000000000000000004 /* SyncSettingsModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSettingsModel.swift; sourceTree = "<group>"; };
 		F00900000000000000000005 /* SyncSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSettingsView.swift; sourceTree = "<group>"; };
 		F00900000000000000000006 /* SyncSettingsModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSettingsModelTests.swift; sourceTree = "<group>"; };
+		F01100000000000000000003 /* SyncRuntimeCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncRuntimeCoordinator.swift; sourceTree = "<group>"; };
+		F01100000000000000000005 /* SyncRuntimeCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncRuntimeCoordinatorTests.swift; sourceTree = "<group>"; };
+		F01200000000000000000003 /* TBLANEncryptedSessionRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TBLANEncryptedSessionRouter.swift; sourceTree = "<group>"; };
+		F01200000000000000000005 /* TBLANEncryptedSessionRouterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TBLANEncryptedSessionRouterTests.swift; sourceTree = "<group>"; };
+		F01300000000000000000003 /* SyncService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncService.swift; sourceTree = "<group>"; };
+		F01300000000000000000005 /* SyncServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,6 +161,10 @@
 				57E5B41458275BC362B10EA5 /* Cocoa.framework in Frameworks */,
 				2BD256D799B7889555B3E09F /* SwiftState in Frameworks */,
 				F0010000000000000000000F /* SwiftProtobuf in Frameworks */,
+				F01000000000000000000002 /* NIOCore in Frameworks */,
+				F01000000000000000000004 /* NIOHTTP1 in Frameworks */,
+				F01000000000000000000006 /* NIOPosix in Frameworks */,
+				F01000000000000000000008 /* NIOWebSocket in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,6 +177,10 @@
 				8A8CFE402821D8C300F9F303 /* SwiftState in Frameworks */,
 				5E71A0012F00000100AA0001 /* Settings in Frameworks */,
 				F0010000000000000000000E /* SwiftProtobuf in Frameworks */,
+				F01000000000000000000001 /* NIOCore in Frameworks */,
+				F01000000000000000000003 /* NIOHTTP1 in Frameworks */,
+				F01000000000000000000005 /* NIOPosix in Frameworks */,
+				F01000000000000000000007 /* NIOWebSocket in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -208,6 +239,7 @@
 				F0020000000000000000000B /* SyncCore */,
 				F00100000000000000000009 /* SyncProtocol */,
 				F00300000000000000000006 /* SyncSecurity */,
+				F01300000000000000000006 /* SyncRuntime */,
 				F00900000000000000000008 /* SyncUI */,
 				8A21B78D27EE31A20009E5DB /* View.swift */,
 				9EB9405B2B07605900198AD2 /* MaskView.swift */,
@@ -243,6 +275,8 @@
 			isa = PBXGroup;
 			children = (
 				F00800000000000000000003 /* AntiEntropySyncEngine.swift */,
+				F01100000000000000000003 /* SyncRuntimeCoordinator.swift */,
+				F01200000000000000000003 /* TBLANEncryptedSessionRouter.swift */,
 				F00200000000000000000008 /* TomattSyncProtoMapper.swift */,
 				F00100000000000000000007 /* TomattSyncProtocolConventions.swift */,
 				F0010000000000000000000A /* Generated */,
@@ -300,12 +334,22 @@
 			path = SyncUI;
 			sourceTree = "<group>";
 		};
+		F01300000000000000000006 /* SyncRuntime */ = {
+			isa = PBXGroup;
+			children = (
+				F01300000000000000000003 /* SyncService.swift */,
+			);
+			path = SyncRuntime;
+			sourceTree = "<group>";
+		};
 		FF80B78CB02E1493D588E507 /* tomattTests */ = {
 			isa = PBXGroup;
 			children = (
 				1F9D7E295B6C4D3E8A9B0C1D /* EventCoreTests.swift */,
 				F00200000000000000000009 /* SyncCoreTests.swift */,
 				F00800000000000000000005 /* AntiEntropySyncEngineTests.swift */,
+				F01100000000000000000005 /* SyncRuntimeCoordinatorTests.swift */,
+				F01200000000000000000005 /* TBLANEncryptedSessionRouterTests.swift */,
 				F0020000000000000000000A /* SyncProtoMapperTests.swift */,
 				F00300000000000000000005 /* SyncSecurityTests.swift */,
 				F00600000000000000000005 /* SyncSessionSecurityTests.swift */,
@@ -313,6 +357,7 @@
 				F00500000000000000000005 /* PairingCoreTests.swift */,
 				F00100000000000000000008 /* SyncProtocolCompatibilityTests.swift */,
 				F00900000000000000000006 /* SyncSettingsModelTests.swift */,
+				F01300000000000000000005 /* SyncServiceTests.swift */,
 				388E3E479C6DCB4707993C61 /* StatsStoreTests.swift */,
 				4F7E2E1A36F23D870F4446B1 /* TimerCoreTests.swift */,
 			);
@@ -339,6 +384,10 @@
 			packageProductDependencies = (
 				8A8CFE3F2821D8C300F9F303 /* SwiftState */,
 				F0010000000000000000000D /* SwiftProtobuf */,
+				F0100000000000000000000B /* NIOCore */,
+				F0100000000000000000000C /* NIOHTTP1 */,
+				F0100000000000000000000D /* NIOPosix */,
+				F0100000000000000000000E /* NIOWebSocket */,
 			);
 			productName = tomattTests;
 			productReference = 9E155026319C29FA989179EC /* tomattTests.xctest */;
@@ -382,6 +431,10 @@
 				8A8CFE3F2821D8C300F9F303 /* SwiftState */,
 				5E71A0032F00000100AA0003 /* Settings */,
 				F0010000000000000000000D /* SwiftProtobuf */,
+				F0100000000000000000000B /* NIOCore */,
+				F0100000000000000000000C /* NIOHTTP1 */,
+				F0100000000000000000000D /* NIOPosix */,
+				F0100000000000000000000E /* NIOWebSocket */,
 			);
 			productName = tomatt;
 			productReference = 8A21B78827EE31A20009E5DB /* tomatt.app */;
@@ -419,6 +472,7 @@
 				8A8CFE3E2821D8C300F9F303 /* XCRemoteSwiftPackageReference "SwiftState" */,
 				5E71A0022F00000100AA0002 /* XCRemoteSwiftPackageReference "Settings" */,
 				F0010000000000000000000B /* XCRemoteSwiftPackageReference "swift-protobuf" */,
+				F0100000000000000000000A /* XCRemoteSwiftPackageReference "swift-nio" */,
 			);
 			productRefGroup = 8A21B78927EE31A20009E5DB /* Products */;
 			projectDirPath = "";
@@ -485,6 +539,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				F00900000000000000000002 /* SyncSettingsModel.swift in Sources */,
+				F01100000000000000000002 /* SyncRuntimeCoordinator.swift in Sources */,
+				F01200000000000000000002 /* TBLANEncryptedSessionRouter.swift in Sources */,
+				F01300000000000000000002 /* SyncService.swift in Sources */,
 				F00100000000000000000002 /* tomatt_sync.pb.swift in Sources */,
 				F00100000000000000000004 /* TomattSyncProtocolConventions.swift in Sources */,
 				F00200000000000000000002 /* SyncCore.swift in Sources */,
@@ -501,6 +558,8 @@
 				1F9D7E2C5B6C4D3E8A9B0C1D /* EventCoreTests.swift in Sources */,
 				F00200000000000000000005 /* SyncCoreTests.swift in Sources */,
 				F00800000000000000000004 /* AntiEntropySyncEngineTests.swift in Sources */,
+				F01100000000000000000004 /* SyncRuntimeCoordinatorTests.swift in Sources */,
+				F01200000000000000000004 /* TBLANEncryptedSessionRouterTests.swift in Sources */,
 				F00200000000000000000006 /* SyncProtoMapperTests.swift in Sources */,
 				F00300000000000000000003 /* SyncSecurityTests.swift in Sources */,
 				F00600000000000000000003 /* SyncSessionSecurityTests.swift in Sources */,
@@ -508,6 +567,7 @@
 				F00500000000000000000003 /* PairingCoreTests.swift in Sources */,
 				F00100000000000000000005 /* SyncProtocolCompatibilityTests.swift in Sources */,
 				F00900000000000000000007 /* SyncSettingsModelTests.swift in Sources */,
+				F01300000000000000000004 /* SyncServiceTests.swift in Sources */,
 				0B7DCF6E7688410D9EA5EC17 /* StatsStoreTests.swift in Sources */,
 				1F27E2E80EB0AA9B5F3B320A /* TimerCoreTests.swift in Sources */,
 			);
@@ -527,6 +587,9 @@
 			files = (
 				F00900000000000000000001 /* SyncSettingsModel.swift in Sources */,
 				F00900000000000000000003 /* SyncSettingsView.swift in Sources */,
+				F01100000000000000000001 /* SyncRuntimeCoordinator.swift in Sources */,
+				F01200000000000000000001 /* TBLANEncryptedSessionRouter.swift in Sources */,
+				F01300000000000000000001 /* SyncService.swift in Sources */,
 				8A9F701F27EE536D0012A1EC /* Player.swift in Sources */,
 				D51000022F10000100AA0002 /* DesignSystem.swift in Sources */,
 				1F9D7E2A5B6C4D3E8A9B0C1D /* EventCore.swift in Sources */,
@@ -920,6 +983,14 @@
 				version = 1.38.0;
 			};
 		};
+		F0100000000000000000000A /* XCRemoteSwiftPackageReference "swift-nio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.65.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -947,6 +1018,26 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F0010000000000000000000B /* XCRemoteSwiftPackageReference "swift-protobuf" */;
 			productName = SwiftProtobuf;
+		};
+		F0100000000000000000000B /* NIOCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0100000000000000000000A /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOCore;
+		};
+		F0100000000000000000000C /* NIOHTTP1 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0100000000000000000000A /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOHTTP1;
+		};
+		F0100000000000000000000D /* NIOPosix */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0100000000000000000000A /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOPosix;
+		};
+		F0100000000000000000000E /* NIOWebSocket */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0100000000000000000000A /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOWebSocket;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

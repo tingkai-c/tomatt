@@ -598,6 +598,75 @@ final class EventCoreTests: XCTestCase {
         XCTAssertEqual(first.projection, second.projection)
     }
 
+    @MainActor
+    func testTimerReloadAfterSyncPublishesCorrectionOnlyForVisibleTimerChange() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fileURL = directory.appendingPathComponent("events.jsonl")
+        let identity = TBDeviceIdentity(deviceID: "local", displayName: "Local", platform: "macOS")
+        let timerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
+        let timer = TBTimer(eventLog: timerLog)
+        let writerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
+        let sessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000801")!
+
+        _ = writerLog.importEvents([
+            timerStartEnvelope(origin: "peer", sequence: 1, sessionID: sessionID, startedAt: Date(timeIntervalSince1970: 100))
+        ])
+        timer.reloadFromEventLogAfterSync(trustedDeviceName: "Desk Mac")
+
+        XCTAssertEqual(timer.syncCorrectionNotice?.message, "Timer updated after syncing with Desk Mac.")
+    }
+
+    @MainActor
+    func testTimerReloadAfterSettingsOnlySyncDoesNotPublishCorrection() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fileURL = directory.appendingPathComponent("events.jsonl")
+        let identity = TBDeviceIdentity(deviceID: "local", displayName: "Local", platform: "macOS")
+        let timerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
+        let timer = TBTimer(eventLog: timerLog)
+        let writerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
+
+        _ = writerLog.importEvents([
+            syncEnvelope(origin: "peer",
+                         deviceSequence: 1,
+                         event: .settingChanged(TBSettingChanged(key: .pauseAfterRestFinish, value: .bool(true))))
+        ])
+        timer.reloadFromEventLogAfterSync(trustedDeviceName: "Desk Mac")
+
+        XCTAssertNil(timer.syncCorrectionNotice)
+        XCTAssertTrue(timer.pauseAfterRestFinish)
+    }
+
+    func testReloadFromStoreRefreshesStatsAndTimerProjection() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fileURL = directory.appendingPathComponent("events.jsonl")
+        let identity = TBDeviceIdentity(deviceID: "local", displayName: "Local", platform: "macOS")
+        let staleLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
+        let writerLog = TBLocalEventLog(store: TBJSONLEventStore(fileURL: fileURL), identity: identity)
+        let sessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000802")!
+        let startedAt = Date(timeIntervalSince1970: 100)
+        let stats = record(id: sessionID, startedAt: startedAt, activeDuration: 1_500, completion: .completed)
+
+        _ = writerLog.importEvents([
+            timerStartEnvelope(origin: "peer", sequence: 1, sessionID: sessionID, startedAt: startedAt),
+            syncEnvelope(origin: "peer", deviceSequence: 2, event: .statsRecordAppended(TBStatsRecordAppended(record: stats)))
+        ])
+        XCTAssertNil(staleLog.projection.timer)
+
+        staleLog.reloadFromStore()
+
+        XCTAssertEqual(staleLog.projection.timer?.sessionID, sessionID)
+        XCTAssertEqual(staleLog.projection.stats, [stats])
+    }
+
     private func envelope(eventID: UUID = UUID(),
                           sequence: Int64,
                           event: TBEvent) -> TBEventEnvelope {

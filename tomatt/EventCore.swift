@@ -560,6 +560,7 @@ final class TBLocalEventLog {
     private let store: TBJSONLEventStore
     private let identity: TBDeviceIdentity?
     private(set) var envelopes: [TBEventEnvelope]
+    var onLocalSyncableEventAppended: (() -> Void)?
 
     init(store: TBJSONLEventStore = TBJSONLEventStore(),
          identityStore: TBDeviceIdentityStoring = TBFileDeviceIdentityStore()) {
@@ -583,24 +584,31 @@ final class TBLocalEventLog {
         TBEventProjector.project(envelopes)
     }
 
-    func append(_ event: TBEvent) {
+    func reloadFromStore() {
         envelopes = (try? store.load()) ?? envelopes
+    }
+
+    func append(_ event: TBEvent) {
+        reloadFromStore()
         guard let envelope = TBEventEnvelopeFactory.makeLocal(event: event,
-                                                              existingEnvelopes: envelopes,
-                                                              identity: identity) else {
+                                                               existingEnvelopes: envelopes,
+                                                               identity: identity) else {
             print("cannot write syncable event without stable device identity")
             return
         }
         do {
             try store.append(envelope)
             envelopes = TBEventProjector.canonicalize(envelopes + [envelope])
+            if event.isSyncable {
+                onLocalSyncableEventAppended?()
+            }
         } catch {
             print("cannot write event: \(error)")
         }
     }
 
     func seedDefaultPresetsIfEmpty(_ presets: [NamedTimerPreset]) {
-        envelopes = (try? store.load()) ?? envelopes
+        reloadFromStore()
         guard TBEventProjector.project(envelopes).presets.isEmpty else { return }
         for preset in presets {
             append(.presetUpserted(TBPresetUpserted(preset: preset)))
@@ -619,7 +627,7 @@ final class TBLocalEventLog {
     }
 
     func importEvents(_ remoteEvents: [TBEventEnvelope]) -> TBImportResult {
-        envelopes = (try? store.load()) ?? envelopes
+        reloadFromStore()
         let existingIDs = Set(envelopes.map(\.eventID))
         var mergedEvents = envelopes
         let result = TBAntiEntropy.importEvents(remoteEvents, into: &mergedEvents)

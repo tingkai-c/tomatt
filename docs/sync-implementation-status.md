@@ -251,7 +251,7 @@ This pass implements the cross-platform LAN sync protocol, security model, pairi
 - Multi-hop relay of third-party-origin signed events is deferred until original signed-event metadata is retained for re-export; the current engine only advertises and exports events originated by its local signer device.
 - Keychain storage has production-facing protocols and a bounded Apple adapter boundary, but tests use in-memory stores.
 - Canonical event signing uses interim sorted-key JSON over existing event envelopes until the long-term Protobuf event payload model is finalized.
-- Cloud Relay, APNs, Android/Linux clients, Screen Time, manual IP pairing, and cryptographic revocation/key rotation remain out of scope.
+- Cloud Relay, APNs, Android/Linux clients, Screen Time, and cryptographic revocation/key rotation remain out of scope. Manual IP/Tailscale pairing is now planned for the next usable LAN sync pass.
 
 ### Verification before delivery
 
@@ -302,7 +302,7 @@ No local Xcode build, signing, notarization, packaging, or artifact build was ru
 - Stable `deviceId` values are not advertised through mDNS.
 - During explicit pairing/setup discovery, the service instance name may include the user-visible display name for easier selection.
 - Outside pairing/setup mode, advertisements should use a generic instance name and ephemeral discovery ID.
-- No manual IP/host fallback is planned for v1.
+- Manual IP/host/Tailscale fallback is planned for the next usable LAN sync pass through Pair by Address, using the same verified pairing and trust path as Bonjour.
 
 ### Connection behavior still planned for live LAN transport
 
@@ -333,4 +333,50 @@ No local Xcode build, signing, notarization, packaging, or artifact build was ru
 - APNs.
 - Android/Linux client implementations.
 - Screen Time blocking.
-- Manual IP pairing fallback.
+- Cloud Relay pairing and transport.
+
+## Implementation Pass 4: Complete Usable Multi-Device LAN Sync
+
+Status: **implemented locally; pending independent review, CI delivery, install, and launch**
+
+This pass supersedes earlier v1 notes that deferred manual IP pairing. The current local implementation includes usable LAN-sync runtime wiring, manual IP/Tailscale models through Pair by Address with default port `40484`, encrypted WebSocket envelope routing, pairing/setup vs LAN-sync mode gates, reconnect/session hydration, and projection refresh, while keeping Cloud Relay unavailable/future. Final delivery still depends on independent review and GitHub Actions artifact validation.
+
+Implemented internal scope:
+
+- durable signed-event sidecar retention for original signed events
+- multi-origin anti-entropy and A/B/C relay while the origin device is offline
+- membership interval validation for operational-only device removal
+- Keychain-backed sync identity and sync secret storage boundaries
+- one user-facing **Pair Device…** flow with nearby Bonjour and **Pair by Address…**
+- SwiftNIO/NIOWebSocket LAN listener, URLSession WebSocket client, Bonjour advertise/browse, manual connector, heartbeat/backoff, and duplicate connection resolution
+- sync runtime coordinator for storage health, mode lifecycle, peer states, sync triggers, removal rejection, and status propagation
+- additive encrypted LAN Protobuf payload and Hello resume metadata, with encrypted `TBEncryptedLANMessage` carried inside `Tomatt_Sync_V1_Envelope` while `LANTransport` remains trust/import blind
+- app-owned `TBSyncService`, encrypted session router, pairing setup vs LAN sync health gates, pairing runtime handoff, reconnect HKDF session hydration, and service-backed Settings actions
+- Settings status/device rows, reset/remove copy, port override guidance, local-network copy, Pair Device / Pair by Address service actions, and non-blocking timer correction notices
+- shared/reloadable event-log seam so remote imports refresh timer/stats projections and local syncable appends trigger encrypted peer notifications
+- edge-case hardening matrix and tests for relay, gaps, duplicate paths, removal, offline backlog, settings/timer convergence, Bonjour fallback, and port override
+
+Docs/ADRs added or updated:
+
+- `docs/adr/0007-signed-event-retention-and-multi-origin-relay.md`
+- `docs/adr/0008-manual-address-pairing-and-lan-runtime-port.md`
+- `docs/adr/0009-sync-runtime-status-and-reset.md`
+- `docs/sync-usable-lan-sync-audit.md`
+- `docs/sync-edge-case-matrix.md`
+
+Local static/non-build checks run before final review:
+
+- `xcodebuild -resolvePackageDependencies -project tomatt.xcodeproj -scheme tomatt` to update SwiftPM pins only; no local build was run
+- `git diff --check`
+- `plutil -lint tomatt.xcodeproj/project.pbxproj tomatt/tomatt.entitlements`
+- `python3 -m json.tool` for `Package.resolved` and ultragoal goals
+- broad `xcrun swiftc -parse -parse-as-library $(git ls-files '*.swift')`
+- boundary searches for SyncCore wire/transport isolation, LANTransport raw-import/trust isolation, stale internal-preview copy, and top-level Add/Join/Unpair Sync UI labels
+
+Remaining final delivery work:
+
+- independent code review must return APPROVE and architecture review must return CLEAR with no unresolved CRITICAL/HIGH findings
+- commit/push only after review gates pass
+- run exact-commit GitHub Actions test/build/sign/notarization
+- download and verify the CI artifact contains `tomatt.app`
+- install to `/Applications/tomatt.app` with backup when present and launch the installed app

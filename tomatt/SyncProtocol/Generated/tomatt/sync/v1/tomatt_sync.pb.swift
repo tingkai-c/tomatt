@@ -34,134 +34,160 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 /// - IDs are canonical lowercase UUID strings in v1.
 /// - Duration fields are integer seconds.
 /// - Wall-clock instants use google.protobuf.Timestamp.
-nonisolated struct Tomatt_Sync_V1_Envelope: Sendable {
+nonisolated struct Tomatt_Sync_V1_Envelope: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var messageID: String = String()
+  var messageID: String {
+    get {_storage._messageID}
+    set {_uniqueStorage()._messageID = newValue}
+  }
 
-  var correlationID: String = String()
+  var correlationID: String {
+    get {_storage._correlationID}
+    set {_uniqueStorage()._correlationID = newValue}
+  }
 
-  var responseToMessageID: String = String()
+  var responseToMessageID: String {
+    get {_storage._responseToMessageID}
+    set {_uniqueStorage()._responseToMessageID = newValue}
+  }
 
   var sentAt: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {_sentAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
-    set {_sentAt = newValue}
+    get {_storage._sentAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._sentAt = newValue}
   }
   /// Returns true if `sentAt` has been explicitly set.
-  var hasSentAt: Bool {self._sentAt != nil}
+  var hasSentAt: Bool {_storage._sentAt != nil}
   /// Clears the value of `sentAt`. Subsequent reads from it will return its default value.
-  mutating func clearSentAt() {self._sentAt = nil}
+  mutating func clearSentAt() {_uniqueStorage()._sentAt = nil}
 
-  var protocolMajor: UInt32 = 0
+  var protocolMajor: UInt32 {
+    get {_storage._protocolMajor}
+    set {_uniqueStorage()._protocolMajor = newValue}
+  }
 
-  var protocolMinor: UInt32 = 0
+  var protocolMinor: UInt32 {
+    get {_storage._protocolMinor}
+    set {_uniqueStorage()._protocolMinor = newValue}
+  }
 
-  var payload: Tomatt_Sync_V1_Envelope.OneOf_Payload? = nil
+  var payload: OneOf_Payload? {
+    get {return _storage._payload}
+    set {_uniqueStorage()._payload = newValue}
+  }
 
   var hello: Tomatt_Sync_V1_Hello {
     get {
-      if case .hello(let v)? = payload {return v}
+      if case .hello(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_Hello()
     }
-    set {payload = .hello(newValue)}
+    set {_uniqueStorage()._payload = .hello(newValue)}
   }
 
   var ping: Tomatt_Sync_V1_Ping {
     get {
-      if case .ping(let v)? = payload {return v}
+      if case .ping(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_Ping()
     }
-    set {payload = .ping(newValue)}
+    set {_uniqueStorage()._payload = .ping(newValue)}
   }
 
   var pong: Tomatt_Sync_V1_Pong {
     get {
-      if case .pong(let v)? = payload {return v}
+      if case .pong(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_Pong()
     }
-    set {payload = .pong(newValue)}
+    set {_uniqueStorage()._payload = .pong(newValue)}
   }
 
   var protocolError: Tomatt_Sync_V1_ProtocolError {
     get {
-      if case .protocolError(let v)? = payload {return v}
+      if case .protocolError(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_ProtocolError()
     }
-    set {payload = .protocolError(newValue)}
+    set {_uniqueStorage()._payload = .protocolError(newValue)}
   }
 
   var pairingStart: Tomatt_Sync_V1_PairingStart {
     get {
-      if case .pairingStart(let v)? = payload {return v}
+      if case .pairingStart(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_PairingStart()
     }
-    set {payload = .pairingStart(newValue)}
+    set {_uniqueStorage()._payload = .pairingStart(newValue)}
   }
 
   var pairingChallenge: Tomatt_Sync_V1_PairingChallenge {
     get {
-      if case .pairingChallenge(let v)? = payload {return v}
+      if case .pairingChallenge(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_PairingChallenge()
     }
-    set {payload = .pairingChallenge(newValue)}
+    set {_uniqueStorage()._payload = .pairingChallenge(newValue)}
   }
 
   var pairingResponse: Tomatt_Sync_V1_PairingResponse {
     get {
-      if case .pairingResponse(let v)? = payload {return v}
+      if case .pairingResponse(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_PairingResponse()
     }
-    set {payload = .pairingResponse(newValue)}
+    set {_uniqueStorage()._payload = .pairingResponse(newValue)}
   }
 
   var pairingComplete: Tomatt_Sync_V1_PairingComplete {
     get {
-      if case .pairingComplete(let v)? = payload {return v}
+      if case .pairingComplete(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_PairingComplete()
     }
-    set {payload = .pairingComplete(newValue)}
+    set {_uniqueStorage()._payload = .pairingComplete(newValue)}
   }
 
   var eventSummary: Tomatt_Sync_V1_EventSummary {
     get {
-      if case .eventSummary(let v)? = payload {return v}
+      if case .eventSummary(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_EventSummary()
     }
-    set {payload = .eventSummary(newValue)}
+    set {_uniqueStorage()._payload = .eventSummary(newValue)}
   }
 
   var missingEventRequest: Tomatt_Sync_V1_MissingEventRequest {
     get {
-      if case .missingEventRequest(let v)? = payload {return v}
+      if case .missingEventRequest(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_MissingEventRequest()
     }
-    set {payload = .missingEventRequest(newValue)}
+    set {_uniqueStorage()._payload = .missingEventRequest(newValue)}
   }
 
   var eventBatch: Tomatt_Sync_V1_EventBatch {
     get {
-      if case .eventBatch(let v)? = payload {return v}
+      if case .eventBatch(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_EventBatch()
     }
-    set {payload = .eventBatch(newValue)}
+    set {_uniqueStorage()._payload = .eventBatch(newValue)}
   }
 
   var eventBatchAck: Tomatt_Sync_V1_EventBatchAck {
     get {
-      if case .eventBatchAck(let v)? = payload {return v}
+      if case .eventBatchAck(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_EventBatchAck()
     }
-    set {payload = .eventBatchAck(newValue)}
+    set {_uniqueStorage()._payload = .eventBatchAck(newValue)}
   }
 
   var newEventsAvailable: Tomatt_Sync_V1_NewEventsAvailable {
     get {
-      if case .newEventsAvailable(let v)? = payload {return v}
+      if case .newEventsAvailable(let v)? = _storage._payload {return v}
       return Tomatt_Sync_V1_NewEventsAvailable()
     }
-    set {payload = .newEventsAvailable(newValue)}
+    set {_uniqueStorage()._payload = .newEventsAvailable(newValue)}
+  }
+
+  var encryptedLanMessage: Tomatt_Sync_V1_EncryptedLANMessage {
+    get {
+      if case .encryptedLanMessage(let v)? = _storage._payload {return v}
+      return Tomatt_Sync_V1_EncryptedLANMessage()
+    }
+    set {_uniqueStorage()._payload = .encryptedLanMessage(newValue)}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -180,12 +206,13 @@ nonisolated struct Tomatt_Sync_V1_Envelope: Sendable {
     case eventBatch(Tomatt_Sync_V1_EventBatch)
     case eventBatchAck(Tomatt_Sync_V1_EventBatchAck)
     case newEventsAvailable(Tomatt_Sync_V1_NewEventsAvailable)
+    case encryptedLanMessage(Tomatt_Sync_V1_EncryptedLANMessage)
 
   }
 
   init() {}
 
-  fileprivate var _sentAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 nonisolated struct Tomatt_Sync_V1_Hello: Sendable {
@@ -205,7 +232,117 @@ nonisolated struct Tomatt_Sync_V1_Hello: Sendable {
 
   var capabilities: [String] = []
 
+  var sessionKeyID: String = String()
+
+  var sessionNonceSeed: Data = Data()
+
+  var sessionRole: Tomatt_Sync_V1_Hello.SessionRole = .unspecified
+
+  var syncGroupID: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  nonisolated enum SessionRole: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case unspecified // = 0
+    case initiator // = 1
+    case responder // = 2
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .unspecified
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .unspecified
+      case 1: self = .initiator
+      case 2: self = .responder
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .unspecified: return 0
+      case .initiator: return 1
+      case .responder: return 2
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Tomatt_Sync_V1_Hello.SessionRole] = [
+      .unspecified,
+      .initiator,
+      .responder,
+    ]
+
+  }
+
+  init() {}
+}
+
+nonisolated struct Tomatt_Sync_V1_EncryptedLANMessage: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var protocolVersion: UInt32 = 0
+
+  var senderDeviceID: String = String()
+
+  var recipientDeviceID: String = String()
+
+  var senderSigningKeyFingerprint: String = String()
+
+  var direction: Tomatt_Sync_V1_EncryptedLANMessage.Direction = .unspecified
+
+  var counter: UInt64 = 0
+
+  var nonce: Data = Data()
+
+  var ciphertextAndTag: Data = Data()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  nonisolated enum Direction: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case unspecified // = 0
+    case initiatorToResponder // = 1
+    case responderToInitiator // = 2
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .unspecified
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .unspecified
+      case 1: self = .initiatorToResponder
+      case 2: self = .responderToInitiator
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .unspecified: return 0
+      case .initiatorToResponder: return 1
+      case .responderToInitiator: return 2
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Tomatt_Sync_V1_EncryptedLANMessage.Direction] = [
+      .unspecified,
+      .initiatorToResponder,
+      .responderToInitiator,
+    ]
+
+  }
 
   init() {}
 }
@@ -300,7 +437,192 @@ nonisolated struct Tomatt_Sync_V1_ProtocolError: Sendable {
   init() {}
 }
 
-/// Pairing placeholders only. Pairing behavior is intentionally out of G001.
+nonisolated struct Tomatt_Sync_V1_PairingEndpointMetadata: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var host: String = String()
+
+  var port: UInt32 = 0
+
+  var transport: String = String()
+
+  var path: String = String()
+
+  var metadata: Dictionary<String,String> = [:]
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+nonisolated struct Tomatt_Sync_V1_PairingIdleDeclaration: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var isIdle: Bool = false
+
+  var declaredAt: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_declaredAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_declaredAt = newValue}
+  }
+  /// Returns true if `declaredAt` has been explicitly set.
+  var hasDeclaredAt: Bool {self._declaredAt != nil}
+  /// Clears the value of `declaredAt`. Subsequent reads from it will return its default value.
+  mutating func clearDeclaredAt() {self._declaredAt = nil}
+
+  var reason: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _declaredAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+}
+
+nonisolated struct Tomatt_Sync_V1_PairingGroupState: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var kind: Tomatt_Sync_V1_PairingGroupState.Kind = .unspecified
+
+  var groupID: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  nonisolated enum Kind: SwiftProtobuf.Enum, Swift.CaseIterable {
+    typealias RawValue = Int
+    case unspecified // = 0
+    case standalone // = 1
+    case grouped // = 2
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .unspecified
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .unspecified
+      case 1: self = .standalone
+      case 2: self = .grouped
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .unspecified: return 0
+      case .standalone: return 1
+      case .grouped: return 2
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+    // The compiler won't synthesize support with the UNRECOGNIZED case.
+    static let allCases: [Tomatt_Sync_V1_PairingGroupState.Kind] = [
+      .unspecified,
+      .standalone,
+      .grouped,
+    ]
+
+  }
+
+  init() {}
+}
+
+nonisolated struct Tomatt_Sync_V1_PairingTranscriptParticipant: @unchecked Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var deviceID: String {
+    get {_storage._deviceID}
+    set {_uniqueStorage()._deviceID = newValue}
+  }
+
+  var displayName: String {
+    get {_storage._displayName}
+    set {_uniqueStorage()._displayName = newValue}
+  }
+
+  var platform: String {
+    get {_storage._platform}
+    set {_uniqueStorage()._platform = newValue}
+  }
+
+  var syncSigningPublicKey: Data {
+    get {_storage._syncSigningPublicKey}
+    set {_uniqueStorage()._syncSigningPublicKey = newValue}
+  }
+
+  var syncSigningKeyFingerprint: String {
+    get {_storage._syncSigningKeyFingerprint}
+    set {_uniqueStorage()._syncSigningKeyFingerprint = newValue}
+  }
+
+  var ephemeralPairingPublicKey: Data {
+    get {_storage._ephemeralPairingPublicKey}
+    set {_uniqueStorage()._ephemeralPairingPublicKey = newValue}
+  }
+
+  var ephemeralDiscoveryID: String {
+    get {_storage._ephemeralDiscoveryID}
+    set {_uniqueStorage()._ephemeralDiscoveryID = newValue}
+  }
+
+  var endpoint: Tomatt_Sync_V1_PairingEndpointMetadata {
+    get {_storage._endpoint ?? Tomatt_Sync_V1_PairingEndpointMetadata()}
+    set {_uniqueStorage()._endpoint = newValue}
+  }
+  /// Returns true if `endpoint` has been explicitly set.
+  var hasEndpoint: Bool {_storage._endpoint != nil}
+  /// Clears the value of `endpoint`. Subsequent reads from it will return its default value.
+  mutating func clearEndpoint() {_uniqueStorage()._endpoint = nil}
+
+  var idle: Tomatt_Sync_V1_PairingIdleDeclaration {
+    get {_storage._idle ?? Tomatt_Sync_V1_PairingIdleDeclaration()}
+    set {_uniqueStorage()._idle = newValue}
+  }
+  /// Returns true if `idle` has been explicitly set.
+  var hasIdle: Bool {_storage._idle != nil}
+  /// Clears the value of `idle`. Subsequent reads from it will return its default value.
+  mutating func clearIdle() {_uniqueStorage()._idle = nil}
+
+  var capabilities: [String] {
+    get {_storage._capabilities}
+    set {_uniqueStorage()._capabilities = newValue}
+  }
+
+  var groupState: Tomatt_Sync_V1_PairingGroupState {
+    get {_storage._groupState ?? Tomatt_Sync_V1_PairingGroupState()}
+    set {_uniqueStorage()._groupState = newValue}
+  }
+  /// Returns true if `groupState` has been explicitly set.
+  var hasGroupState: Bool {_storage._groupState != nil}
+  /// Clears the value of `groupState`. Subsequent reads from it will return its default value.
+  mutating func clearGroupState() {_uniqueStorage()._groupState = nil}
+
+  var sessionNonce: Data {
+    get {_storage._sessionNonce}
+    set {_uniqueStorage()._sessionNonce = newValue}
+  }
+
+  var transcriptProtocolVersion: UInt32 {
+    get {_storage._transcriptProtocolVersion}
+    set {_uniqueStorage()._transcriptProtocolVersion = newValue}
+  }
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
+}
+
 nonisolated struct Tomatt_Sync_V1_PairingStart: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -310,9 +632,20 @@ nonisolated struct Tomatt_Sync_V1_PairingStart: Sendable {
 
   var displayName: String = String()
 
+  var participant: Tomatt_Sync_V1_PairingTranscriptParticipant {
+    get {_participant ?? Tomatt_Sync_V1_PairingTranscriptParticipant()}
+    set {_participant = newValue}
+  }
+  /// Returns true if `participant` has been explicitly set.
+  var hasParticipant: Bool {self._participant != nil}
+  /// Clears the value of `participant`. Subsequent reads from it will return its default value.
+  mutating func clearParticipant() {self._participant = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _participant: Tomatt_Sync_V1_PairingTranscriptParticipant? = nil
 }
 
 nonisolated struct Tomatt_Sync_V1_PairingChallenge: Sendable {
@@ -324,9 +657,20 @@ nonisolated struct Tomatt_Sync_V1_PairingChallenge: Sendable {
 
   var challenge: Data = Data()
 
+  var participant: Tomatt_Sync_V1_PairingTranscriptParticipant {
+    get {_participant ?? Tomatt_Sync_V1_PairingTranscriptParticipant()}
+    set {_participant = newValue}
+  }
+  /// Returns true if `participant` has been explicitly set.
+  var hasParticipant: Bool {self._participant != nil}
+  /// Clears the value of `participant`. Subsequent reads from it will return its default value.
+  mutating func clearParticipant() {self._participant = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _participant: Tomatt_Sync_V1_PairingTranscriptParticipant? = nil
 }
 
 nonisolated struct Tomatt_Sync_V1_PairingResponse: Sendable {
@@ -483,283 +827,348 @@ fileprivate nonisolated let _protobuf_package = "tomatt.sync.v1"
 
 nonisolated extension Tomatt_Sync_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Envelope"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}message_id\0\u{3}correlation_id\0\u{3}response_to_message_id\0\u{3}sent_at\0\u{3}protocol_major\0\u{3}protocol_minor\0\u{2}\u{4}hello\0\u{1}ping\0\u{1}pong\0\u{3}protocol_error\0\u{4}\u{7}pairing_start\0\u{3}pairing_challenge\0\u{3}pairing_response\0\u{3}pairing_complete\0\u{4}\u{7}event_summary\0\u{3}missing_event_request\0\u{3}event_batch\0\u{3}event_batch_ack\0\u{3}new_events_available\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}message_id\0\u{3}correlation_id\0\u{3}response_to_message_id\0\u{3}sent_at\0\u{3}protocol_major\0\u{3}protocol_minor\0\u{2}\u{4}hello\0\u{1}ping\0\u{1}pong\0\u{3}protocol_error\0\u{4}\u{7}pairing_start\0\u{3}pairing_challenge\0\u{3}pairing_response\0\u{3}pairing_complete\0\u{4}\u{7}event_summary\0\u{3}missing_event_request\0\u{3}event_batch\0\u{3}event_batch_ack\0\u{3}new_events_available\0\u{4}\u{6}encrypted_lan_message\0")
+
+  fileprivate class _StorageClass {
+    var _messageID: String = String()
+    var _correlationID: String = String()
+    var _responseToMessageID: String = String()
+    var _sentAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _protocolMajor: UInt32 = 0
+    var _protocolMinor: UInt32 = 0
+    var _payload: Tomatt_Sync_V1_Envelope.OneOf_Payload?
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _messageID = source._messageID
+      _correlationID = source._correlationID
+      _responseToMessageID = source._responseToMessageID
+      _sentAt = source._sentAt
+      _protocolMajor = source._protocolMajor
+      _protocolMinor = source._protocolMinor
+      _payload = source._payload
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.messageID) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.correlationID) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self.responseToMessageID) }()
-      case 4: try { try decoder.decodeSingularMessageField(value: &self._sentAt) }()
-      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.protocolMajor) }()
-      case 6: try { try decoder.decodeSingularUInt32Field(value: &self.protocolMinor) }()
-      case 10: try {
-        var v: Tomatt_Sync_V1_Hello?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .hello(let m) = current {v = m}
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularStringField(value: &_storage._messageID) }()
+        case 2: try { try decoder.decodeSingularStringField(value: &_storage._correlationID) }()
+        case 3: try { try decoder.decodeSingularStringField(value: &_storage._responseToMessageID) }()
+        case 4: try { try decoder.decodeSingularMessageField(value: &_storage._sentAt) }()
+        case 5: try { try decoder.decodeSingularUInt32Field(value: &_storage._protocolMajor) }()
+        case 6: try { try decoder.decodeSingularUInt32Field(value: &_storage._protocolMinor) }()
+        case 10: try {
+          var v: Tomatt_Sync_V1_Hello?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .hello(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .hello(v)
+          }
+        }()
+        case 11: try {
+          var v: Tomatt_Sync_V1_Ping?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .ping(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .ping(v)
+          }
+        }()
+        case 12: try {
+          var v: Tomatt_Sync_V1_Pong?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .pong(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .pong(v)
+          }
+        }()
+        case 13: try {
+          var v: Tomatt_Sync_V1_ProtocolError?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .protocolError(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .protocolError(v)
+          }
+        }()
+        case 20: try {
+          var v: Tomatt_Sync_V1_PairingStart?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .pairingStart(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .pairingStart(v)
+          }
+        }()
+        case 21: try {
+          var v: Tomatt_Sync_V1_PairingChallenge?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .pairingChallenge(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .pairingChallenge(v)
+          }
+        }()
+        case 22: try {
+          var v: Tomatt_Sync_V1_PairingResponse?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .pairingResponse(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .pairingResponse(v)
+          }
+        }()
+        case 23: try {
+          var v: Tomatt_Sync_V1_PairingComplete?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .pairingComplete(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .pairingComplete(v)
+          }
+        }()
+        case 30: try {
+          var v: Tomatt_Sync_V1_EventSummary?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .eventSummary(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .eventSummary(v)
+          }
+        }()
+        case 31: try {
+          var v: Tomatt_Sync_V1_MissingEventRequest?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .missingEventRequest(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .missingEventRequest(v)
+          }
+        }()
+        case 32: try {
+          var v: Tomatt_Sync_V1_EventBatch?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .eventBatch(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .eventBatch(v)
+          }
+        }()
+        case 33: try {
+          var v: Tomatt_Sync_V1_EventBatchAck?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .eventBatchAck(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .eventBatchAck(v)
+          }
+        }()
+        case 34: try {
+          var v: Tomatt_Sync_V1_NewEventsAvailable?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .newEventsAvailable(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .newEventsAvailable(v)
+          }
+        }()
+        case 40: try {
+          var v: Tomatt_Sync_V1_EncryptedLANMessage?
+          var hadOneofValue = false
+          if let current = _storage._payload {
+            hadOneofValue = true
+            if case .encryptedLanMessage(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {
+            if hadOneofValue {try decoder.handleConflictingOneOf()}
+            _storage._payload = .encryptedLanMessage(v)
+          }
+        }()
+        default: break
         }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .hello(v)
-        }
-      }()
-      case 11: try {
-        var v: Tomatt_Sync_V1_Ping?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .ping(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .ping(v)
-        }
-      }()
-      case 12: try {
-        var v: Tomatt_Sync_V1_Pong?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .pong(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .pong(v)
-        }
-      }()
-      case 13: try {
-        var v: Tomatt_Sync_V1_ProtocolError?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .protocolError(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .protocolError(v)
-        }
-      }()
-      case 20: try {
-        var v: Tomatt_Sync_V1_PairingStart?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .pairingStart(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .pairingStart(v)
-        }
-      }()
-      case 21: try {
-        var v: Tomatt_Sync_V1_PairingChallenge?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .pairingChallenge(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .pairingChallenge(v)
-        }
-      }()
-      case 22: try {
-        var v: Tomatt_Sync_V1_PairingResponse?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .pairingResponse(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .pairingResponse(v)
-        }
-      }()
-      case 23: try {
-        var v: Tomatt_Sync_V1_PairingComplete?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .pairingComplete(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .pairingComplete(v)
-        }
-      }()
-      case 30: try {
-        var v: Tomatt_Sync_V1_EventSummary?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .eventSummary(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .eventSummary(v)
-        }
-      }()
-      case 31: try {
-        var v: Tomatt_Sync_V1_MissingEventRequest?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .missingEventRequest(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .missingEventRequest(v)
-        }
-      }()
-      case 32: try {
-        var v: Tomatt_Sync_V1_EventBatch?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .eventBatch(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .eventBatch(v)
-        }
-      }()
-      case 33: try {
-        var v: Tomatt_Sync_V1_EventBatchAck?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .eventBatchAck(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .eventBatchAck(v)
-        }
-      }()
-      case 34: try {
-        var v: Tomatt_Sync_V1_NewEventsAvailable?
-        var hadOneofValue = false
-        if let current = self.payload {
-          hadOneofValue = true
-          if case .newEventsAvailable(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.payload = .newEventsAvailable(v)
-        }
-      }()
-      default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if !self.messageID.isEmpty {
-      try visitor.visitSingularStringField(value: self.messageID, fieldNumber: 1)
-    }
-    if !self.correlationID.isEmpty {
-      try visitor.visitSingularStringField(value: self.correlationID, fieldNumber: 2)
-    }
-    if !self.responseToMessageID.isEmpty {
-      try visitor.visitSingularStringField(value: self.responseToMessageID, fieldNumber: 3)
-    }
-    try { if let v = self._sentAt {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
-    } }()
-    if self.protocolMajor != 0 {
-      try visitor.visitSingularUInt32Field(value: self.protocolMajor, fieldNumber: 5)
-    }
-    if self.protocolMinor != 0 {
-      try visitor.visitSingularUInt32Field(value: self.protocolMinor, fieldNumber: 6)
-    }
-    switch self.payload {
-    case .hello?: try {
-      guard case .hello(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
-    }()
-    case .ping?: try {
-      guard case .ping(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
-    }()
-    case .pong?: try {
-      guard case .pong(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
-    }()
-    case .protocolError?: try {
-      guard case .protocolError(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
-    }()
-    case .pairingStart?: try {
-      guard case .pairingStart(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 20)
-    }()
-    case .pairingChallenge?: try {
-      guard case .pairingChallenge(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 21)
-    }()
-    case .pairingResponse?: try {
-      guard case .pairingResponse(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 22)
-    }()
-    case .pairingComplete?: try {
-      guard case .pairingComplete(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 23)
-    }()
-    case .eventSummary?: try {
-      guard case .eventSummary(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 30)
-    }()
-    case .missingEventRequest?: try {
-      guard case .missingEventRequest(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 31)
-    }()
-    case .eventBatch?: try {
-      guard case .eventBatch(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 32)
-    }()
-    case .eventBatchAck?: try {
-      guard case .eventBatchAck(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 33)
-    }()
-    case .newEventsAvailable?: try {
-      guard case .newEventsAvailable(let v)? = self.payload else { preconditionFailure() }
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 34)
-    }()
-    case nil: break
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if !_storage._messageID.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._messageID, fieldNumber: 1)
+      }
+      if !_storage._correlationID.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._correlationID, fieldNumber: 2)
+      }
+      if !_storage._responseToMessageID.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._responseToMessageID, fieldNumber: 3)
+      }
+      try { if let v = _storage._sentAt {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+      } }()
+      if _storage._protocolMajor != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._protocolMajor, fieldNumber: 5)
+      }
+      if _storage._protocolMinor != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._protocolMinor, fieldNumber: 6)
+      }
+      switch _storage._payload {
+      case .hello?: try {
+        guard case .hello(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+      }()
+      case .ping?: try {
+        guard case .ping(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+      }()
+      case .pong?: try {
+        guard case .pong(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+      }()
+      case .protocolError?: try {
+        guard case .protocolError(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
+      }()
+      case .pairingStart?: try {
+        guard case .pairingStart(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 20)
+      }()
+      case .pairingChallenge?: try {
+        guard case .pairingChallenge(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 21)
+      }()
+      case .pairingResponse?: try {
+        guard case .pairingResponse(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 22)
+      }()
+      case .pairingComplete?: try {
+        guard case .pairingComplete(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 23)
+      }()
+      case .eventSummary?: try {
+        guard case .eventSummary(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 30)
+      }()
+      case .missingEventRequest?: try {
+        guard case .missingEventRequest(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 31)
+      }()
+      case .eventBatch?: try {
+        guard case .eventBatch(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 32)
+      }()
+      case .eventBatchAck?: try {
+        guard case .eventBatchAck(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 33)
+      }()
+      case .newEventsAvailable?: try {
+        guard case .newEventsAvailable(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 34)
+      }()
+      case .encryptedLanMessage?: try {
+        guard case .encryptedLanMessage(let v)? = _storage._payload else { preconditionFailure() }
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 40)
+      }()
+      case nil: break
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Tomatt_Sync_V1_Envelope, rhs: Tomatt_Sync_V1_Envelope) -> Bool {
-    if lhs.messageID != rhs.messageID {return false}
-    if lhs.correlationID != rhs.correlationID {return false}
-    if lhs.responseToMessageID != rhs.responseToMessageID {return false}
-    if lhs._sentAt != rhs._sentAt {return false}
-    if lhs.protocolMajor != rhs.protocolMajor {return false}
-    if lhs.protocolMinor != rhs.protocolMinor {return false}
-    if lhs.payload != rhs.payload {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._messageID != rhs_storage._messageID {return false}
+        if _storage._correlationID != rhs_storage._correlationID {return false}
+        if _storage._responseToMessageID != rhs_storage._responseToMessageID {return false}
+        if _storage._sentAt != rhs_storage._sentAt {return false}
+        if _storage._protocolMajor != rhs_storage._protocolMajor {return false}
+        if _storage._protocolMinor != rhs_storage._protocolMinor {return false}
+        if _storage._payload != rhs_storage._payload {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -767,7 +1176,7 @@ nonisolated extension Tomatt_Sync_V1_Envelope: SwiftProtobuf.Message, SwiftProto
 
 nonisolated extension Tomatt_Sync_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Hello"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}device_id\0\u{3}display_name\0\u{1}platform\0\u{3}protocol_major\0\u{3}protocol_minor\0\u{1}capabilities\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}device_id\0\u{3}display_name\0\u{1}platform\0\u{3}protocol_major\0\u{3}protocol_minor\0\u{1}capabilities\0\u{3}session_key_id\0\u{3}session_nonce_seed\0\u{3}session_role\0\u{3}sync_group_id\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -781,6 +1190,10 @@ nonisolated extension Tomatt_Sync_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.protocolMajor) }()
       case 5: try { try decoder.decodeSingularUInt32Field(value: &self.protocolMinor) }()
       case 6: try { try decoder.decodeRepeatedStringField(value: &self.capabilities) }()
+      case 7: try { try decoder.decodeSingularStringField(value: &self.sessionKeyID) }()
+      case 8: try { try decoder.decodeSingularBytesField(value: &self.sessionNonceSeed) }()
+      case 9: try { try decoder.decodeSingularEnumField(value: &self.sessionRole) }()
+      case 10: try { try decoder.decodeSingularStringField(value: &self.syncGroupID) }()
       default: break
       }
     }
@@ -805,6 +1218,18 @@ nonisolated extension Tomatt_Sync_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf
     if !self.capabilities.isEmpty {
       try visitor.visitRepeatedStringField(value: self.capabilities, fieldNumber: 6)
     }
+    if !self.sessionKeyID.isEmpty {
+      try visitor.visitSingularStringField(value: self.sessionKeyID, fieldNumber: 7)
+    }
+    if !self.sessionNonceSeed.isEmpty {
+      try visitor.visitSingularBytesField(value: self.sessionNonceSeed, fieldNumber: 8)
+    }
+    if self.sessionRole != .unspecified {
+      try visitor.visitSingularEnumField(value: self.sessionRole, fieldNumber: 9)
+    }
+    if !self.syncGroupID.isEmpty {
+      try visitor.visitSingularStringField(value: self.syncGroupID, fieldNumber: 10)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -815,9 +1240,86 @@ nonisolated extension Tomatt_Sync_V1_Hello: SwiftProtobuf.Message, SwiftProtobuf
     if lhs.protocolMajor != rhs.protocolMajor {return false}
     if lhs.protocolMinor != rhs.protocolMinor {return false}
     if lhs.capabilities != rhs.capabilities {return false}
+    if lhs.sessionKeyID != rhs.sessionKeyID {return false}
+    if lhs.sessionNonceSeed != rhs.sessionNonceSeed {return false}
+    if lhs.sessionRole != rhs.sessionRole {return false}
+    if lhs.syncGroupID != rhs.syncGroupID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
+}
+
+nonisolated extension Tomatt_Sync_V1_Hello.SessionRole: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0SESSION_ROLE_UNSPECIFIED\0\u{1}SESSION_ROLE_INITIATOR\0\u{1}SESSION_ROLE_RESPONDER\0")
+}
+
+nonisolated extension Tomatt_Sync_V1_EncryptedLANMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".EncryptedLANMessage"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}protocol_version\0\u{3}sender_device_id\0\u{3}recipient_device_id\0\u{3}sender_signing_key_fingerprint\0\u{1}direction\0\u{1}counter\0\u{1}nonce\0\u{3}ciphertext_and_tag\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.protocolVersion) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.senderDeviceID) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.recipientDeviceID) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.senderSigningKeyFingerprint) }()
+      case 5: try { try decoder.decodeSingularEnumField(value: &self.direction) }()
+      case 6: try { try decoder.decodeSingularUInt64Field(value: &self.counter) }()
+      case 7: try { try decoder.decodeSingularBytesField(value: &self.nonce) }()
+      case 8: try { try decoder.decodeSingularBytesField(value: &self.ciphertextAndTag) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.protocolVersion != 0 {
+      try visitor.visitSingularUInt32Field(value: self.protocolVersion, fieldNumber: 1)
+    }
+    if !self.senderDeviceID.isEmpty {
+      try visitor.visitSingularStringField(value: self.senderDeviceID, fieldNumber: 2)
+    }
+    if !self.recipientDeviceID.isEmpty {
+      try visitor.visitSingularStringField(value: self.recipientDeviceID, fieldNumber: 3)
+    }
+    if !self.senderSigningKeyFingerprint.isEmpty {
+      try visitor.visitSingularStringField(value: self.senderSigningKeyFingerprint, fieldNumber: 4)
+    }
+    if self.direction != .unspecified {
+      try visitor.visitSingularEnumField(value: self.direction, fieldNumber: 5)
+    }
+    if self.counter != 0 {
+      try visitor.visitSingularUInt64Field(value: self.counter, fieldNumber: 6)
+    }
+    if !self.nonce.isEmpty {
+      try visitor.visitSingularBytesField(value: self.nonce, fieldNumber: 7)
+    }
+    if !self.ciphertextAndTag.isEmpty {
+      try visitor.visitSingularBytesField(value: self.ciphertextAndTag, fieldNumber: 8)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Tomatt_Sync_V1_EncryptedLANMessage, rhs: Tomatt_Sync_V1_EncryptedLANMessage) -> Bool {
+    if lhs.protocolVersion != rhs.protocolVersion {return false}
+    if lhs.senderDeviceID != rhs.senderDeviceID {return false}
+    if lhs.recipientDeviceID != rhs.recipientDeviceID {return false}
+    if lhs.senderSigningKeyFingerprint != rhs.senderSigningKeyFingerprint {return false}
+    if lhs.direction != rhs.direction {return false}
+    if lhs.counter != rhs.counter {return false}
+    if lhs.nonce != rhs.nonce {return false}
+    if lhs.ciphertextAndTag != rhs.ciphertextAndTag {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tomatt_Sync_V1_EncryptedLANMessage.Direction: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DIRECTION_UNSPECIFIED\0\u{1}DIRECTION_INITIATOR_TO_RESPONDER\0\u{1}DIRECTION_RESPONDER_TO_INITIATOR\0")
 }
 
 nonisolated extension Tomatt_Sync_V1_Ping: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -924,9 +1426,296 @@ nonisolated extension Tomatt_Sync_V1_ProtocolError.Code: SwiftProtobuf._ProtoNam
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CODE_UNSPECIFIED\0\u{1}CODE_UNSUPPORTED_VERSION\0\u{1}CODE_BAD_MESSAGE\0\u{1}CODE_UNAUTHORIZED\0\u{1}CODE_NOT_FOUND\0\u{1}CODE_INTERNAL\0")
 }
 
+nonisolated extension Tomatt_Sync_V1_PairingEndpointMetadata: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".PairingEndpointMetadata"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}host\0\u{1}port\0\u{1}transport\0\u{1}path\0\u{1}metadata\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.host) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.port) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.transport) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.path) }()
+      case 5: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.metadata) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.host.isEmpty {
+      try visitor.visitSingularStringField(value: self.host, fieldNumber: 1)
+    }
+    if self.port != 0 {
+      try visitor.visitSingularUInt32Field(value: self.port, fieldNumber: 2)
+    }
+    if !self.transport.isEmpty {
+      try visitor.visitSingularStringField(value: self.transport, fieldNumber: 3)
+    }
+    if !self.path.isEmpty {
+      try visitor.visitSingularStringField(value: self.path, fieldNumber: 4)
+    }
+    if !self.metadata.isEmpty {
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.metadata, fieldNumber: 5)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Tomatt_Sync_V1_PairingEndpointMetadata, rhs: Tomatt_Sync_V1_PairingEndpointMetadata) -> Bool {
+    if lhs.host != rhs.host {return false}
+    if lhs.port != rhs.port {return false}
+    if lhs.transport != rhs.transport {return false}
+    if lhs.path != rhs.path {return false}
+    if lhs.metadata != rhs.metadata {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tomatt_Sync_V1_PairingIdleDeclaration: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".PairingIdleDeclaration"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}is_idle\0\u{3}declared_at\0\u{1}reason\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.isIdle) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._declaredAt) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.reason) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if self.isIdle != false {
+      try visitor.visitSingularBoolField(value: self.isIdle, fieldNumber: 1)
+    }
+    try { if let v = self._declaredAt {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    if !self.reason.isEmpty {
+      try visitor.visitSingularStringField(value: self.reason, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Tomatt_Sync_V1_PairingIdleDeclaration, rhs: Tomatt_Sync_V1_PairingIdleDeclaration) -> Bool {
+    if lhs.isIdle != rhs.isIdle {return false}
+    if lhs._declaredAt != rhs._declaredAt {return false}
+    if lhs.reason != rhs.reason {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tomatt_Sync_V1_PairingGroupState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".PairingGroupState"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}group_id\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.kind) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.groupID) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.kind != .unspecified {
+      try visitor.visitSingularEnumField(value: self.kind, fieldNumber: 1)
+    }
+    if !self.groupID.isEmpty {
+      try visitor.visitSingularStringField(value: self.groupID, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Tomatt_Sync_V1_PairingGroupState, rhs: Tomatt_Sync_V1_PairingGroupState) -> Bool {
+    if lhs.kind != rhs.kind {return false}
+    if lhs.groupID != rhs.groupID {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tomatt_Sync_V1_PairingGroupState.Kind: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0KIND_UNSPECIFIED\0\u{1}KIND_STANDALONE\0\u{1}KIND_GROUPED\0")
+}
+
+nonisolated extension Tomatt_Sync_V1_PairingTranscriptParticipant: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".PairingTranscriptParticipant"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}device_id\0\u{3}display_name\0\u{1}platform\0\u{3}sync_signing_public_key\0\u{3}sync_signing_key_fingerprint\0\u{3}ephemeral_pairing_public_key\0\u{3}ephemeral_discovery_id\0\u{1}endpoint\0\u{1}idle\0\u{1}capabilities\0\u{3}group_state\0\u{3}session_nonce\0\u{3}transcript_protocol_version\0")
+
+  fileprivate class _StorageClass {
+    var _deviceID: String = String()
+    var _displayName: String = String()
+    var _platform: String = String()
+    var _syncSigningPublicKey: Data = Data()
+    var _syncSigningKeyFingerprint: String = String()
+    var _ephemeralPairingPublicKey: Data = Data()
+    var _ephemeralDiscoveryID: String = String()
+    var _endpoint: Tomatt_Sync_V1_PairingEndpointMetadata? = nil
+    var _idle: Tomatt_Sync_V1_PairingIdleDeclaration? = nil
+    var _capabilities: [String] = []
+    var _groupState: Tomatt_Sync_V1_PairingGroupState? = nil
+    var _sessionNonce: Data = Data()
+    var _transcriptProtocolVersion: UInt32 = 0
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _deviceID = source._deviceID
+      _displayName = source._displayName
+      _platform = source._platform
+      _syncSigningPublicKey = source._syncSigningPublicKey
+      _syncSigningKeyFingerprint = source._syncSigningKeyFingerprint
+      _ephemeralPairingPublicKey = source._ephemeralPairingPublicKey
+      _ephemeralDiscoveryID = source._ephemeralDiscoveryID
+      _endpoint = source._endpoint
+      _idle = source._idle
+      _capabilities = source._capabilities
+      _groupState = source._groupState
+      _sessionNonce = source._sessionNonce
+      _transcriptProtocolVersion = source._transcriptProtocolVersion
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularStringField(value: &_storage._deviceID) }()
+        case 2: try { try decoder.decodeSingularStringField(value: &_storage._displayName) }()
+        case 3: try { try decoder.decodeSingularStringField(value: &_storage._platform) }()
+        case 4: try { try decoder.decodeSingularBytesField(value: &_storage._syncSigningPublicKey) }()
+        case 5: try { try decoder.decodeSingularStringField(value: &_storage._syncSigningKeyFingerprint) }()
+        case 6: try { try decoder.decodeSingularBytesField(value: &_storage._ephemeralPairingPublicKey) }()
+        case 7: try { try decoder.decodeSingularStringField(value: &_storage._ephemeralDiscoveryID) }()
+        case 8: try { try decoder.decodeSingularMessageField(value: &_storage._endpoint) }()
+        case 9: try { try decoder.decodeSingularMessageField(value: &_storage._idle) }()
+        case 10: try { try decoder.decodeRepeatedStringField(value: &_storage._capabilities) }()
+        case 11: try { try decoder.decodeSingularMessageField(value: &_storage._groupState) }()
+        case 12: try { try decoder.decodeSingularBytesField(value: &_storage._sessionNonce) }()
+        case 13: try { try decoder.decodeSingularUInt32Field(value: &_storage._transcriptProtocolVersion) }()
+        default: break
+        }
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if !_storage._deviceID.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._deviceID, fieldNumber: 1)
+      }
+      if !_storage._displayName.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._displayName, fieldNumber: 2)
+      }
+      if !_storage._platform.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._platform, fieldNumber: 3)
+      }
+      if !_storage._syncSigningPublicKey.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._syncSigningPublicKey, fieldNumber: 4)
+      }
+      if !_storage._syncSigningKeyFingerprint.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._syncSigningKeyFingerprint, fieldNumber: 5)
+      }
+      if !_storage._ephemeralPairingPublicKey.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._ephemeralPairingPublicKey, fieldNumber: 6)
+      }
+      if !_storage._ephemeralDiscoveryID.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._ephemeralDiscoveryID, fieldNumber: 7)
+      }
+      try { if let v = _storage._endpoint {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+      } }()
+      try { if let v = _storage._idle {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+      } }()
+      if !_storage._capabilities.isEmpty {
+        try visitor.visitRepeatedStringField(value: _storage._capabilities, fieldNumber: 10)
+      }
+      try { if let v = _storage._groupState {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+      } }()
+      if !_storage._sessionNonce.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._sessionNonce, fieldNumber: 12)
+      }
+      if _storage._transcriptProtocolVersion != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._transcriptProtocolVersion, fieldNumber: 13)
+      }
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Tomatt_Sync_V1_PairingTranscriptParticipant, rhs: Tomatt_Sync_V1_PairingTranscriptParticipant) -> Bool {
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._deviceID != rhs_storage._deviceID {return false}
+        if _storage._displayName != rhs_storage._displayName {return false}
+        if _storage._platform != rhs_storage._platform {return false}
+        if _storage._syncSigningPublicKey != rhs_storage._syncSigningPublicKey {return false}
+        if _storage._syncSigningKeyFingerprint != rhs_storage._syncSigningKeyFingerprint {return false}
+        if _storage._ephemeralPairingPublicKey != rhs_storage._ephemeralPairingPublicKey {return false}
+        if _storage._ephemeralDiscoveryID != rhs_storage._ephemeralDiscoveryID {return false}
+        if _storage._endpoint != rhs_storage._endpoint {return false}
+        if _storage._idle != rhs_storage._idle {return false}
+        if _storage._capabilities != rhs_storage._capabilities {return false}
+        if _storage._groupState != rhs_storage._groupState {return false}
+        if _storage._sessionNonce != rhs_storage._sessionNonce {return false}
+        if _storage._transcriptProtocolVersion != rhs_storage._transcriptProtocolVersion {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 nonisolated extension Tomatt_Sync_V1_PairingStart: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PairingStart"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}device_id\0\u{3}display_name\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}device_id\0\u{3}display_name\0\u{1}participant\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -936,24 +1725,33 @@ nonisolated extension Tomatt_Sync_V1_PairingStart: SwiftProtobuf.Message, SwiftP
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.deviceID) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.displayName) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._participant) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.deviceID.isEmpty {
       try visitor.visitSingularStringField(value: self.deviceID, fieldNumber: 1)
     }
     if !self.displayName.isEmpty {
       try visitor.visitSingularStringField(value: self.displayName, fieldNumber: 2)
     }
+    try { if let v = self._participant {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Tomatt_Sync_V1_PairingStart, rhs: Tomatt_Sync_V1_PairingStart) -> Bool {
     if lhs.deviceID != rhs.deviceID {return false}
     if lhs.displayName != rhs.displayName {return false}
+    if lhs._participant != rhs._participant {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -961,7 +1759,7 @@ nonisolated extension Tomatt_Sync_V1_PairingStart: SwiftProtobuf.Message, SwiftP
 
 nonisolated extension Tomatt_Sync_V1_PairingChallenge: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PairingChallenge"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}challenge_id\0\u{1}challenge\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}challenge_id\0\u{1}challenge\0\u{1}participant\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -971,24 +1769,33 @@ nonisolated extension Tomatt_Sync_V1_PairingChallenge: SwiftProtobuf.Message, Sw
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.challengeID) }()
       case 2: try { try decoder.decodeSingularBytesField(value: &self.challenge) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._participant) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.challengeID.isEmpty {
       try visitor.visitSingularStringField(value: self.challengeID, fieldNumber: 1)
     }
     if !self.challenge.isEmpty {
       try visitor.visitSingularBytesField(value: self.challenge, fieldNumber: 2)
     }
+    try { if let v = self._participant {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Tomatt_Sync_V1_PairingChallenge, rhs: Tomatt_Sync_V1_PairingChallenge) -> Bool {
     if lhs.challengeID != rhs.challengeID {return false}
     if lhs.challenge != rhs.challenge {return false}
+    if lhs._participant != rhs._participant {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -877,6 +877,10 @@ struct TBPopoverView: View {
                                                            @ViewBuilder title: () -> Title,
                                                            @ViewBuilder controls: () -> Controls) -> some View {
         VStack(spacing: 16) {
+            if let notice = timer.syncCorrectionNotice {
+                syncCorrectionNoticeBanner(notice)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
             CircularTimerFace(diameter: PopoverLayout.timerCircleDiameter,
                               time: time,
                               detail: detail,
@@ -890,6 +894,40 @@ struct TBPopoverView: View {
         .animation(TBDesignTokens.Animation.smooth, value: timer.controlMode)
         .animation(TBDesignTokens.Animation.smooth, value: timer.timeLeftString)
         .animation(TBDesignTokens.Animation.smooth, value: timerFaceDetail ?? "")
+        .animation(TBDesignTokens.Animation.smooth, value: timer.syncCorrectionNotice?.message ?? "")
+    }
+
+    private func syncCorrectionNoticeBanner(_ notice: TBTimerSyncCorrectionNotice) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.triangle.2.circlepath.circle")
+                .foregroundColor(.secondary)
+            Text(notice.message)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Button {
+                timer.dismissSyncCorrectionNotice()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.secondary)
+            .accessibilityLabel(Text("Dismiss sync correction notice"))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(NSColor.controlBackgroundColor).opacity(0.72))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color(NSColor.separatorColor).opacity(0.55), lineWidth: 1)
+        )
+        .padding(.horizontal, 18)
     }
 
     private var popoverNavigationButtons: some View {

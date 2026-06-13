@@ -5,8 +5,47 @@ final class PairingCoreTests: XCTestCase {
     func testDeterministicTranscriptDerivedCodeVector() throws {
         let transcript = makeTranscript()
 
-        XCTAssertEqual(try transcript.verificationCode(), "359214")
+        XCTAssertEqual(try transcript.verificationCode(), "599898")
         XCTAssertEqual(try transcript.verificationCode(), try makeTranscript().verificationCode())
+    }
+
+    func testOnePairDeviceModelKeepsInternalRolesOnly() {
+        let flow = TBPairDeviceFlowModel(internalRole: .joinSyncGroup)
+
+        XCTAssertEqual(flow.primaryActionTitle, "Pair Device")
+        XCTAssertFalse(flow.exposesTopLevelAddOrJoinActions)
+        XCTAssertEqual(flow.internalRole, .joinSyncGroup)
+    }
+
+    func testGroupCompatibilityRules() throws {
+        XCTAssertEqual(try TBPairingGroupCompatibilityRules.evaluate(local: .standalone, remote: .standalone), .createNewSyncGroup)
+        XCTAssertEqual(try TBPairingGroupCompatibilityRules.evaluate(local: .grouped(groupID: "group-1"), remote: .standalone), .joinExistingGroup(groupID: "group-1"))
+        XCTAssertEqual(try TBPairingGroupCompatibilityRules.evaluate(local: .grouped(groupID: "group-1"), remote: .grouped(groupID: "group-1")), .sameGroup(groupID: "group-1"))
+        XCTAssertThrowsError(try TBPairingGroupCompatibilityRules.evaluate(local: .grouped(groupID: "group-1"), remote: .grouped(groupID: "group-2"))) { error in
+            XCTAssertEqual(error as? TBPairingGroupCompatibilityError,
+                           .differentGroups(localGroupID: "group-1",
+                                            remoteGroupID: "group-2",
+                                            guidance: TBPairingGroupCompatibilityRules.resetGuidance))
+        }
+    }
+
+    func testTranscriptCodeChangesForEndpointGroupCapabilityAndNonceFacts() throws {
+        let baseline = makeTranscript()
+        let baselineCode = try baseline.verificationCode()
+        var manualEndpoint = baseline
+        manualEndpoint.remote.endpoint.host = "192.0.2.10"
+        manualEndpoint.remote.endpoint.metadata["source"] = "manual-address"
+        var grouped = baseline
+        grouped.remote.groupState = .grouped(groupID: "group-1")
+        var capability = baseline
+        capability.capabilities.append("new-capability")
+        var nonce = baseline
+        nonce.sessionNonce = Data("different-session-nonce".utf8)
+
+        XCTAssertNotEqual(try manualEndpoint.verificationCode(), baselineCode)
+        XCTAssertNotEqual(try grouped.verificationCode(), baselineCode)
+        XCTAssertNotEqual(try capability.verificationCode(), baselineCode)
+        XCTAssertNotEqual(try nonce.verificationCode(), baselineCode)
     }
 
     func testMirroredPeerTranscriptsDeriveSameVerificationCode() throws {
@@ -23,7 +62,7 @@ final class PairingCoreTests: XCTestCase {
         let fixture = makeSessionFixture()
         let code = try fixture.session.start(now: fixture.now)
 
-        XCTAssertEqual(code, "359214")
+        XCTAssertEqual(code, try fixture.session.transcript.verificationCode())
         XCTAssertThrowsError(try fixture.session.confirmCode("000000", now: fixture.now)) { error in
             XCTAssertEqual(error as? TBPairingGateError, .codeMismatch)
         }
@@ -53,7 +92,7 @@ final class PairingCoreTests: XCTestCase {
         XCTAssertTrue(cancelled.applier.trustedPeers.isEmpty)
 
         let retry = cancelled.session.retry(expiresAt: cancelled.now.addingTimeInterval(120))
-        XCTAssertEqual(try retry.start(now: cancelled.now), "359214")
+        XCTAssertEqual(try retry.start(now: cancelled.now), try retry.transcript.verificationCode())
         XCTAssertTrue(cancelled.applier.trustedPeers.isEmpty)
     }
 
@@ -67,9 +106,17 @@ final class PairingCoreTests: XCTestCase {
         }
         XCTAssertTrue(busyStart.applier.trustedPeers.isEmpty)
 
+        var remoteBusyTranscript = makeTranscript()
+        remoteBusyTranscript.remote.idle = .busy(at: makeDate(), reason: "timer-running")
+        let remoteBusyStart = makeSessionFixture(transcript: remoteBusyTranscript)
+        XCTAssertThrowsError(try remoteBusyStart.session.start(now: remoteBusyStart.now)) { error in
+            XCTAssertEqual(error as? TBPairingGateError, .remoteNotIdle)
+        }
+        XCTAssertTrue(remoteBusyStart.applier.trustedPeers.isEmpty)
+
         let finalGate = makeSessionFixture()
         _ = try finalGate.session.start(now: finalGate.now)
-        try finalGate.session.confirmCode("359214", now: finalGate.now)
+        try finalGate.session.confirmCode(try finalGate.session.transcript.verificationCode(), now: finalGate.now)
         try finalGate.session.approvePreview(makePreview(settingsSourceChoice: .keepLocal), now: finalGate.now)
         finalGate.session.updateIdleDeclarations(local: .idle(at: makeDate()),
                                                  remote: .busy(at: makeDate(), reason: "timer-running"))
@@ -89,7 +136,7 @@ final class PairingCoreTests: XCTestCase {
         }
         XCTAssertTrue(fixture.applier.trustedPeers.isEmpty)
 
-        try fixture.session.confirmCode("359214", now: fixture.now)
+        try fixture.session.confirmCode(try fixture.session.transcript.verificationCode(), now: fixture.now)
         XCTAssertThrowsError(try fixture.session.approvePreview(makePreview(settingsSourceChoice: nil), now: fixture.now)) { error in
             XCTAssertEqual(error as? TBPairingGateError, .settingsSourceRequired)
         }
@@ -105,7 +152,7 @@ final class PairingCoreTests: XCTestCase {
     func testSuccessfulAllOrNothingStagedCommitWritesAllActionsViaFakeApplier() throws {
         let fixture = makeSessionFixture()
         _ = try fixture.session.start(now: fixture.now)
-        try fixture.session.confirmCode("359214", now: fixture.now)
+        try fixture.session.confirmCode(try fixture.session.transcript.verificationCode(), now: fixture.now)
         try fixture.session.approvePreview(makePreview(settingsSourceChoice: .useRemote), now: fixture.now)
         try fixture.session.commit(using: fixture.applier, now: fixture.now)
 
@@ -120,7 +167,7 @@ final class PairingCoreTests: XCTestCase {
         failing.failure = NSError(domain: "pairing-test", code: 1)
         let failedFixture = makeSessionFixture(applier: failing)
         _ = try failedFixture.session.start(now: failedFixture.now)
-        try failedFixture.session.confirmCode("359214", now: failedFixture.now)
+        try failedFixture.session.confirmCode(try failedFixture.session.transcript.verificationCode(), now: failedFixture.now)
         try failedFixture.session.approvePreview(makePreview(settingsSourceChoice: .keepLocal), now: failedFixture.now)
         XCTAssertThrowsError(try failedFixture.session.commit(using: failing, now: failedFixture.now))
         XCTAssertTrue(failing.trustedPeers.isEmpty)
@@ -158,21 +205,23 @@ final class PairingCoreTests: XCTestCase {
 
     private func makeTranscript() -> TBPairingTranscript {
         let date = makeDate()
+        let localEphemeral = try! TBPairingEphemeralKeyPair(rawPrivateKeyRepresentation: Data(repeating: 1, count: 32))
+        let remoteEphemeral = try! TBPairingEphemeralKeyPair(rawPrivateKeyRepresentation: Data(repeating: 2, count: 32))
         return TBPairingTranscript(
             protocolVersion: 1,
             role: .addDevice,
             local: makeParticipant(deviceID: "local-device",
-                                   displayName: "Local Mac",
-                                   ephemeralKey: Data("local-ephemeral-key-32-bytes!!".utf8),
-                                   signingKey: Data("local-signing-key".utf8),
-                                   discoveryID: "disc-local",
-                                   host: "local.local",
+                                    displayName: "Local Mac",
+                                    ephemeralKey: localEphemeral.publicKey,
+                                    signingKey: Data("local-signing-key".utf8),
+                                    discoveryID: "disc-local",
+                                    host: "local.local",
                                    port: 4040,
                                    idle: .idle(at: date)),
             remote: makeParticipant(deviceID: "remote-device",
-                                    displayName: "Remote Mac",
-                                    ephemeralKey: Data("remote-ephemeral-key-32-bytes!".utf8),
-                                    signingKey: Data("remote-signing-key".utf8),
+                                     displayName: "Remote Mac",
+                                     ephemeralKey: remoteEphemeral.publicKey,
+                                     signingKey: Data("remote-signing-key".utf8),
                                     discoveryID: "disc-remote",
                                     host: "remote.local",
                                     port: 4041,
@@ -204,7 +253,8 @@ final class PairingCoreTests: XCTestCase {
                                                 path: "/tomatt-sync",
                                                 metadata: ["proto": "tomatt-sync", "v": "1", "transport": "ws", "encoding": "protobuf"]),
             idle: idle,
-            capabilities: ["preview-v1", "pairing-v1"]
+            capabilities: ["preview-v1", "pairing-v1"],
+            groupState: .standalone
         )
     }
 

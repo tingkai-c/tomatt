@@ -1,136 +1,288 @@
 [
   {
     "id": "G001",
-    "objective": "Add the cross-platform Protobuf schema, generated Swift wire bindings, and protocol compatibility tests while keeping generated types out of SyncCore.",
+    "objective": "Audit current sync surfaces, add ADR/docs for signed-event retention, manual IP/Tailscale pairing, runtime/reset semantics, and establish additive protocol contracts for the usable multi-device sync release.",
     "status": "completed",
     "dependencies": [],
     "verification": [
-      "SwiftProtobuf dependency and generated files are pinned/committed without workflow edits",
-      "Schema uses package tomatt.sync.v1 and supports documented envelope/session/sync messages",
-      "Protocol tests cover round-trip, version/capability behavior, canonical UUIDs, durations, and timestamps",
-      "git diff --check"
+      "Docs that previously said no manual IP v1 are updated or superseded by ADRs",
+      "ADRs explicitly define signed-event sidecar retention, multi-origin relay, membership interval validity, manual address default port 40484, and runtime/reset semantics",
+      "Protobuf changes, if any, are additive and generated Swift remains consistent",
+      "Touchpoint audit identifies coordinator, storage, UI, and test files for later goals",
+      "git diff --check and workflow-unchanged check pass"
     ]
   },
   {
     "id": "G002",
-    "objective": "Introduce a platform-neutral SyncCore façade and Protobuf/domain mappers over the existing event-log anti-entropy primitives.",
+    "objective": "Implement durable sync identity, Keychain secret storage, public trust/group stores, signed-event sidecar storage, storage health, and Reset Sync behavior.",
     "status": "completed",
     "dependencies": ["G001"],
     "verification": [
-      "SyncCore does not import SwiftProtobuf, SwiftNIO, mDNS, WebSocket, or UI frameworks",
-      "Mappers are the only layer that knows both generated Protobuf and TBEventEnvelope/domain types",
-      "Unit tests cover mapper validation, malformed/future schema rejection, summary/missing/batch façade behavior",
-      "git diff --check"
+      "Private signing keys and sync secrets use Keychain-backed storage protocols with tests/fakes",
+      "Public trust/group metadata persists outside Keychain without private secrets",
+      "TBSignedSyncEventStore saves, loads, and exports signed events by event ID and origin sequence",
+      "Reset Sync clears sync metadata but preserves raw local event/history data",
+      "Missing/corrupt key state disables LAN sync and requires reset/re-pair",
+      "git diff --check and targeted storage/security tests or parse checks pass"
     ]
   },
   {
     "id": "G003",
-    "objective": "Define and implement the security, identity, sync-group key, canonical signing, and trusted import model before any live LAN import path exists.",
+    "objective": "Refactor trusted import to separate transport peer authorization from original signer validation and enforce membership interval validity for signed events.",
     "status": "completed",
     "dependencies": ["G002"],
     "verification": [
-      "Local display device ID is separated from cryptographic identity and trusted peer key fingerprints",
-      "Long-lived device private keys and sync-group keys use Keychain-backed storage abstractions with test fakes",
-      "Ephemeral session material remains in memory only and is destroyed on cancel, timeout, or close",
-      "Canonical signed bytes and test vectors are documented/covered",
-      "Trusted import verifies session context, membership/removal policy, deterministic event ID, structural validity, and signature before raw importEvents",
-      "Tests cover valid/invalid/tampered/wrong-key signatures, untrusted peer rejection, and removed peer rejection",
-      "git diff --check"
+      "Relayed A-origin signed events from trusted peer B are validated against A's trusted key and membership, not B as signer",
+      "Unknown signer, signer mismatch, key mismatch, invalid signature, invalid structure, post-removal event, and origin/sequence collision fail closed",
+      "Accepted signed events persist signed metadata transactionally with raw event import or enter a safe non-relayable/quarantine state",
+      "Pre-removal events remain valid under canonical membership ordering",
+      "git diff --check and targeted SyncSecurity/EventCore tests pass or parse checks pass"
     ]
   },
   {
     "id": "G004",
-    "objective": "Build an internal-only LAN mDNS/WebSocket transport skeleton for Hello/Ping/Pong and binary Protobuf frames.",
+    "objective": "Generalize anti-entropy to multi-origin summaries, gaps, batches, retained signed-event re-export, backlog continuation, and idempotent duplicate/out-of-order handling.",
     "status": "completed",
-    "dependencies": ["G001", "G002"],
+    "dependencies": ["G003"],
     "verification": [
-      "mDNS uses _tomatt-sync._tcp with minimal TXT and no stable deviceId",
-      "WebSocket path /tomatt-sync and subprotocol tomatt.sync.v1.protobuf are enforced",
-      "Text/non-Protobuf frames and wrong path/subprotocol are rejected",
-      "Heartbeat/backoff behavior is covered by tests or injectable clocks/fakes",
-      "Plaintext transport remains internal-only and not productized",
-      "git diff --check"
+      "Anti-entropy summarizes all trusted origins rather than only the local signer",
+      "B can export retained A-origin signed events unchanged without re-signing",
+      "A/B/C fake integration passes with A offline and C verifying A's signature/key/membership",
+      "Out-of-order gaps do not advance contiguous watermarks incorrectly",
+      "Duplicate relay paths are idempotent and large backlog batches continue until drained",
+      "git diff --check and targeted AntiEntropySyncEngine tests pass or parse checks pass"
     ]
   },
   {
     "id": "G005",
-    "objective": "Implement verified LAN pairing with transcript-derived code, idle gates, pre-merge preview, settings-source choice, and staged all-or-nothing commit.",
+    "objective": "Complete production pairing protocol flow and session establishment while preserving one user-facing Pair Device UX and all pairing commit gates.",
     "status": "completed",
-    "dependencies": ["G003", "G004"],
+    "dependencies": ["G004"],
     "verification": [
-      "Deterministic pairing transcript/code test vectors pass",
-      "Timeout, cancel, mismatch, retry, and non-idle gates leave no permanent membership/trusted-peer/import state",
-      "Membership, trusted peer, sync-group key, and event import commits occur only after code confirmation and preview approval",
-      "Pre-merge preview includes device/platform, idle status, settings difference, preset counts, history counts, date ranges, and settings-source choice",
-      "git diff --check"
+      "Pairing exchange binds transcript code to public identities, endpoint metadata, capabilities, idle declarations, session nonce, and group state",
+      "No trusted peer, membership, sync-group key, signed metadata, or imported events are persisted before code confirmation and preview approval",
+      "Standalone+standalone creates a new Sync Group, grouped+standalone joins existing group, same group is allowed, and different groups are blocked with reset guidance",
+      "Both-idle gate blocks first pairing when either device is busy",
+      "Manual Pair by Address uses the same verification/encryption/preview path as Bonjour pairing",
+      "git diff --check and targeted PairingCore/protocol tests pass or parse checks pass"
     ]
   },
   {
     "id": "G006",
-    "objective": "Enable authenticated encrypted LAN sessions/messages and enforce signed-event trusted import for paired devices.",
+    "objective": "Implement real LAN transport listener/client with Bonjour discovery, manual IP/Tailscale connector, default port 40484, override, heartbeat/backoff, and duplicate connection resolution.",
     "status": "completed",
-    "dependencies": ["G003", "G005"],
+    "steering": "User approved SwiftNIO/NIOWebSocket as the macOS WebSocket server implementation detail for G006. The wire protocol remains mDNS + WebSocket + Protobuf and cross-platform clients may use native WebSocket libraries.",
+    "dependencies": ["G005"],
     "verification": [
-      "Authenticated encryption is required before sync event exchange",
-      "Replay/counter, tamper, wrong-peer, unpaired, and removed-peer cases are rejected with typed errors/status",
-      "LAN transport cannot bypass trusted import into raw importEvents",
-      "Plaintext remains unavailable for user-facing sync",
-      "git diff --check"
+      "LAN listener uses default port 40484 with user-visible override when unavailable",
+      "Bonjour advertises/browses only when allowed and TXT contains no stable device ID or signing fingerprint",
+      "Manual address connector accepts LAN IP, Tailscale IP, or hostname and still uses the same secure pairing/session path",
+      "WebSocket path /tomatt-sync and subprotocol tomatt.sync.v1.protobuf are enforced",
+      "Sync Off stops advertise, browse, listen, connect, heartbeat, and reconnect attempts",
+      "Duplicate simultaneous connections collapse deterministically after verified identity",
+      "git diff --check and targeted LANTransport tests pass or parse checks pass"
     ]
   },
   {
     "id": "G007",
-    "objective": "Implement deterministic distributed timer projection and conflict handling before live timer-event sync is enabled.",
+    "objective": "Add sync runtime coordinator for mode lifecycle, storage health gate, peer state machine, sync triggers, removal rejection, and status propagation.",
     "status": "completed",
-    "dependencies": ["G002"],
+    "dependencies": ["G006"],
     "verification": [
-      "Overlapping branches resolve by earliest timerStarted.startedAt with documented tie-breakers",
-      "Active interval semantics account for pause/resume, finishAt, pending break, extension/overtime, rest-start-pending, and terminal events",
-      "Losing branches remain in the log and continue syncing but are excluded from normal current timer and stats/history projection",
-      "Correction notice is triggered only when trusted import changes visible timer state",
-      "Existing timer edge behavior tests remain covered",
-      "git diff --check"
+      "LAN only starts runtime only when storage/security health is ready",
+      "Off tears down all LAN activity and cancels reconnect attempts",
+      "Peer states cover offline, discovered, connecting, pairing, verifying, syncing, up to date, retry scheduled, blocked, reset required, and removed",
+      "Sync triggers run on connection, local syncable event append, peer notification, and reconnect",
+      "Removed peers are not connected to and are rejected when removal is known",
+      "Cloud Relay has no active runtime path",
+      "git diff --check and targeted runtime tests or parse checks pass"
     ]
   },
   {
     "id": "G008",
-    "objective": "Implement live anti-entropy sync over authenticated paired sessions with summaries, missing requests, batches, acknowledgements, and new-events notifications.",
+    "objective": "Productize Settings and timer UI for usable sync: Pair Device flow, nearby/manual pairing, status/device rows, reset/remove, port override, errors, and correction notices.",
     "status": "completed",
-    "dependencies": ["G006", "G007"],
+    "dependencies": ["G007"],
     "verification": [
-      "Two in-memory trusted peers converge from divergent event logs",
-      "Local-only events are never exported",
-      "Gaps do not advance watermarks incorrectly",
-      "Import failures surface typed protocol/status errors",
-      "New local syncable events trigger new-events-available flow",
-      "git diff --check"
+      "Top-level Add Device and Join Sync Group labels are replaced by Pair Device…",
+      "Pair Device flow includes nearby devices and Pair by Address with host/port validation",
+      "Settings shows mode, storage health, peer status, last seen/syncing/retry/error, reset, remove, and port override states",
+      "Cloud Relay remains disabled/future and non-selectable",
+      "Remove device copy states operational-only removal and no crypto erasure claim",
+      "Main timer UI shows only non-blocking correction notices, not a full sync dashboard",
+      "git diff --check and targeted SyncSettingsModel/UI parse tests pass"
     ]
   },
   {
     "id": "G009",
-    "objective": "Productize Settings → Sync with local-network permission timing, sync status, device list, Add/Join, remove/unpair, and incomplete-feature gating.",
+    "objective": "Harden convergence and edge cases across settings, presets, timer conflicts, multi-device relay, removal, backlog, duplicates, manual address, and port fallback.",
     "status": "completed",
-    "dependencies": ["G005", "G006", "G008"],
+    "dependencies": ["G008"],
     "verification": [
-      "Cloud Relay is hidden, disabled, or clearly future/unavailable",
-      "User-facing sync is enabled only after authenticated encryption, signed-event trusted import, pairing gates, and timer conflict tests pass",
-      "Settings shows understandable sync mode, device identity, paired devices, last seen/status, add/join, remove/unpair, and last sync/retry status",
-      "Local network permission copy/timing and Bonjour declarations/entitlements are present where required",
-      "git diff --check"
+      "Required edge-case matrix is covered by unit/integration/fake transport/UI model tests",
+      "Settings and presets converge deterministically after offline edits",
+      "Timer conflicts converge deterministically and emit non-blocking correction notice when visible state changes",
+      "Active timer restore snapshots remain local-only unless explicitly re-planned",
+      "Manual IP/Tailscale works when Bonjour is unavailable",
+      "Port 40484 unavailable status and override behavior are tested",
+      "git diff --check and broad allowed static checks pass"
     ]
   },
   {
     "id": "G010",
-    "objective": "Run final cleanup, independent review, documentation/status updates, commit/push, CI watch, artifact download/install/launch delivery loop.",
-    "status": "completed",
+    "objective": "Run final cleanup, independent code and architecture review, documentation/status updates, commit/push, GitHub Actions verification, CI artifact install, and app launch delivery loop.",
+    "status": "pending",
     "dependencies": ["G001", "G002", "G003", "G004", "G005", "G006", "G007", "G008", "G009"],
     "verification": [
-      "docs/sync-implementation-status.md and relevant ADR/status docs updated",
-      ".github/workflows/main.yml unchanged unless CI evidence proves a defect",
-      "git diff --check and targeted feasible tests pass",
-      "Independent code-review APPROVE and architecture-sensitive review CLEAR",
-      "GitHub Actions succeeds for exact commit SHA",
-      "Downloaded CI artifact contains tomatt.app, is installed to /Applications/tomatt.app, and launches"
+      "docs/sync-implementation-status.md and relevant ADR/design docs reflect final shipped behavior and limitations",
+      ".github/workflows/main.yml is unchanged unless exact CI logs prove a workflow defect",
+      "Local static/non-build checks pass: git diff --check, plist lint, Package.resolved JSON, workflow unchanged, and feasible Swift parse/boundary checks",
+      "Independent code-review returns APPROVE and architecture-sensitive review returns CLEAR",
+      "GitHub Actions tests and signed build/notarization succeed for exact pushed commit SHA",
+      "Downloaded CI artifact contains tomatt.app, is installed to /Applications/tomatt.app with backup when present, and launches"
+    ]
+  },
+  {
+    "id": "G011",
+    "objective": "Implement approved ralplan v8 encrypted wire schema, generated Swift, encrypted message mapper, active sync-group metadata API, and storage health semantics for pairingSetup vs lanSync.",
+    "status": "completed",
+    "dependencies": ["G007"],
+    "verification": [
+      "Envelope has additive encrypted_lan_message field 40 and Hello resume fields 7-10 with generated Swift updated",
+      "TBEncryptedLANMessage round trips through protobuf mapper and LANEnvelopeFrameCodec without changing LANTransport trust boundary",
+      "Sync group metadata store exposes loadAll/active APIs and detects zero/one/multiple active groups",
+      "Storage health distinguishes pairingSetup eligibility from lanSync readiness with active/imported/retired key semantics",
+      "git diff --check, plist/JSON validation, broad Swift parse, and boundary greps pass"
+    ]
+  },
+  {
+    "id": "G012",
+    "objective": "Add TBLANEncryptedSessionRouter with MainActor/serial isolation, anonymous resume admission, bound session registry, duplicate-session resolution, inbound unwrap, outbound wrap/send, and send-failure status handling.",
+    "status": "completed",
+    "dependencies": ["G011"],
+    "verification": [
+      "Anonymous inbound sessions accept only Hello/resume before encrypted payloads and reject untrusted/removed/bad-fingerprint peers",
+      "Bound encrypted payloads route into TBSyncRuntimeCoordinator and returned messages are wrapped/sent over LANWebSocketSession",
+      "Duplicate verified sessions use LANDuplicateConnectionResolver and close the losing session",
+      "LANTransport remains identity/trust/decrypt/import blind",
+      "Router tests and boundary greps pass"
+    ]
+  },
+  {
+    "id": "G013",
+    "objective": "Add app-owned TBSyncService and pairingSetup/lanSync runtime modes, wire App.swift and SyncSettingsView through service-backed snapshots/actions, and remove enabled no-op controls.",
+    "status": "completed",
+    "dependencies": ["G012"],
+    "verification": [
+      "TBStatusItem owns TBSyncService and injects it into SyncSettingsView",
+      "pairingSetup can start listener/discovery with zero active group when storage is sane, while lanSync remains blocked until group/key are ready",
+      "LAN Only, Pair Device, Pair by Address, and Reset Sync actions call service methods or are disabled with explicit copy",
+      "Cloud Relay remains disabled/future and no enabled Settings action is no-op",
+      "Service/settings tests and static checks pass"
+    ]
+  },
+  {
+    "id": "G014",
+    "objective": "Implement pairing runtime handoff and reconnect session hydration: PairingCore flow retention, commit persistence, HKDF resume key derivation, engine registration, session binding, and removed/unpaired blocking.",
+    "status": "completed",
+    "dependencies": ["G013"],
+    "verification": [
+      "Pairing runtime uses TBPairingIdleDeclaration and TBPairingRuntimeFlowID through commit/cancel/timeout",
+      "Commit persists trusted peer, active group metadata, group key, builds context/crypto box, registers anti-entropy engine, binds session, and triggers initial sync",
+      "Reconnect derives fresh TBSessionKeyMaterial from group key, ordered device IDs, session_key_id, roles, and nonce seeds with deterministic test vector",
+      "Unpaired, removed, missing group, retired key, and multiple active groups fail closed with status",
+      "Pairing/session tests and boundary greps pass"
+    ]
+  },
+  {
+    "id": "G015",
+    "objective": "Wire projection refresh and local-event triggers: shared/reloadable event log seam, remote-import UI/stat refresh, non-blocking correction notice, and encrypted local sync notifications.",
+    "status": "completed",
+    "dependencies": ["G014"],
+    "verification": [
+      "Remote imports reload/reconcile TBTimer and stats projections and publish correction notice only when visible timer state changes",
+      "Local syncable event appends trigger encrypted new-events notifications to active sessions",
+      "Local-only active timer snapshots remain unexported and do not trigger sync sends",
+      "Projection/local trigger tests and broad static checks pass"
+    ]
+  },
+  {
+    "id": "G016",
+    "objective": "Resolve prior review blockers, re-run independent code and architecture reviews, update docs/status, commit/push, run exact-commit GitHub Actions, install CI artifact, and launch app.",
+    "status": "pending",
+    "dependencies": ["G011", "G012", "G013", "G014", "G015", "G017", "G018", "G019", "G020", "G021"],
+    "verification": [
+      "Independent code-review APPROVE and architecture review CLEAR with no unresolved CRITICAL/HIGH findings",
+      "docs/sync-implementation-status.md and ultragoal ledger reflect final shipped behavior and limitations",
+      ".github/workflows/main.yml remains unchanged unless exact CI logs prove a workflow defect",
+      "GitHub Actions tests and signed build/notarization succeed for exact pushed commit SHA",
+      "Downloaded artifact contains tomatt.app, is installed to /Applications/tomatt.app with backup when present, and launches"
+    ]
+  },
+  {
+    "id": "G017",
+    "objective": "Fix final review blockers: wire production pairing actions through pairing runtime handoff, add outbound paired-peer resume initiation from discovery/manual paths, and surface sync errors instead of marking peers up to date.",
+    "status": "completed",
+    "dependencies": ["G011", "G012", "G013", "G014", "G015"],
+    "verification": [
+      "Pair Device and Pair by Address no longer stop at pending handoff and can create/retain/commit a pairing flow through service seams",
+      "Already-paired LAN sync initiates outbound resume Hello from discovery/manual paths and can bind sessions without external test hooks",
+      "Pairing commit persists the full staged commit or fails without partial trust writes",
+      "Reset Sync clears group keys and signed-event metadata while preserving raw local event/history",
+      "Sync errors do not mark peers up to date and instead surface blocked/retry/reset status",
+      "Independent code-review APPROVE and architecture CLEAR after fixes"
+    ]
+  },
+  {
+    "id": "G018",
+    "objective": "Fix second review blockers: implement production first-time pairing wire handoff, privacy-preserving Bonjour outbound resume, atomic pairing commit/reset behavior, and complete review remediation.",
+    "status": "completed",
+    "dependencies": ["G017"],
+    "verification": [
+      "Pair Device and Pair by Address create/retain a real pairing runtime flow and accepted/manual unpaired sessions enter pairing instead of resume-only rejection",
+      "Bonjour discovered paired peers can initiate outbound resume without requiring stable device_id in TXT records",
+      "Pairing commit persists staged data atomically or rolls back all sync trust/group/key writes on failure",
+      "Reset after sync leaves pairing setup possible with fresh identity and clears in-memory sessions/engines/state",
+      "Independent code-review APPROVE and architecture CLEAR after fixes"
+    ]
+  },
+  {
+    "id": "G019",
+    "objective": "Complete cryptographic first-pairing transcript exchange, fix anonymous outbound resume nonce retention, and make pairing commit all-or-nothing.",
+    "status": "completed",
+    "dependencies": ["G018"],
+    "verification": [
+      "Pairing wire messages carry enough transcript material to build TBPairingSession/TBPairingSessionEstablishment without test-only flow injection",
+      "Manual/accepted first pairing can progress from unpaired LAN sessions to retained flow, verification/preview state, commit, trust persistence, session binding, and initial sync",
+      "Anonymous outbound Bonjour resume hydrates with the original sent local Hello/nonce rather than generating a new one",
+      "Pairing commit is rollback-safe/all-or-nothing across group key, metadata, and trusted peer stores",
+      "Independent code-review APPROVE and architecture CLEAR after fixes"
+    ]
+  },
+  {
+    "id": "G020",
+    "objective": "Resolve final G019 review blockers: retain anonymous outbound resume Hello, expose verification/preview approval in Settings, strengthen commit rollback failure handling, and fix initial group context after new-group pairing.",
+    "status": "completed",
+    "dependencies": ["G019"],
+    "verification": [
+      "Anonymous outbound Bonjour resume retains the exact sent local Hello/nonce and derives matching session keys",
+      "Settings exposes service-backed verification/preview confirmation actions for active pairing flows and no enabled action is no-op",
+      "Pairing commit rollback failures are surfaced and leave no silent partial trust state",
+      "Initial post-pairing bound runtime context uses the committed sync group ID for newly-created groups",
+      "Independent code-review APPROVE and architecture CLEAR after fixes"
+    ]
+  },
+  {
+    "id": "G021",
+    "objective": "Fix final pairing completion and trust-state persistence blockers: approval commits pairing, transcript uses current group state, remove/reset failures surface, and reset stores throw deletion errors.",
+    "status": "completed",
+    "dependencies": ["G020"],
+    "verification": [
+      "Settings Approve Preview completes pairing commit or exposes a service-backed finalize action before hiding the flow",
+      "Pairing transcript local group state reflects active sync group when present instead of always standalone",
+      "Remove Device fails visibly if trusted-peer persistence fails and does not remove UI row before durable revoke",
+      "Reset Sync file stores throw deletion errors except file-not-found so stale trust/metadata is not silently retained",
+      "Independent code-review APPROVE and architecture CLEAR after fixes"
     ]
   }
 ]

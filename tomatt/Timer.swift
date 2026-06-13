@@ -7,7 +7,7 @@ class TBTimer: ObservableObject {
     @AppStorage("showFullScreenMask") var showFullScreenMask = false
     @AppStorage("strictFullScreenMask") var strictFullScreenMask = false
     @AppStorage("strictFullScreenMaskPresentationLock") var strictFullScreenMaskPresentationLock = true
-    private let eventLog = TBLocalEventLog()
+    private let eventLog: TBLocalEventLog
     private var stateMachine = TBStateMachine(state: .idle)
     public let player = TBPlayer()
     public private(set) var currentWorkInterval: Int = 0
@@ -32,6 +32,7 @@ class TBTimer: ObservableObject {
     @Published private(set) var controlMode: TimerControlMode = .inactive
     @Published private(set) var strictFullScreenMaskActive = false
     @Published private(set) var strictFullScreenMaskShortcutBlockingUnavailable = false
+    @Published private(set) var syncCorrectionNotice: TBTimerSyncCorrectionNotice?
 
     var pauseAfterRestFinish: Bool {
         get { eventLog.projection.settings.pauseAfterRestFinish }
@@ -112,6 +113,14 @@ class TBTimer: ObservableObject {
         selectedPresetUUID == id
     }
 
+    func publishSyncCorrectionNotice(_ notice: TBTimerSyncCorrectionNotice) {
+        syncCorrectionNotice = notice
+    }
+
+    func dismissSyncCorrectionNotice() {
+        syncCorrectionNotice = nil
+    }
+
     func presetConfiguration(id: UUID) -> NamedTimerPreset? {
         namedPresets.first { $0.id == id }
     }
@@ -185,7 +194,8 @@ class TBTimer: ObservableObject {
         eventLog.append(.presetUpserted(TBPresetUpserted(preset: presets[index])))
     }
 
-    init() {
+    init(eventLog: TBLocalEventLog = TBLocalEventLog()) {
+        self.eventLog = eventLog
         eventLog.seedDefaultPresetsIfEmpty(defaultNamedPresets())
         /*
          * State diagram
@@ -301,6 +311,19 @@ class TBTimer: ObservableObject {
                             andSelector: #selector(handleGetURLEvent(_:withReplyEvent:)),
                             forEventClass: AEEventClass(kInternetEventClass),
                             andEventID: AEEventID(kAEGetURL))
+    }
+
+    func reloadFromEventLogAfterSync(trustedDeviceName: String) {
+        let before = eventLog.projection
+        objectWillChange.send()
+        eventLog.reloadFromStore()
+        statsStore.reload()
+        let after = eventLog.projection
+        if let notice = TBTimerSyncCorrectionNoticeFactory.notice(before: before,
+                                                                  after: after,
+                                                                  trustedDeviceName: trustedDeviceName) {
+            publishSyncCorrectionNotice(notice)
+        }
     }
 
     @objc func handleGetURLEvent(_ event: NSAppleEventDescriptor,
