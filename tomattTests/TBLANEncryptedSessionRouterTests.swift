@@ -285,7 +285,7 @@ private final class FakeRouterAdmission: TBLANEncryptedSessionAdmitting {
     func admitResume(hello: Tomatt_Sync_V1_Hello) -> Result<TBLANEncryptedSessionContext, TBLANEncryptedSessionAdmissionFailure> {
         admitCount += 1
         admittedDeviceIDs.append(hello.deviceID)
-        result
+        return result
     }
 
     func sessionContext(for peerID: String) -> TBLANEncryptedSessionContext? {
