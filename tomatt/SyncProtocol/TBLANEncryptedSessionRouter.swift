@@ -91,7 +91,7 @@ final class TBLANEncryptedSessionRouter {
         anonymousSessions[ObjectIdentifier(session)] = session
         session.onEnvelopeReceived = { [weak self, weak session] envelope in
             guard let self, let session else { return }
-            Task { @MainActor in
+            Self.performOnMainActor {
                 self.handleEnvelope(envelope, from: session)
             }
         }

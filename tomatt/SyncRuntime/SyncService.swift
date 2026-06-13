@@ -255,7 +255,7 @@ final class TBSyncService: ObservableObject, TBSyncServiceProviding {
             Task { @MainActor in self?.handleRemoteImport(from: displayName) }
         }
         self.lanRuntime.onPeerDiscovered = { [weak self] peer in
-            Task { @MainActor in self?.handleDiscoveredPeer(peer) }
+            TBSyncService.performOnMainActor { self?.handleDiscoveredPeer(peer) }
         }
         self.router?.pairingEnvelopeHandler = { [weak self] envelope, session in
             guard let self else { return false }

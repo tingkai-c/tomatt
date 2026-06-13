@@ -733,7 +733,7 @@ final class SyncServiceTests: XCTestCase {
                                             committedGroupID: String = "group-a") throws -> TBPairingSession {
         let peerSigner = TBDeterministicTestSigner(secret: Data("peer".utf8))
         let peerID = "00000000-0000-0000-0000-000000000402"
-        let now = Date(timeIntervalSince1970: 1)
+        let now = Date()
         let localParticipant = makeParticipant(deviceID: localIdentity.deviceID,
                                                displayName: "Local",
                                                signingPublicKey: localIdentity.signingPublicKey,
@@ -764,7 +764,7 @@ final class SyncServiceTests: XCTestCase {
                                            settingsSourceChoice: .keepLocal)
         let session = TBPairingSession(transcript: transcript,
                                        stagedCommit: staged,
-                                       expiresAt: Date(timeIntervalSince1970: 100))
+                                        expiresAt: now.addingTimeInterval(100))
         let code = try session.start(now: now)
         try session.confirmCode(code, now: now)
         try session.approvePreview(TBPairingPreMergePreview(localDevice: TBDeviceIdentity(deviceID: localIdentity.deviceID,
@@ -787,7 +787,7 @@ final class SyncServiceTests: XCTestCase {
     private func makePairingSessionAwaitingPreview(localIdentity: TBSyncDevicePublicIdentity) throws -> TBPairingSession {
         let peerSigner = TBDeterministicTestSigner(secret: Data("peer".utf8))
         let peerID = "00000000-0000-0000-0000-000000000402"
-        let now = Date(timeIntervalSince1970: 1)
+        let now = Date()
         let transcript = TBPairingTranscript(protocolVersion: 1,
                                              role: .addDevice,
                                              local: makeParticipant(deviceID: localIdentity.deviceID,
@@ -814,7 +814,7 @@ final class SyncServiceTests: XCTestCase {
                                                                             membershipActions: [],
                                                                             importedEvents: [],
                                                                             settingsSourceChoice: .keepLocal),
-                                       expiresAt: Date(timeIntervalSince1970: 100))
+                                       expiresAt: now.addingTimeInterval(100))
         let code = try session.start(now: now)
         try session.confirmCode(code, now: now)
         return session
