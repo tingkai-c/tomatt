@@ -108,9 +108,10 @@ struct SyncSettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 10) {
-                    Button("Reset Sync…", role: .destructive) {
+                    Button("Reset Sync…") {
                         _ = model.resetSync()
                     }
+                    .foregroundColor(.red)
                     .disabled(!model.canResetSync)
                     Spacer()
                 }
