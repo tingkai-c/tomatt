@@ -407,7 +407,7 @@ class TBTimer: ObservableObject {
         guard timer != nil else {
             timeLeftString = ""
             remainingTimeProgress = 1
-            TBStatusItem.shared.setTitle(title: nil)
+            setStatusItemTitle(nil)
             updateControlMode()
             return
         }
@@ -427,9 +427,9 @@ class TBTimer: ObservableObject {
 
         updateControlMode()
         if !paused, showTimerInMenuBar {
-            TBStatusItem.shared.setTitle(title: timeLeftString)
+            setStatusItemTitle(timeLeftString)
         } else {
-            TBStatusItem.shared.setTitle(title: nil)
+            setStatusItemTitle(nil)
         }
     }
 
@@ -468,7 +468,7 @@ class TBTimer: ObservableObject {
         pausedTimeRemaining = TimeInterval(seconds)
         finishTime = Date.distantFuture
         activeStatsInterval?.pause(at: Date())
-        TBStatusItem.shared.setIcon(name: .pause)
+        setStatusItemIcon(.pause)
         updateTimeLeft()
     }
 
@@ -581,7 +581,7 @@ class TBTimer: ObservableObject {
         if ctx.fromState == .work {
             player.stopTicking()
         }
-        TBStatusItem.shared.setIcon(name: .pause)
+        setStatusItemIcon(.pause)
         updateTimeLeft()
         persistActiveTimerSession()
     }
@@ -602,7 +602,7 @@ class TBTimer: ObservableObject {
             showCurrentRestMaskIfNeeded()
             restPresentationPending = false
         }
-        TBStatusItem.shared.setIcon(name: activeIconName)
+        setStatusItemIcon(activeIconName)
         updateTimeLeft()
         persistActiveTimerSession()
     }
@@ -692,6 +692,18 @@ class TBTimer: ObservableObject {
     private func setActiveIcon(name: NSImage.Name) {
         activeIconName = name
         if !paused {
+            setStatusItemIcon(name)
+        }
+    }
+
+    private func setStatusItemTitle(_ title: String?) {
+        Task { @MainActor in
+            TBStatusItem.shared.setTitle(title: title)
+        }
+    }
+
+    private func setStatusItemIcon(_ name: NSImage.Name) {
+        Task { @MainActor in
             TBStatusItem.shared.setIcon(name: name)
         }
     }
@@ -929,7 +941,7 @@ class TBTimer: ObservableObject {
         pausedTimeRemaining = max(0, session.pausedTimeRemaining)
         finishTime = Date.distantFuture
         activeStatsInterval?.pauseStartedAt = Date()
-        TBStatusItem.shared.setIcon(name: .pause)
+        setStatusItemIcon(.pause)
         updateTimeLeft()
         persistActiveTimerSession()
     }
